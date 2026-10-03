@@ -1,0 +1,75 @@
+# ============================================
+# Python
+# ============================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.venv/
+venv/
+env/
+
+# ============================================
+# Secrets / environment
+# ============================================
+
+.env
+.env.local
+.env.*.local
+
+# ============================================
+# Node / Next.js
+# ============================================
+
+node_modules/
+.next/
+out/
+dist/
+
+# ============================================
+# IDE / OS
+# ============================================
+
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# ============================================
+# Large downloaded geospatial data
+# ============================================
+
+data/cache/*
+!data/cache/.gitkeep
+
+*.tif
+*.tiff
+*.h5
+*.hdf5
+*.hdf
+*.nc
+*.nc4
+*.grib
+*.grib2
+
+# ============================================
+# Generated debug/output files
+# ============================================
+
+outputs/debug/*
+!outputs/debug/.gitkeep
+
+outputs/reports/*
+!outputs/reports/.gitkeep
+
+# ============================================
+# Logs / temporary files
+# ============================================
+
+*.log
+*.tmp
+*.temp
