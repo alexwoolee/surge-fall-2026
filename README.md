@@ -10,11 +10,13 @@ One natural-language request launches specialist investigations across approved 
 
 ## Current Phase
 
-**Phase 0 - Repository Setup**
+**Phase 1 - Dataset Access Smoke Tests**
 
-Repository structure and Git ignore rules have been created and manually checked.
+Phase 0 is complete. The repository structure, Git configuration, README, ignore rules, initial commit, and GitHub remote have been created and verified.
 
-The initial Git commit is still pending.
+Current task:
+
+**Phase 1A - GPM IMERG dataset access smoke test**
 
 ## DONE
 
@@ -732,7 +734,7 @@ They should not contain:
 
 ## Status
 
-**FINALIZATION IN PROGRESS**
+**DONE**
 
 ## Completed
 
@@ -747,7 +749,20 @@ They should not contain:
 
 ## Remaining
 
-- initial Git commit
+## Completed
+
+- Git repository initialized
+- folders created
+- placeholder files created
+- `.gitignore` created
+- `.gitattributes` created
+- `.env.example` created
+- README created
+- folder structure manually checked
+- `.gitignore` manually tested
+- initial Git commit created
+- GitHub remote configured
+- `main` pushed to GitHub
 
 ## Pass Criteria
 
