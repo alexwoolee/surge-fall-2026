@@ -73,3 +73,11 @@ outputs/reports/*
 *.log
 *.tmp
 *.temp
+
+# ============================================
+# NASA Earthdata local authentication files
+# ============================================
+
+.dodsrc
+.urs_cookies
+.netrc
