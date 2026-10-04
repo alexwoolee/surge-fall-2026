@@ -115,7 +115,11 @@ The generated PNG was inspected directly. Browser automation could not inspect
 the local HTML because its URL policy rejects `file:` pages; interactive controls
 remain part of the user's manual check. No cached rasters are staged for Git.
 
-## User manual gate — PENDING
+## User manual gate — APPROVED
+
+The user approved advancing to Phase 3C on 2026-10-03 after the Phase 3B
+checkpoint. The following checklist is retained for repeat checks. New generated
+reports always begin with manual review pending; they do not grant approval.
 
 Open `outputs/debug/sentinel1/review.html` and inspect:
 
@@ -135,8 +139,8 @@ Open `outputs/debug/sentinel1/review.html` and inspect:
   GeoTIFFs for detailed GIS inspection. Mask codes are 0 noncandidate, 1 candidate,
   255 invalid. Numerical evidence is in `result.json`.
 
-Report **Phase 3B PASS** or describe discrepancies before Phase 3C (the combined
-Flood worker). This checkpoint is not merged into local main until that review.
+Phase 3B is accepted for the configured AOI and documented missing-data limits.
+The approved checkpoint is merged into local main before Phase 3C development.
 The main README will be updated at the completed Flood-worker milestone, as its
 update-frequency instructions request.
 

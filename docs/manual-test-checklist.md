@@ -113,4 +113,4 @@ access paths; both were rerun successfully. Production calculations stay in
 
 Phase 3B implementation and numerical validation are recorded in
 [phase3b-validation.md](phase3b-validation.md). Its Sentinel-1 visual/manual gate
-is pending before the combined Phase 3C Flood worker.
+was approved by the user before the combined Phase 3C Flood worker.
