@@ -15,10 +15,18 @@ the coordinated Hydro screen on Kazi's Windows laptop and Flood screen on
 Karan's Linux laptop all passed. The shared new investigation was
 `c51fd780-8b4d-4eea-906b-5fea0bfff690`; the user confirmed **“Yes both pass”**
 after both remote pages retained completion and activity on refresh. Tested
-viewer implementation: `01df4d7` on `codex/worker-viewers`. Continue from the
-accepted `codex/parallel-dispatch` integration and preserve
+viewer implementation: `01df4d7`, integrated at `d9876a8`. Continue from
+**`main`, the single shared runtime and accepted development base**, and preserve
 [the three-screen evidence](docs/phase9-worker-viewers.md).
 Phase 10 has not started; wait for the next phase instruction.
+
+**Branches consolidated October 4 at the user's request.** Control, Hydro, Flood
+and the UI all run from `main`; their entry points and private configuration select
+the role. Historical phase/UI branch names below describe preserved commit
+history, not branches to clone. Completed branches were pruned after verifying
+their history was included. The abandoned local Phase 2 experiment is retained
+under `archive/phase2-validation-2026-10-04`, without changing accepted processing.
+See [branch cleanup and laptop update steps](docs/branch-consolidation.md).
 
 **Handoff updated October 4, 2026 (America/Vancouver).** Kazi Boni Amin is moving
 development to a friend's laptop/Codex session. This README is the continuation
@@ -40,18 +48,19 @@ separately from the original raw reports, whose historical statuses are unchange
 
 | Work | Verified state at handoff | Where to find it |
 | --- | --- | --- |
-| Phases 1–6 backend | Implemented, real-data validated, human accepted | `origin/codex/parallel-dispatch` at `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
-| Phase 7 implementation | Implemented, validated and human accepted October 4 | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
+| Phases 1–6 backend | Implemented, real-data validated, human accepted | Preserved in `main`; accepted commit `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
+| Phase 7 implementation | Implemented, validated and human accepted October 4 | Preserved in `main`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by the historical handoff |
 | Phase 7 pull request | **Merged** into `codex/parallel-dispatch` at `0aa918f`; historical draft metadata remains | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
-| Existing frontend | Original design and history preserved in the Phase 9 integration | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d`, merged at `5770c49` |
-| `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
+| Existing frontend | Original design and history preserved in the Phase 9 integration | Commit `5ae2919ff551848b7abae1119f17ca4b992acd5d`, merged at `5770c49`, now in `main` |
+| `main` | Contains all accepted work through Phase 9 | **Use for every laptop and as the next development base** |
 | Phase 8 | Accepted after the requested explanation fixes and completeness review; merged into `codex/parallel-dispatch` | Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` on `codex/agent-integration`; [Phase 8 checkpoint](docs/phase8-validation.md) |
 | Phase 9 | Initial checks merged at `fb14c2a`; additional three-laptop browser check PASS and human accepted | Tested viewer implementation `01df4d7` on `codex/worker-viewers`; [three-screen checkpoint](docs/phase9-worker-viewers.md), [initial validation](docs/phase9-validation.md) |
 | Phase 10 | Not implemented | Reliability, final demo and submission work remains |
 
 Fetch and verify this snapshot against the remote before acting; another owner
 may have advanced it. README-only commits after `ea4f322` do not represent a new
-implementation test run. `main` has not been pushed or merged during this lane.
+implementation test run. The user-authorized consolidation advances `main`
+through the accepted Phase 9 merge; it does not rewrite previous history.
 GitHub's draft label is a review state, and the PR's zero hosted checks is not
 evidence that the locally run tests failed.
 
@@ -145,7 +154,7 @@ these commands succeed.
 Fresh checkout (macOS/Linux shell or PowerShell):
 
 ```sh
-git clone --branch codex/parallel-dispatch https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026
+git clone --branch main https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026
 cd surge-fall-2026
 git status --short --branch
 git log -3 --oneline
@@ -154,12 +163,12 @@ git merge-base --is-ancestor 01df4d7 HEAD
 ```
 
 For an existing **separate development checkout**, inspect `git status` first,
-then fetch, switch to `codex/parallel-dispatch`, and pull with `--ff-only`. Preserve
+then fetch, switch to `main`, and pull with `--ff-only`. Preserve
 local edits and investigate any refusal instead of using a reset or force push.
 The ancestor checks above verify that both tested Phase 9 implementations are
 included in the accepted base. Preserve the accepted worker-viewer work;
-Phase 10 has not started. Selecting `main`
-on GitHub shows older documentation.
+Phase 10 has not started. Existing worker checkouts can keep running; switch
+their next update to `main` using [the safe update steps](docs/branch-consolidation.md).
 
 Read this README, `requirements.txt`, `.env.example`, and the linked
 [Phase 4](docs/phase4-validation.md), [Phase 5](docs/phase5-validation.md),
@@ -324,7 +333,10 @@ tests → review/commit/push a separate `codex/*` branch → human acceptance �
 the accepted phase. Preserve existing passing assertions, run the full Python
 suite and `git diff --check` before finalizing code, and report exact commands,
 PASS/FAIL, limitations and remaining work. Treat historical test counts as history.
-Do not overwrite unrelated work or push `main`. Moving the development checkout
+Do not overwrite unrelated work or force-push `main`. The user authorized
+consolidating accepted phases into `main`; future phase work still uses a
+temporary `codex/*` branch until its human checkpoint passes. Delete the merged
+phase branch afterward. Moving the development checkout
 does not require repeating accepted physical-laptop checkpoints; run the checks
 appropriate to new implementation changes before advancing their phase.
 
@@ -349,7 +361,7 @@ appropriate to new implementation changes before advancing their phase.
 
 ```text
 Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the latest
-README on codex/parallel-dispatch, starting with "Continue on Another Laptop".
+README on main, starting with "Continue on Another Laptop".
 Preserve existing checkouts, private environment files, data and running workers.
 Phases 1–9, including the coordinated three-laptop browser checkpoint, are
 accepted. Verify that tested viewer implementation 01df4d7 and initial Phase 9
@@ -362,8 +374,8 @@ Read docs/phase9-validation.md and frontend/AGENTS.md; preserve the integrated U
 local Control API, durable sessions and standalone HTML briefing. Read
 docs/phase9-worker-viewers.md for the accepted session and physical-browser
 confirmations from Ryan, Kazi and Karan. Phase 10 has not started; begin it only
-when the user requests the next phase. Do not start from main,
-redo accepted phases, invent measurements, expose
+when the user requests the next phase, using a temporary codex/* branch from
+main. Delete it after accepted integration. Do not redo accepted phases, invent measurements, expose
 secrets or claim fixture/local/replayed activity is fresh distributed execution.
 Report missing evidence or credentials while continuing independent work.
 ```
@@ -458,10 +470,10 @@ The Phase 8 evidence and API boundaries remain documented in
 [Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
 offline replay, optional Control CLI integration, real-data evidence and limits.
 
-**Repository base:** remote `main` does not contain the accepted backend phases.
-Use the accepted Phase 9 merge on `origin/codex/parallel-dispatch`, which includes
-tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb`. Preserve the
-separate worker checkouts and existing `kazi/frontend-ui` work.
+**Repository base:** `origin/main` contains all accepted phases, including the
+Phase 9 integration `d9876a8` and Kazi's original frontend history. Use it for
+all roles. Preserve separate worker checkouts and their private configuration;
+no separate runtime branches are required.
 
 Current cross-platform update commands and overlap requirements are in
 [Phase 6 validation](docs/phase6-validation.md). The accepted
@@ -1136,23 +1148,21 @@ GitHub:
 
 `alexwoolee/surge-fall-2026`
 
-GitHub default branch: `main` (behind accepted backend work).
+GitHub default and sole permanent runtime branch: `main`.
 
-Current development branches:
+Branch policy:
 
 ```text
-codex/parallel-dispatch    accepted implementation through Phase 9
-codex/fusion-review        accepted Phase 7 implementation
-codex/agent-integration    accepted Phase 8 implementation
-codex/briefing-integration accepted Phase 9 implementation and checkpoint
-codex/worker-viewers       accepted three-laptop browser implementation and evidence
-kazi/frontend-ui          original frontend, preserved in Phase 9
-codex/<next-phase>        create only from the verified accepted checkpoint
+main                 all roles; accepted implementation through Phase 9
+codex/<active-work>   temporary only while a change is in progress
 ```
 
-Use separate `codex/*` phase branches based on the latest accepted backend
-checkpoint. Merge only after the phase's human acceptance. Remote `main` is
-currently behind the accepted backend baseline; do not start new work from it.
+Create a temporary branch from up-to-date `main` only when starting actual work.
+Merge after the phase's human acceptance, then prune that branch. Control,
+Hydro, Flood and the frontend use the same code branch. Completed phase, data
+smoke-test and frontend branches are preserved in `main` history and removed as
+branch references. One archive tag retains the abandoned Phase 2 experiment;
+it is not required to run the app. See [consolidation details](docs/branch-consolidation.md).
 
 ---
 

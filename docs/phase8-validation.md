@@ -266,9 +266,10 @@ Review artifacts on Ryan's Mac (ignored, not committed):
 The original `live-api.json`, `api-request-preview.json`, `explanation.txt` and
 physical-worker evidence are preserved. Their historical pending status is not
 rewritten. The reviewed Phase 8 implementation is merged into
-`codex/parallel-dispatch`; Phase 9 continues on a fresh `codex/briefing-integration`
-branch from that accepted merge.
-It does not claim that the final demo already exists. Phase 9 still must connect
+`codex/parallel-dispatch`; Phase 9 then continued on `codex/briefing-integration`
+from that accepted merge. Both are now preserved in `main` after the user's
+branch consolidation. The following was the next-phase scope at that checkpoint;
+its completion is recorded in the Phase 9 validation guides: connect
 the existing UI to real Control state, present safe exact source-resource detail,
 escape all HTML text, verify the standalone download, run integration/browser
 checks, and stop at its own human checkpoint.

@@ -1,5 +1,9 @@
 # Phase 9 — Real Control UI and downloadable briefing
 
+Current checkout: use `main` for all roles. The user authorized branch
+consolidation after Phase 9 acceptance; branch names in this validation history
+identify the original development lanes. Their commits remain in `main`.
+
 Branch: `codex/briefing-integration`, from accepted Phase 8 merge `807865f`.
 Kazi's existing `kazi/frontend-ui` work at `5ae2919` was merged with its design
 and history preserved. Phase 9 implementation, automated checks and the live
@@ -254,7 +258,7 @@ two local servers are running. No new worker run is needed for this review.
 3. Open the downloaded HTML and confirm it is readable as a standalone report.
 
 The initial automated, live and six Mac-side human checks pass.
-The accepted development base is `codex/parallel-dispatch`; preserve the separate
+The accepted development base is now `main`; it preserves the original
 `codex/briefing-integration` implementation history. The additional three-screen
 check on `codex/worker-viewers` also passed with human acceptance. Phase 10 has not started and
 still needs its own reliability and final demo checkpoint.

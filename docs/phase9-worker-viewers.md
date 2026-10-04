@@ -1,5 +1,9 @@
 # Phase 9 follow-up — three physical browser screens
 
+Current checkout: use `main` for Control, workers and the UI. Original branch
+names below are historical; their accepted commits were consolidated into
+`main` before those branch references were pruned.
+
 The Mac-only human checklist passed, and that implementation was merged at
 `fb14c2a`. The user then clarified that the demo must also show Hydro on Kazi's
 Windows laptop and Flood on Karan's Linux laptop during the same investigation.

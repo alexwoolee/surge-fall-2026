@@ -1,9 +1,14 @@
 # Phase 5 — Control dispatch and remote worker checkpoint
 
-Branch: `codex/control-dispatch`, based on accepted Phase 4 checkpoint `22c17ca`.
+Historical implementation branch: `codex/control-dispatch`, based on accepted
+Phase 4 checkpoint `22c17ca`.
 Control dispatches bounded HTTP tasks sequentially to Hydro and Flood. Numerical
 processing stays in the existing worker services. No platform-specific network
 API or Tailscale library is required by the application.
+
+Current setup uses `main`, which contains the accepted implementation through
+Phase 9 after branch consolidation. Phase branch names and commit IDs below
+identify historical implementation and validation evidence.
 
 **Remote validation: PASS on three physical laptops; Phase 5 accepted.**
 Ryan's macOS Control dispatched real-data tasks to Kazi's Windows Hydro worker
@@ -14,24 +19,26 @@ is satisfied. Phase 6 may now begin on a separate implementation branch.
 
 ## 1. Get the same code and Python environment on every laptop
 
-Use the tested `codex/control-dispatch` branch on all machines. In an existing
-clean checkout after that branch is available on origin:
+Use `main` on all machines. In an existing checkout, inspect `git status --short`
+before continuing. If it reports local work, preserve and inspect that work before
+switching branches. If a branch has diverged or a command refuses the update,
+stop and inspect; do not reset or discard work.
 
 ```sh
-git fetch origin
-git switch --track origin/codex/control-dispatch
+git status --short
+git fetch --prune origin
+git switch main
+git pull --ff-only
 git rev-parse HEAD
 ```
 
-If the branch is already checked out, use `git pull --ff-only` instead of
-`git switch --track`. Do not reset a checkout with local work. Compare the full
-commit hash on all three machines. The phase branch includes earlier accepted
-phases; do not pull `main` expecting those local changes to be there.
+Compare the full commit hash on all three machines. Preserve each worker's local
+credentials, data and virtual environment when updating its checkout.
 
 For a fresh clone, use your existing GitHub access:
 
 ```sh
-git clone --branch codex/control-dispatch https://github.com/alexwoolee/surge-fall-2026.git
+git clone --branch main https://github.com/alexwoolee/surge-fall-2026.git
 cd surge-fall-2026
 ```
 
@@ -283,8 +290,9 @@ Recorded on 2026-10-03 locally (2026-10-04 UTC):
 
 At that initial local checkpoint, cross-platform remote execution and human
 acceptance remained pending. The later physical-laptop run is recorded below.
-The implementation is kept on `codex/control-dispatch`; it has not been merged
-into `main`. Only that separate branch is intended for remote distribution.
+At that checkpoint, the implementation was kept on `codex/control-dispatch`
+for remote distribution and had not yet been merged into `main`. Current setup
+uses the consolidated `main` branch as described above.
 
 
 ## Windows portability follow-up and Control source address

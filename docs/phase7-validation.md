@@ -242,5 +242,6 @@ partial-SAR and candidate-water limits, the user explicitly instructed **“proc
 That instruction accepts this Phase 7 checkpoint and authorizes the accepted
 phase merge and Phase 8. It records the current user’s approval without asserting
 a separate named worker-owner confirmation. Historical raw `PENDING_USER` reports
-are preserved. PR #1 must target `codex/parallel-dispatch`; Phase 8 requires its
-own validation and human checkpoint.
+are preserved. PR #1 targeted `codex/parallel-dispatch`; Phase 8 had its own
+validation and human checkpoint. All accepted phases through Phase 9 are now
+consolidated into `main`; this section records the earlier acceptance decision.

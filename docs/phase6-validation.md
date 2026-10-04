@@ -1,9 +1,13 @@
 # Phase 6 — Real parallel execution
 
-Phase 5 is accepted. Phase 6 runs on `codex/parallel-dispatch`, based on that
-accepted checkpoint. **Physical-laptop validation and the human checkpoint
+Phase 5 is accepted. Phase 6 was implemented on `codex/parallel-dispatch`, based on
+that accepted checkpoint. **Physical-laptop validation and the human checkpoint
 passed; Phase 6 is complete.** The validator proved 0.227333 seconds of guaranteed execution overlap
 on the remote workers at implementation commit `7bde416`.
+
+Current setup uses `main`, which contains the accepted implementation through
+Phase 9 after branch consolidation. Phase branch names and commit IDs below
+identify historical implementation and validation evidence.
 
 ## What changed
 
@@ -22,32 +26,37 @@ Neither numerical processing nor dependency pins changed.
 
 Stop each running worker with Ctrl+C in its own terminal. Preserve existing API
 tokens and use the separate worker checkouts, leaving UI work alone.
+Inspect `git status --short` before continuing. If it reports local work, preserve
+and inspect that work before switching branches. If a branch has diverged or a
+command refuses the update, stop and inspect; do not reset or discard work.
 
-Kazi, Windows PowerShell, first checkout of this branch:
+Kazi, Windows PowerShell:
 
 ```powershell
 Set-Location "$HOME\surge-fall-2026-worker"
-git fetch origin
-git switch --track origin/codex/parallel-dispatch
+git status --short
+git fetch --prune origin
+git switch main
+git pull --ff-only
 git rev-parse HEAD
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Karan, Linux Bash, first checkout of this branch:
+Karan, Linux Bash:
 
 ```sh
 cd ~/surge-fall-2026-worker
-git fetch origin
-git switch --track origin/codex/parallel-dispatch
+git status --short
+git fetch --prune origin
+git switch main
+git pull --ff-only
 git rev-parse HEAD
 .venv/bin/python -m pytest -q
 ```
 
-For an existing local branch, use `git switch codex/parallel-dispatch` and
-`git pull --ff-only` instead of creating it again. Git should refuse conflicting
-local work; do not reset or discard it. Compare the implementation commit on all
-three machines. A missing Windows symlink privilege may still yield the one
-explicit capability skip; other failures need investigation.
+Compare the full implementation commit on all three machines. A missing Windows
+symlink privilege may still yield the one explicit capability skip; other
+failures need investigation.
 
 After passing tests, restart in the same terminal with the existing
 `MESHMIND_WORKER_TOKEN`. If opening a new terminal, set that same token privately.
