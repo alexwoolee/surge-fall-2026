@@ -1,680 +1,920 @@
 # MeshMind
+
 MeshMind is a multi-agent, multi-workstation environmental intelligence system.
-One natural-language request launches specialist investigations across approved environmental data systems. Real Python processing executes on separate workstations, structured results return to Control, deterministic validation and review rules are evaluated, and MeshMind produces one combined downloadable briefing.
+
+One natural-language request launches bounded specialist investigations across approved environmental data systems. Real Python processing executes on separate workstations, structured results return to Control, deterministic validation and review rules are evaluated, and MeshMind produces one combined downloadable briefing.
+
+> MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response, evacuation, or disaster-detection system.
+
 ---
+
 # Current Status
+
 ## Current Phase
-**Phase 2 - Deterministic Environmental Processing**
-Phase 1 dataset-access validation is complete.
-All five required environmental data integrations have been tested successfully against real data.
-Current task:
-**Phase 1A - GPM IMERG dataset access smoke test**
-## DONE
-- Project concept selected
-- Three-laptop architecture selected
-- Environmental datasets selected
-- Worker responsibilities selected
-- Repository folder structure created
-- `.gitignore` created
-- `.env.example` created
-- README documentation created
-- `.gitignore` rules manually tested
-## TESTED
-- Repository folder structure
-- README file creation
-- Git ignore behavior for `.env`
-- Git ignore behavior for downloaded cache files
-- Git ignore behavior for generated debug output
-## BLOCKED
-Nothing currently.
-## NEXT
-Complete the initial Git commit.
-Then begin:
-## Phase 1 Result
-**PASS**
-Verified integrations:
-- GPM IMERG V07 through NASA `earthaccess`
-- SMAP L4 through NASA `earthaccess`
-- Sentinel-1 GRD through STAC
-- Copernicus DEM GLO-30 through STAC
-- GLO-30 HAND through ASF STAC/public S3
-Verified capabilities:
-- Earthdata authentication
-- STAC search
-- real granule/scene discovery
-- real HDF5 downloads
-- HDF5 variable inspection
-- remote Cloud Optimized GeoTIFF access
-- real raster pixel reads
-- elevation-value inspection
-- HAND-value inspection
-Important implementation findings:
-- GPM granules are global and must be spatially subset to the requested AOI.
-- SMAP processing must use the actual discovered geophysical soil-moisture variables.
-- Sentinel-1 scenes contain real SAR polarization raster assets and require proper preprocessing before candidate-water classification.
-- DEM and HAND AOIs may span multiple 1-degree tiles.
-- Production terrain processing must handle all intersecting tiles and clip results to the requested AOI.
-- HAND returned no explicit NoData value in the tested raster, so value semantics must be validated before production statistics are trusted.
-# Project Goal
-The core demonstration is:
+
+**Phase 3A — Terrain Processing**
+
+Completed so far:
+
+- repository and GitHub setup
+- all five external data-access smoke tests
+- deterministic GPM IMERG processing
+- deterministic SMAP L4 processing
+- combined Laptop 2 hydrometeorology worker
+- real GPM + SMAP integration test
+- automated test suite: **17 passing tests**
+
+Current focus:
+
+**Laptop 3 — deterministic terrain and surface-water processing**
+
+## Status Matrix
+
+```text
+DATA ACCESS
+
+GPM IMERG       PASS
+SMAP L4         PASS
+Sentinel-1 SAR  PASS
+Copernicus DEM  PASS
+HAND            PASS
+
+DETERMINISTIC PROCESSING
+
+GPM             PASS
+SMAP            PASS
+Hydro Worker    PASS
+DEM / HAND      IN PROGRESS
+Sentinel-1      NOT STARTED
+Flood Worker    NOT STARTED
+
+DISTRIBUTED SYSTEM
+
+Shared Contracts        NOT STARTED
+Worker HTTP APIs        NOT STARTED
+Remote Dispatch         NOT STARTED
+Parallel Execution      NOT STARTED
+Control Fusion          NOT STARTED
+Agent Integration       NOT STARTED
+Frontend                NOT STARTED
+Final Report            NOT STARTED
+```
+
+## Immediate Next Steps
+
+1. Implement multi-tile Copernicus DEM AOI processing.
+2. Implement multi-tile HAND AOI processing.
+3. Add deterministic terrain statistics and tests.
+4. Implement Sentinel-1 candidate surface-water processing.
+5. Build the deterministic Laptop 3 Flood worker.
+6. Define shared contracts and worker APIs.
+7. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
+8. Prove both workers execute at the same time.
+
+---
+
+# Core Demo Goal
+
 ```text
 ONE natural-language request
-        |
-        v
+        |
+        v
 TWO specialist investigations
-        |
-        v
+        |
+        v
 TWO physical laptops execute real environmental processing
-        |
-        v
+        |
+        v
 Structured results return to Control
-        |
-        v
+        |
+        v
 Deterministic validation and review rules
-        |
-        v
+        |
+        v
 ONE downloadable environmental briefing
 ```
-The project must demonstrate real distributed work.
-We should not claim multiple laptops are required because these small hackathon datasets need extra compute.
-The reason for multiple machines is that different systems can own different approved data resources, permissions and processing capabilities.
+
+The demo must show real distributed work.
+
+Multiple laptops are not used because the hackathon datasets require extraordinary compute. They represent independent systems or departments that may own different approved datasets, permissions, and processing capabilities.
+
 ---
+
 # System Architecture
+
 ```text
-                         USER
-                          |
-                          v
-                 LAPTOP 1 - CONTROL
-                          |
-                          |
-             +------------+------------+
-             |                         |
-             v                         v
-     LAPTOP 2 - HYDRO          LAPTOP 3 - FLOOD
-           WORKER                    WORKER
-             |                         |
-       +-----+-----+            +------+------+
-       |           |            |             |
-   GPM IMERG    SMAP L4    Sentinel-1      Terrain
-                                             |
-                                         DEM + HAND
-       |                                   |
-       v                                   v
-   HydroResult                        FloodResult
-       |                                   |
-       +----------------+------------------+
-                        |
-                        v
-                  LAPTOP 1 CONTROL
-                        |
-                  validate results
-                        |
-                evaluate review rules
-                        |
-                  combine evidence
-                        |
-                        v
-                 FINAL BRIEFING
+                         USER
+                          |
+                          v
+                 LAPTOP 1 - CONTROL
+                          |
+             +------------+------------+
+             |                         |
+             v                         v
+     LAPTOP 2 - HYDRO          LAPTOP 3 - FLOOD
+           WORKER                    WORKER
+             |                         |
+       +-----+-----+            +------+------+
+       |           |            |             |
+   GPM IMERG    SMAP L4    Sentinel-1      Terrain
+                                             |
+                                         DEM + HAND
+       |                                   |
+       v                                   v
+   HydroResult                        FloodResult
+       |                                   |
+       +----------------+------------------+
+                        |
+                        v
+                  LAPTOP 1 CONTROL
+                        |
+                  validate results
+                        |
+                evaluate review rules
+                        |
+                  combine evidence
+                        |
+                        v
+                 FINAL BRIEFING
 ```
+
 ---
+
 # Laptop Responsibilities
-## Laptop 1 - Control
+
+## Laptop 1 — Control
+
 Laptop 1 is the MeshMind coordinator.
-Responsibilities:
+
+Planned responsibilities:
+
 - main application UI
-- natural-language user request
+- natural-language request
 - OpenAI agent orchestration
 - task creation
 - worker selection
 - task dispatch
-- parallel execution coordination
+- concurrent execution coordination
 - worker-state tracking
-- structured result collection
-- result validation
+- result collection
+- deterministic result validation
 - evidence fusion
 - deterministic analyst-review rules
 - report generation
 - history
 - application state
-Laptop 1 should not use the LLM to calculate authoritative environmental measurements.
-Python processing produces the numerical results.
----
-## Laptop 2 - Hydrometeorology Worker
-Laptop 2 owns the hydrometeorological investigation.
+
+Laptop 1 must not use the LLM to calculate authoritative environmental measurements.
+
+Python processing produces numerical results.
+
+## Laptop 2 — Hydrometeorology Worker
+
+**Status: deterministic core complete**
+
 Approved resources:
+
 - GPM IMERG
 - SMAP L4
+
 Responsibilities:
-- search approved rainfall data
-- search approved soil-moisture data
-- read real environmental observations
-- filter data to the requested area and time period
+
+- process approved rainfall resources
+- process approved soil-moisture resources
+- spatially subset data to the requested AOI
 - calculate deterministic statistics
-- return structured findings to Control
+- return structured hydrometeorological evidence
+
 Primary result:
+
 `HydroResult`
----
-## Laptop 3 - Surface Water and Terrain Worker
-Laptop 3 owns the surface-water and terrain investigation.
+
+Current deterministic flow:
+
+```text
+GPM IMERG
+    |
+    v
+Accumulated Rainfall
+    |
+    +-----------------+
+                      |
+                      v
+                 Hydro Worker
+                      ^
+                      |
+    +-----------------+
+    |
+SMAP L4
+    |
+    v
+Current Soil State
+```
+
+## Laptop 3 — Surface Water and Terrain Worker
+
+**Status: data access validated; deterministic processing in progress**
+
 Approved resources:
+
 - Sentinel-1 SAR
-- Copernicus DEM
-- HAND
+- Copernicus DEM GLO-30
+- GLO-30 HAND
+
 Responsibilities:
-- search Sentinel-1 scenes
-- read SAR data
-- derive candidate surface-water observations
-- read terrain data
+
+- process approved Sentinel-1 scenes
+- derive candidate surface-water evidence
+- process all intersecting terrain tiles
 - calculate deterministic terrain metrics
-- return structured findings to Control
+- return structured surface-water and terrain evidence
+
 Primary result:
+
 `FloodResult`
+
+`FloodResult` is a project data-structure name. It must not be presented as proof that a real-world flood has been confirmed.
+
 ---
-# Environmental Data Sources
-## 1. GPM IMERG
+
+# Data Sources
+
+## GPM IMERG
+
+Product:
+
+`GPM_3IMERGHH`
+
+Version:
+
+`07`
+
 Purpose:
+
 - rainfall observations
-- precipitation accumulation
-- rainfall intensity summaries
+- precipitation-rate summaries
+- rainfall accumulation
 - antecedent rainfall context
-Python access:
+
+Access:
+
 `earthaccess`
-Planned worker:
-Laptop 2
----
-## 2. SMAP L4
+
+Format:
+
+HDF5
+
+Important verified datasets:
+
+```text
+Grid/precipitation
+Grid/precipitationQualityIndex
+Grid/probabilityLiquidPrecipitation
+Grid/randomError
+Grid/lat
+Grid/lon
+Grid/time
+```
+
+Verified implementation behavior:
+
+- `Grid/precipitation` uses `mm/hr`
+- half-hour granules represent 0.5 hours
+- the global raster is spatially subset to the AOI
+- fill/invalid values are removed
+- multiple granules are accumulated cell-by-cell
+- duplicate granules are rejected
+- complete-coverage fraction is tracked
+
+## SMAP L4
+
+Product:
+
+`SPL4SMGP`
+
+Version:
+
+`008`
+
 Purpose:
+
 - surface soil moisture
-- root-zone soil moisture where appropriate
+- root-zone soil moisture
 - land-state context
-Python access:
+
+Access:
+
 `earthaccess`
-Planned worker:
-Laptop 2
----
-## 3. Sentinel-1 SAR
+
+Format:
+
+HDF5
+
+Verified datasets:
+
+```text
+Geophysical_Data/sm_surface
+Geophysical_Data/sm_rootzone
+cell_lat
+cell_lon
+```
+
+Verified metadata:
+
+```text
+sm_surface
+  description: Top layer soil moisture (0-5 cm)
+  units: m3 m-3
+  fill: -9999
+  valid range: 0.0 to approximately 0.9
+
+sm_rootzone
+  description: Root zone soil moisture (0-100 cm)
+  units: m3 m-3
+  fill: -9999
+  valid range: 0.0 to approximately 0.9
+```
+
+SMAP uses 2D `cell_lat` and `cell_lon` arrays.
+
+SMAP soil moisture is treated as a state observation. It is not accumulated over the rainfall interval.
+
+## Sentinel-1 SAR
+
+Collection:
+
+`sentinel-1-grd`
+
 Purpose:
-- surface-water observations
-- candidate flood-related water extent
-Python access:
-`pystac-client`
-Planned worker:
-Laptop 3
-Important wording:
-Use:
+
+- real SAR observations
+- candidate surface-water evidence
+- flood-related surface-water context
+
+Current Python access:
+
+- `pystac-client`
+- `planetary-computer`
+- `rasterio`
+
+Smoke-test provider:
+
+Microsoft Planetary Computer STAC
+
+Verified:
+
+- STAC search
+- real scene discovery
+- polarization asset discovery
+- real raster access
+- real SAR pixel reads
+
+Use wording such as:
+
 - candidate surface-water extent
 - observed surface-water signal
 - possible flood-related surface water
+
 Do not automatically claim:
+
 - confirmed flooding
 - emergency flood conditions
 - evacuation requirement
-unless the data and implemented method genuinely support those conclusions.
----
-## 4. Copernicus DEM
+
+## Copernicus DEM GLO-30
+
+Collection:
+
+`cop-dem-glo-30`
+
 Purpose:
+
 - elevation
 - terrain context
-- supporting flood-susceptibility analysis
-Planned worker:
-Laptop 3
----
-## 5. HAND
-HAND means:
+- flood-susceptibility support
+
+Access:
+
+- `pystac-client`
+- `rasterio`
+
+Provider used in smoke test:
+
+Element 84 Earth Search
+
+Verified:
+
+- STAC search
+- real GeoTIFF access
+- EPSG:4326
+- real elevation pixel reads
+
+Important production requirement:
+
+The AOI can cross multiple 1-degree tiles. Production processing must use all intersecting tiles before calculating AOI statistics.
+
+## GLO-30 HAND
+
+HAND:
+
 **Height Above Nearest Drainage**
+
+Collection:
+
+`glo-30-hand`
+
 Purpose:
+
 - drainage-relative terrain context
 - low-lying terrain identification
-- supporting flood-susceptibility context
-Planned worker:
-Laptop 3
-HAND should be treated as supporting terrain evidence rather than an automatic flood detector.
+- flood-susceptibility support
+
+Access:
+
+- ASF STAC
+- public S3 fallback
+- `rasterio`
+
+Verified:
+
+- STAC search
+- real HAND tile discovery
+- real GeoTIFF access
+- real HAND pixel reads
+
+Important production requirements:
+
+- process all intersecting tiles
+- clip exactly to the requested AOI
+- treat HAND as supporting evidence, not a flood detector
+- tested raster exposed no explicit NoData value, so value semantics must be handled carefully
+
 ---
+
+# Validated Real-Data Results
+
+## GPM One-Hour Test
+
+Study area:
+
+Abbotsford / Sumas Prairie, British Columbia
+
+Window:
+
+2021-11-15 00:00 UTC to 00:59:59 UTC
+
+Granules:
+
+2 half-hourly granules
+
+AOI grid:
+
+```text
+6 longitude cells
+4 latitude cells
+24 total pixels
+24 complete-coverage pixels
+```
+
+Results:
+
+```text
+Area-mean accumulated rainfall:   approximately 6.6504 mm
+Maximum cell accumulation:        approximately 15.5700 mm
+Minimum cell accumulation:        approximately 2.2000 mm
+Coverage fraction:                1.0
+```
+
+## SMAP Test
+
+SMAP timestamp:
+
+`2021-11-14T22:30:00Z`
+
+AOI:
+
+24 valid SMAP cells
+
+Surface soil moisture:
+
+```text
+Mean:       approximately 0.4085 m3/m3
+Minimum:    approximately 0.3692 m3/m3
+Maximum:    approximately 0.4424 m3/m3
+```
+
+Root-zone soil moisture:
+
+```text
+Mean:       approximately 0.3924 m3/m3
+Minimum:    approximately 0.2938 m3/m3
+Maximum:    approximately 0.4363 m3/m3
+```
+
+## Hydro Worker Integration
+
+The deterministic Hydro worker successfully combined:
+
+```text
+2 GPM IMERG granules
++
+1 SMAP L4 state
+=
+1 structured hydrometeorology result
+```
+
+Validated compact values:
+
+```text
+status: complete
+
+rainfall:
+  area_mean_total_accumulation_mm: approximately 6.6504
+  max_cell_total_accumulation_mm: approximately 15.5700
+  duration_hours: 1.0
+  granule_count: 2
+
+soil_moisture:
+  surface_mean_m3_m3: approximately 0.4085
+  rootzone_mean_m3_m3: approximately 0.3924
+  smap_timestamp_utc: 2021-11-14T22:30:00Z
+```
+
+The worker also returns:
+
+- task ID
+- worker ID
+- analysis type
+- AOI
+- source provenance
+- full deterministic evidence
+- structured limitations
+
+---
+
+# Automated Tests
+
+Current full test suite:
+
+**17 tests passing**
+
+Run:
+
+```powershell
+python -m pytest -v
+```
+
+## GPM Tests
+
+- single-granule rainfall calculation
+- half-hour rate-to-accumulation conversion
+- multi-granule accumulation
+- fill-value exclusion
+- invalid-bbox rejection
+- duplicate-granule rejection
+
+## SMAP Tests
+
+- deterministic surface/root-zone statistics
+- fill-value exclusion
+- valid-range filtering
+- invalid-bbox rejection
+- non-intersecting AOI rejection
+- timestamp extraction
+
+## Hydro Worker Tests
+
+- GPM + SMAP result combination
+- structured result output
+- missing GPM resource handling
+- missing SMAP resource handling
+- wrapped GPM processor failure
+- wrapped SMAP processor failure
+- generated task IDs
+
+Existing passing tests are protected behavior. New work must not silently break them.
+
+---
+
 # Core Engineering Rules
+
 1. Python calculates authoritative numerical results.
-2. The LLM does not invent rainfall, soil-moisture, surface-water or terrain measurements.
-3. Agents determine what supported investigation is required.
-4. MeshMind determines where the investigation executes.
+2. The LLM does not invent environmental measurements.
+3. Agents choose supported investigations; they do not fabricate tools or resources.
+4. MeshMind decides where work executes.
 5. Workers execute bounded approved tools.
-6. Deterministic code decides whether configured analyst-review conditions are triggered.
+6. Deterministic code evaluates configured review conditions.
 7. Do not claim emergency-response capability.
-8. Do not claim disaster detection unless the implemented system genuinely supports that conclusion.
-9. Do not display fake progress.
-10. Do not claim parallel execution unless the two worker jobs actually overlap in time.
-11. Do not expose API keys.
-12. Do not expose unnecessary infrastructure details in the primary UI.
-13. Large downloaded geospatial datasets must not be committed to Git.
-14. Every major component must pass testing before dependent functionality is built on top of it.
+8. Do not claim disaster detection unless a validated method supports it.
+9. Do not show fake progress.
+10. Do not claim parallelism unless execution intervals actually overlap.
+11. Do not expose API keys or credentials.
+12. Do not expose internal infrastructure details in the primary UI.
+13. Large downloaded geospatial datasets must not be committed.
+14. Every major component must pass automated and real-data/manual validation before the next dependent layer is built.
+15. Raw numerical evidence must remain traceable to source data and deterministic processing code.
+16. One worker failure must not destroy valid completed work from another independent worker.
+17. Existing passing code should be extended rather than rewritten without a concrete reason.
+
 ---
+
 # Development Method
-Every major phase follows the same process:
+
 ```text
 IMPLEMENT
-    |
-    v
+    |
+    v
 RUN
-    |
-    v
-MANUALLY CHECK
-    |
-    v
+    |
+    v
+MANUAL / REAL-DATA CHECK
+    |
+    v
+AUTOMATED TESTS
+    |
+    v
 PASS?
- /   \
-NO   YES
- |     |
-FIX   NEXT PHASE
+ /   \
+NO   YES
+ |     |
+FIX   COMMIT
+        |
+        v
+      MERGE
+        |
+        v
+   NEXT PHASE
 ```
-Do not continue building dependent components when the current component has not passed its test gate.
+
+Before merging any implementation branch:
+
+```powershell
+python -m pytest -v
+git diff --check
+git status
+```
+
+Expected:
+
+- all tests pass
+- no whitespace errors
+- no secrets
+- no cached geospatial data staged
+- only intended code/config/test changes
+
 ---
+
+# Repository
+
+GitHub:
+
+`alexwoolee/surge-fall-2026`
+
+Primary branch:
+
+`main`
+
+Branch strategy:
+
+```text
+data/gpm-smoke
+data/smap-smoke
+data/sentinel1-smoke
+data/dem-smoke
+data/hand-smoke
+
+feature/gpm-processing
+feature/smap-processing
+feature/hydro-worker
+feature/terrain-processing
+feature/sentinel1-processing
+feature/flood-worker
+feature/shared-contracts
+feature/worker-api
+feature/control-dispatch
+```
+
+Use small branches and merge tested milestones into `main`.
+
+---
+
 # Repository Structure
+
 ```text
 MeshMind/
 |
 |-- README.md
+|-- requirements.txt
 |-- .gitignore
+|-- .gitattributes
 |-- .env.example
 |
 |-- backend/
-|   |
-|   |-- control/
-|   |   |-- __init__.py
-|   |   |-- main.py
-|   |   |-- coordinator.py
-|   |   |-- fusion.py
-|   |   |-- alerts.py
-|   |   |-- reporting.py
-|   |   `-- state.py
-|   |
-|   |-- shared/
-|   |   |-- __init__.py
-|   |   |-- contracts.py
-|   |   |-- settings.py
-|   |   `-- status.py
-|   |
-|   `-- workers/
-|       |
-|       |-- hydro/
-|       |   |-- __init__.py
-|       |   |-- main.py
-|       |   |-- service.py
-|       |   |-- gpm.py
-|       |   `-- smap.py
-|       |
-|       `-- flood/
-|           |-- __init__.py
-|           |-- main.py
-|           |-- service.py
-|           |-- sentinel1.py
-|           |-- terrain.py
-|           `-- hand.py
+|   |
+|   |-- control/
+|   |   |-- __init__.py
+|   |   |-- main.py
+|   |   |-- coordinator.py
+|   |   |-- fusion.py
+|   |   |-- alerts.py
+|   |   |-- reporting.py
+|   |   `-- state.py
+|   |
+|   |-- shared/
+|   |   |-- __init__.py
+|   |   |-- contracts.py
+|   |   |-- settings.py
+|   |   `-- status.py
+|   |
+|   `-- workers/
+|       |
+|       |-- hydro/
+|       |   |-- __init__.py
+|       |   |-- main.py
+|       |   |-- service.py
+|       |   |-- gpm.py
+|       |   `-- smap.py
+|       |
+|       `-- flood/
+|           |-- __init__.py
+|           |-- main.py
+|           |-- service.py
+|           |-- sentinel1.py
+|           |-- terrain.py
+|           `-- hand.py
 |
 |-- scripts/
-|   `-- smoke/
-|       |-- smoke_gpm.py
-|       |-- smoke_smap.py
-|       |-- smoke_sentinel1.py
-|       |-- smoke_dem.py
-|       `-- smoke_hand.py
+|   `-- smoke/
+|       |-- smoke_gpm.py
+|       |-- smoke_smap.py
+|       |-- smoke_sentinel1.py
+|       |-- smoke_dem.py
+|       `-- smoke_hand.py
 |
 |-- config/
-|   |-- test_case.example.json
-|   `-- rules.example.json
+|   |-- test_case.example.json
+|   `-- rules.example.json
 |
 |-- tests/
-|   |-- fixtures/
-|   |-- test_contracts.py
-|   |-- test_hydro.py
-|   |-- test_flood.py
-|   `-- test_rules.py
+|   |-- fixtures/
+|   |-- test_contracts.py
+|   |-- test_hydro.py
+|   |-- test_hydro_service.py
+|   |-- test_smap.py
+|   |-- test_flood.py
+|   `-- test_rules.py
 |
 |-- data/
-|   |-- cache/
-|   |   `-- .gitkeep
-|   |
-|   `-- fixtures/
-|       `-- .gitkeep
+|   |-- cache/
+|   |   `-- .gitkeep
+|   |
+|   `-- fixtures/
+|       `-- .gitkeep
 |
 |-- outputs/
-|   |-- debug/
-|   |   `-- .gitkeep
-|   |
-|   `-- reports/
-|       `-- .gitkeep
+|   |-- debug/
+|   |   `-- .gitkeep
+|   |
+|   `-- reports/
+|       `-- .gitkeep
 |
 `-- docs/
-    |-- architecture.md
-    `-- manual-test-checklist.md
+    |-- architecture.md
+    `-- manual-test-checklist.md
 ```
-The frontend will be generated later with the Next.js project generator rather than creating placeholder frontend files manually.
+
+The frontend will be generated later with the official Next.js project generator.
+
 ---
+
 # File Responsibilities
-## `backend/control/main.py`
-FastAPI entry point for Laptop 1.
-Eventually responsible for exposing Control application endpoints.
----
-## `backend/control/coordinator.py`
-Responsible for:
-- investigation creation
-- worker selection
-- task dispatch
-- parallel worker execution
-- result collection
-- execution coordination
----
-## `backend/control/fusion.py`
-Responsible for combining validated environmental evidence from:
-- `HydroResult`
-- `FloodResult`
-The fusion layer must remain grounded in actual worker results.
----
-## `backend/control/alerts.py`
-Contains deterministic analyst-review rules.
-Examples may eventually use evidence such as:
-- rainfall
-- soil moisture
-- observed candidate surface water
-- HAND
-- elevation
-Configured thresholds must be clearly identified as review criteria rather than universal scientific disaster thresholds.
----
-## `backend/control/reporting.py`
-Generates the final downloadable briefing.
-Initial preferred format:
-HTML
-PDF can be added later if reliable.
----
-## `backend/control/state.py`
-Tracks application state including:
-- investigations
-- worker tasks
-- task status
-- worker status
-- completed results
-- failures
-SQLite may be integrated here or separated later if required.
----
-# Hydrometeorology Worker Files
-## `backend/workers/hydro/main.py`
-FastAPI entry point for Laptop 2.
----
-## `backend/workers/hydro/service.py`
-Coordinates the Laptop 2 hydrometeorology workflow.
-Expected flow:
-```text
-Task Received
-     |
-     +--> GPM analysis
-     |
-     +--> SMAP analysis
-     |
-     v
-HydroResult
-```
----
-## `backend/workers/hydro/gpm.py`
-Responsible for:
-- GPM search
-- data access
-- file reading
-- area/time filtering
-- precipitation calculations
-- deterministic rainfall output
----
-## `backend/workers/hydro/smap.py`
-Responsible for:
-- SMAP search
-- data access
-- file reading
-- area/time filtering
-- soil-moisture calculations
-- deterministic soil-state output
----
-# Flood Worker Files
-## `backend/workers/flood/main.py`
-FastAPI entry point for Laptop 3.
----
-## `backend/workers/flood/service.py`
-Coordinates the Laptop 3 surface-water and terrain workflow.
-Expected flow:
-```text
-Task Received
-     |
-     +--> Sentinel-1 analysis
-     |
-     +--> DEM analysis
-     |
-     +--> HAND analysis
-     |
-     v
-FloodResult
-```
----
-## `backend/workers/flood/sentinel1.py`
-Responsible for:
-- Sentinel-1 discovery
-- scene selection
-- raster reading
-- SAR preprocessing required by the selected method
-- candidate surface-water processing
-- deterministic output
----
-## `backend/workers/flood/terrain.py`
-Responsible for:
-- Copernicus DEM access
-- raster reading
-- AOI clipping
-- elevation calculations
-- terrain context
----
-## `backend/workers/flood/hand.py`
-Responsible for:
-- HAND data access
-- raster reading
-- AOI clipping
-- HAND calculations
-- drainage-relative terrain context
----
-# Shared Files
-## `backend/shared/contracts.py`
-Contains shared Pydantic contracts.
-Expected models include:
-- `AnalysisTask`
-- `HydroResult`
-- `FloodResult`
-- `WorkerStatus`
-- `CombinedAnalysis`
-All three laptops must agree on these structures.
----
-## `backend/shared/settings.py`
-Contains shared application settings.
-Examples:
-- Control host
-- Control port
-- worker URLs
-- environment configuration
-- local paths
-Secrets should be loaded from environment variables rather than committed files.
----
-## `backend/shared/status.py`
-Contains standardized states for:
-- investigations
-- worker tasks
-- worker availability
-- processing progress
-Only real backend states should be exposed to the UI.
----
-# Smoke Test Scripts
-The first executable project code will live in:
-`scripts/smoke/`
-These scripts are deliberately small and independent.
-Their purpose is to answer:
-```text
-Can we find the dataset?
-Can we access it?
-Can Python open it?
-Can we inspect real fields or assets?
-Does the chosen area/time window return usable data?
-```
-They should not contain:
-- OpenAI agent orchestration
-- FastAPI worker logic
-- frontend logic
-- fusion logic
-- alert rules
----
-# Phase 0 - Repository Setup
-## Status
-**DONE**
-## Completed
-- Git repository initialized
-- folders created
-- placeholder files created
-- `.gitignore` created
-- `.env.example` created
-- README created
-- folder structure manually checked
-- `.gitignore` manually tested
-## Remaining
-## Completed
-- Git repository initialized
-- folders created
-- placeholder files created
-- `.gitignore` created
-- `.gitattributes` created
-- `.env.example` created
-- README created
-- folder structure manually checked
-- `.gitignore` manually tested
-- initial Git commit created
-- GitHub remote configured
-- `main` pushed to GitHub
-## Pass Criteria
-Phase 0 passes when:
-- repository structure exists
-- README is readable
-- `.gitignore` works
-- `.env` is ignored
-- cache files are ignored
-- generated debug files are ignored
-- initial commit exists
-- working tree is clean
----
-# Phase 1 - Dataset Access Smoke Tests
-Each data source is tested independently before any complete environmental analysis pipeline is built.
-Required scripts:
-```text
-scripts/smoke/smoke_gpm.py
-scripts/smoke/smoke_smap.py
-scripts/smoke/smoke_sentinel1.py
-scripts/smoke/smoke_dem.py
-scripts/smoke/smoke_hand.py
-```
-## Gate
-```text
-GPM IMERG       NOT TESTED
-SMAP L4         NOT TESTED
-Sentinel-1      NOT TESTED
-Copernicus DEM  NOT TESTED
-HAND            NOT TESTED
-```
-For a source to PASS, we must confirm:
-- search works
-- access works
-- Python can open the data
-- actual variables/assets can be inspected
-- AOI intersects the source
-- requested time range is valid where applicable
----
-# Phase 2 - GPM Processing
-File:
-`backend/workers/hydro/gpm.py`
-Goal:
-Build deterministic rainfall processing.
-Tests should cover:
-- AOI filtering
-- temporal filtering
-- valid-data handling
-- missing-data handling
-- precipitation statistics
-- repeatable output
----
-# Phase 3 - SMAP Processing
-File:
-`backend/workers/hydro/smap.py`
-Goal:
-Build deterministic soil-moisture processing.
-Tests should cover:
-- correct variables
-- timestamps
-- fill values
-- AOI extraction
-- valid-pixel handling
-- deterministic statistics
----
-# Phase 4 - Hydrometeorology Worker
-Directory:
-`backend/workers/hydro/`
-Pipeline:
-```text
-GPM
- +
-SMAP
- |
- v
-HydroResult
-```
-## Gate
-Laptop 2 must be able to independently produce a structured `HydroResult` without:
-- OpenAI
-- frontend
-- Laptop 1 orchestration
----
-# Phase 5 - Terrain Processing
-Files:
-```text
-backend/workers/flood/terrain.py
-backend/workers/flood/hand.py
-```
-Validate:
-- CRS
-- raster bounds
-- AOI overlap
-- no-data values
-- elevation values
-- HAND values
-Debug maps may be created under:
-`outputs/debug/`
----
-# Phase 6 - Sentinel-1 Processing
-File:
-`backend/workers/flood/sentinel1.py`
-Goal:
-Create a deterministic candidate surface-water result from an approved Sentinel-1 scene.
-Manual visual inspection is required.
-The initial method should favor reliability and explainability over unnecessary complexity.
----
-# Phase 7 - Flood / Terrain Worker
-Directory:
-`backend/workers/flood/`
-Pipeline:
+
+## Hydro Worker
+
+### `backend/workers/hydro/gpm.py`
+
+**Implemented**
+
+Responsibilities:
+
+- HDF5 validation
+- AOI subsetting
+- invalid/fill handling
+- rainfall-rate statistics
+- half-hour accumulation
+- multi-granule accumulation
+- coverage tracking
+- duplicate-resource protection
+
+### `backend/workers/hydro/smap.py`
+
+**Implemented**
+
+Responsibilities:
+
+- HDF5 validation
+- SMAP variable access
+- 2D geolocation/AOI filtering
+- fill handling
+- valid-range filtering
+- surface soil-moisture statistics
+- root-zone statistics
+- timestamp extraction
+
+### `backend/workers/hydro/service.py`
+
+**Implemented**
+
+Responsibilities:
+
+- validate local resources
+- run GPM processor
+- run SMAP processor
+- combine deterministic results
+- produce compact summary
+- attach provenance
+- attach limitations
+- wrap processor failures
+- manage task ID
+
+### `backend/workers/hydro/main.py`
+
+**Not implemented yet**
+
+Future FastAPI entry point for Laptop 2.
+
+## Flood Worker
+
+### `backend/workers/flood/terrain.py`
+
+**Current implementation target**
+
+Responsibilities:
+
+- discover all intersecting Copernicus DEM tiles
+- read only needed windows where possible
+- clip exactly to AOI
+- combine valid values across tile boundaries
+- calculate deterministic elevation statistics
+- retain source/tile provenance
+
+### `backend/workers/flood/hand.py`
+
+**Current implementation target**
+
+Responsibilities:
+
+- discover all intersecting HAND tiles
+- support ASF STAC/public-S3 asset resolution
+- read only needed windows
+- clip exactly to AOI
+- validate HAND values
+- calculate deterministic statistics
+- retain source/tile provenance
+
+### `backend/workers/flood/sentinel1.py`
+
+**Upcoming implementation target**
+
+Responsibilities:
+
+- select approved Sentinel-1 scene
+- validate polarization asset
+- clip/read AOI
+- apply documented SAR preprocessing
+- derive candidate surface-water evidence
+- calculate deterministic area/statistics
+- record limitations
+
+### `backend/workers/flood/service.py`
+
+**Not implemented yet**
+
+Will combine:
+
 ```text
 Sentinel-1
-     +
-DEM + HAND
-     |
-     v
+    +
+DEM / HAND
+    |
+    v
 FloodResult
 ```
-## Gate
-Laptop 3 must independently produce a structured `FloodResult` without:
-- OpenAI
-- frontend
-- Laptop 1 orchestration
----
-# Phase 8 - Shared Contracts
-File:
-`backend/shared/contracts.py`
-Expected contracts:
+
+### `backend/workers/flood/main.py`
+
+**Not implemented yet**
+
+Future FastAPI entry point for Laptop 3.
+
+## Shared
+
+### `backend/shared/contracts.py`
+
+**Not implemented yet**
+
+Expected Pydantic models:
+
 ```text
 AnalysisTask
 HydroResult
@@ -682,102 +922,512 @@ FloodResult
 WorkerStatus
 CombinedAnalysis
 ```
-Tests must verify serialization and deserialization.
----
-# Phase 9 - Worker HTTP Communication
-Technology:
-FastAPI
-Laptop 2 and Laptop 3 will expose bounded worker operations.
-Manual test:
-A request initiated from Laptop 1 must visibly cause real Python processing to execute on the selected remote laptop.
----
-# Phase 10 - Real Parallel Execution
-Laptop 1 dispatches both investigations concurrently.
-Expected behavior:
+
+### `backend/shared/settings.py`
+
+Planned settings:
+
+- Control host/port
+- worker URLs
+- local resource paths
+- environment configuration
+
+### `backend/shared/status.py`
+
+Planned real task states:
+
 ```text
-Hydro started
-Flood started
+task_received
+dataset_located
+processing
+preparing_result
+sending_result
+complete
+failed
+```
+
+## Control
+
+### `backend/control/main.py`
+
+Future FastAPI entry point for Laptop 1.
+
+### `backend/control/coordinator.py`
+
+Planned:
+
+- task creation
+- worker selection
+- dispatch
+- concurrency
+- result collection
+
+### `backend/control/fusion.py`
+
+Planned:
+
+- validate HydroResult
+- validate FloodResult
+- combine grounded evidence
+
+### `backend/control/alerts.py`
+
+Planned deterministic analyst-review rules.
+
+### `backend/control/reporting.py`
+
+Planned briefing generation.
+
+HTML first.
+
+### `backend/control/state.py`
+
+Planned investigation/task state.
+
+SQLite may be used later.
+
+---
+
+# Smoke Tests
+
+Smoke tests live under:
+
+`scripts/smoke/`
+
+Purpose:
+
+```text
+Can we find the dataset?
+Can we access it?
+Can Python open it?
+Can we inspect real fields/assets?
+Can we read real environmental values?
+```
+
+Current smoke tests:
+
+```text
+smoke_gpm.py
+smoke_smap.py
+smoke_sentinel1.py
+smoke_dem.py
+smoke_hand.py
+```
+
+All five pass.
+
+Smoke tests are not substitutes for production processors or automated unit tests.
+
+If a production integration changes provider, asset selection, authentication, or access behavior, update the corresponding smoke test so it still verifies the real external dependency.
+
+---
+
+# Roadmap
+
+## Phase 0 — Repository Setup
+
+**PASS**
+
+## Phase 1 — Dataset Access
+
+**PASS**
+
+```text
+GPM IMERG       PASS
+SMAP L4         PASS
+Sentinel-1 SAR  PASS
+Copernicus DEM  PASS
+HAND            PASS
+```
+
+## Phase 2 — Hydrometeorology Processing
+
+**PASS**
+
+### 2A — GPM Processor
+
+**PASS**
+
+### 2B — SMAP Processor
+
+**PASS**
+
+### 2C — Hydro Worker
+
+**PASS**
+
+## Phase 3 — Flood / Terrain Processing
+
+**IN PROGRESS**
+
+### 3A — Terrain Processor
+
+Required:
+
+- all intersecting DEM tiles
+- all intersecting HAND tiles
+- exact AOI clipping
+- deterministic statistics
+- provenance
+- automated tests
+- real-data validation
+
+### 3B — Sentinel-1 Processor
+
+Required:
+
+- deterministic scene selection
+- SAR asset validation
+- documented preprocessing
+- candidate-water method
+- deterministic output
+- visual/manual validation
+- automated tests
+
+### 3C — Flood Worker
+
+Required:
+
+- combine surface-water evidence
+- combine terrain evidence
+- structured FloodResult
+- limitations
+- failure handling
+- real-data run
+- automated tests
+
+## Phase 4 — Shared Contracts and Worker APIs
+
+Required:
+
+- Pydantic contracts
+- FastAPI worker entry points
+- task endpoint
+- status endpoint
+- result serialization
+- contract tests
+
+## Phase 5 — Remote Worker Communication
+
+Required:
+
+- Laptop 1 calls Laptop 2
+- Laptop 1 calls Laptop 3
+- computation physically executes on remote laptop
+- result returns to Control
+- failure/timeout handling
+
+## Phase 6 — Real Parallel Execution
+
+Required:
+
+```text
+Hydro starts
+Flood starts
+
 Hydro working
 Flood working
 ```
-Their execution intervals must overlap.
-Sequential execution does not count as parallelism.
----
-# Phase 11 - Fusion and Analyst Review Rules
-Files:
-```text
-backend/control/fusion.py
-backend/control/alerts.py
-```
-Control:
-1. validates both structured results
-2. combines evidence
-3. evaluates deterministic review conditions
+
+Execution intervals must actually overlap.
+
+Required validation:
+
+- timestamps prove overlap
+- one branch may finish before the other
+- completed branch remains complete
+- worker failure does not erase independent completed work
+
+## Phase 7 — Fusion and Review Rules
+
+Planned:
+
+- validate both worker results
+- combine evidence
+- deterministic configured review conditions
+
 The LLM does not decide whether numerical thresholds were crossed.
----
-# Phase 12 - OpenAI Agent Integration
-OpenAI integration is added only after the deterministic worker pipeline functions.
+
+## Phase 8 — OpenAI Agent Integration
+
+Planned only after deterministic workers and distributed execution work.
+
 The AI layer may:
-- understand the user request
-- determine which supported investigations are required
-- request bounded application tools
-- summarize structured findings
-- produce grounded explanations
-The AI layer must not:
-- invent environmental measurements
-- fabricate dataset results
-- calculate authoritative statistics instead of Python
-- invent unsupported causal relationships
-- secretly execute unrestricted operations on worker machines
----
-# Phase 13 - Frontend
-Planned stack:
+
+- understand the request
+- determine supported investigations
+- request bounded tools
+- summarize deterministic evidence
+- generate grounded explanations
+
+It must not:
+
+- fabricate measurements
+- replace deterministic processing
+- invent unsupported causal links
+- receive unrestricted remote machine control
+
+## Phase 9 — Frontend and Report
+
+Frontend:
+
 - Next.js
 - TypeScript
 - Tailwind
-The frontend will be generated later using the official Next.js project setup.
+
+Report:
+
+HTML first.
+
+PDF only if reliable.
+
+## Phase 10 — Reliability and Submission
+
+- failure tests
+- reset/startup scripts
+- deployment
+- final README
+- demo video
+- submission
+- pitch rehearsal
+
+---
+
+# Astra Handoff — Phases 3 Through 6
+
+Astra may use this README as the project source of truth.
+
+It must also inspect the actual existing code before modifying a component.
+
+## Protected Existing Work
+
+Do not rewrite the following working components without a specific technical reason:
+
+```text
+backend/workers/hydro/gpm.py
+backend/workers/hydro/smap.py
+backend/workers/hydro/service.py
+tests/test_hydro.py
+tests/test_smap.py
+tests/test_hydro_service.py
+```
+
+Existing behavior must remain compatible unless an intentional migration is documented.
+
+Baseline:
+
+**17 tests passing**
+
+Before every merge:
+
+```powershell
+python -m pytest -v
+```
+
+All previously passing tests must remain green.
+
+## What Astra Must Provide for Each Phase
+
+For each completed phase, leave behind:
+
+1. production code in the intended repository file
+2. automated tests
+3. updated smoke test if external integration behavior changed
+4. one real-data/manual validation command
+5. a clear PASS/FAIL result from that real-data run
+6. provenance in structured results
+7. explicit limitations
+8. failure handling
+9. clean `git diff --check`
+10. a branch/commit suitable for merge
+
+Do not mark a phase complete based only on unit tests when the component depends on real geospatial data.
+
+## Branch Guidance
+
+Recommended:
+
+```text
+feature/terrain-processing
+feature/sentinel1-processing
+feature/flood-worker
+feature/shared-contracts
+feature/worker-api
+feature/control-dispatch
+feature/parallel-execution
+```
+
+## Smoke-Test Guidance
+
+Smoke tests may be updated.
+
+They should verify real external dependencies, not duplicate the production processor.
+
+Keep them simple:
+
+```text
+search
+access
+open
+inspect
+read real values
+PASS / FAIL
+```
+
+Production calculations belong in `backend/`.
+
+## README Update Frequency
+
+Do not update this README after every small commit.
+
+Update it after major milestones such as:
+
+- deterministic Flood worker complete
+- worker HTTP communication complete
+- real parallel execution complete
+- agent integration complete
+- final demo complete
+
+## Phase 3 Requirements
+
+### Terrain
+
+Must process all intersecting DEM/HAND tiles, not just the first returned tile.
+
+Must clip to the AOI.
+
+Must avoid double-counting overlapping pixels.
+
+Must return deterministic statistics and source tile provenance.
+
+### Sentinel-1
+
+Must use a documented, explainable candidate-water method.
+
+Do not jump to a complex ML model unless necessary.
+
+Must save or produce a manual visual validation artifact when practical.
+
+Do not label all dark SAR pixels as confirmed floodwater.
+
+### Flood Worker
+
+Must combine deterministic terrain and Sentinel-1 outputs.
+
+Do not invent disaster severity.
+
+## Phase 4 Requirements
+
+Shared Pydantic contracts must be defined before remote APIs become the dependency boundary.
+
+Contract tests must cover serialization/deserialization.
+
+Worker APIs must accept bounded tasks and return structured status/results.
+
+## Phase 5 Requirements
+
+A request from Laptop 1 must visibly trigger computation on Laptop 2 or Laptop 3.
+
+Do not fake distribution by running all processors locally.
+
+Record:
+
+- task ID
+- worker ID
+- start time
+- completion/failure state
+
+## Phase 6 Requirements
+
+Both worker calls must be launched concurrently.
+
+Prove overlap using actual timestamps.
+
+A valid demonstration looks like:
+
+```text
+18:10:03 Hydro started
+18:10:03 Flood started
+
+18:10:16 Hydro completed
+18:10:31 Flood completed
+```
+
+A sequential run does not qualify.
+
+---
+
+# UI Direction
+
+MeshMind should feel like a calm AI workspace, not a network-administration dashboard.
+
 ## Control Screen
-Only the main Control/Home screen has the navigation sidebar.
-Expected primary state:
+
+Only the Control/Home screen has the sidebar.
+
+Primary state:
+
 ```text
 What do you want to investigate?
+
 [ Prompt ]
+
 [ Run Analysis ]
 ```
+
 During execution:
+
 ```text
 Hydrometeorology Agent
 Working on Laptop 2
+
 Surface Water & Terrain Agent
 Working on Laptop 3
 ```
-Each agent card updates independently.
-## Worker Screens
-Laptop 2:
+
+Each card updates independently.
+
+## Laptop 2 Screen
+
 ```text
 Hydrometeorology Agent
 Executing tools on Laptop 2
 ```
-Laptop 3:
+
+Only show real states.
+
+## Laptop 3 Screen
+
 ```text
 Surface Water & Terrain Agent
 Executing tools on Laptop 3
 ```
-Worker screens should remain simple live-status pages.
-Do not expose on primary screens:
+
+Only show real states.
+
+Do not expose:
+
 - IP addresses
 - raw JSON
-- internal hashes
+- hashes
 - payload IDs
 - network topology
 - long logs
 - fake percentages
-- unnecessary telemetry
+- fake telemetry
+
 ---
-# Phase 14 - Final Report
-Generate one downloadable environmental briefing.
-Start with HTML.
-The report should include:
+
+# Final Report
+
+One downloadable environmental briefing.
+
+Initial output:
+
+HTML
+
+Planned sections:
+
 - original request
 - study area
 - requested time window
@@ -787,64 +1437,59 @@ The report should include:
 - candidate surface-water findings
 - terrain context
 - combined observations
-- triggered analyst-review conditions
+- analyst-review conditions
 - source provenance
 - processing provenance
 - limitations
-Disclaimer:
-MeshMind is an environmental analysis and analyst-support system.
-It is not an operational emergency-response or evacuation system.
+
+Required disclaimer:
+
+> MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.
+
 ---
-# Phase 15 - Failure Testing
-Required manual tests include:
-- Laptop 2 offline
-- Laptop 3 offline
-- invalid AOI
-- no matching GPM observations
-- no matching SMAP observations
-- no suitable Sentinel-1 scene
-- DEM access failure
-- HAND access failure
-- unreadable raster
-- worker timeout
-- OpenAI unavailable
-- coordinator restart
-One worker failing must not destroy valid completed work from another worker.
----
+
 # Local Data Policy
-## Downloaded Data
-Temporary downloaded environmental data belongs in:
+
+Downloaded data belongs under:
+
 `data/cache/`
-Large files in this directory are ignored by Git.
----
-## Test Fixtures
-Small deterministic test data may be stored in:
+
+Large geospatial files are ignored by Git.
+
+Examples used locally:
+
+```text
+data/cache/gpm_smoke/
+data/cache/gpm_hour/
+data/cache/smap_smoke/
+```
+
+These are not committed resources.
+
+Small safe deterministic fixtures may go under:
+
 `data/fixtures/`
-Only small files appropriate for source control should be committed.
----
-## Debug Outputs
-Manual verification images belong in:
+
+Debug outputs:
+
 `outputs/debug/`
-Examples:
-- rainfall visualization
-- soil-moisture visualization
-- Sentinel-1 input image
-- candidate water mask
-- DEM visualization
-- HAND visualization
-Generated debug files are ignored by Git.
----
-## Reports
-Generated MeshMind briefings belong in:
+
+Generated reports:
+
 `outputs/reports/`
-Generated reports are ignored by Git.
+
 ---
-# Environment Files
-`.env.example` documents expected configuration variables.
+
+# Authentication and Secrets
+
 Real credentials belong in:
+
 `.env`
-`.env` must never be committed.
-Current placeholder variables include:
+
+Never commit `.env`.
+
+Current placeholders:
+
 ```text
 OPENAI_API_KEY=
 CONTROL_HOST=
@@ -852,98 +1497,229 @@ CONTROL_PORT=
 HYDRO_WORKER_URL=
 FLOOD_WORKER_URL=
 ```
-Additional variables will be added only when integrations require them.
+
+Local NASA Earthdata authentication/helper files must remain ignored:
+
+```text
+.dodsrc
+.urs_cookies
+.netrc
+```
+
+Never commit tokens, passwords, cookies, or signed URLs.
+
 ---
-# Machine Setup Strategy
-Every laptop uses the same Git repository.
-## Laptop 1
-Runs:
-```text
-backend/control/
-frontend/
+
+# Python Environment
+
+Current development Python:
+
+Python 3.12
+
+Create:
+
+```powershell
+python -m venv .venv
 ```
-## Laptop 2
-Runs:
-```text
-backend/workers/hydro/
+
+Activate on Windows:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
 ```
-## Laptop 3
-Runs:
-```text
-backend/workers/flood/
+
+Install:
+
+```powershell
+python -m pip install -r requirements.txt
 ```
-Separate repositories are not required.
+
+Current direct dependencies:
+
+```text
+earthaccess==0.19.0
+h5py==3.16.0
+numpy==2.5.3
+planetary-computer==1.0.0
+pystac-client==0.9.0
+pytest==9.1.1
+rasterio==1.5.2
+```
+
+Additional dependencies should only be introduced when the current implementation phase requires them.
+
 ---
-# Technology Stack
+
+# Planned Application Stack
+
 ## Frontend
-Planned:
+
 - Next.js
 - TypeScript
 - Tailwind
-## Backend / Coordinator
+
+## Backend
+
 Planned:
+
 - Python
 - FastAPI
 - Uvicorn
 - Pydantic
 - SQLite
+
 ## Worker Communication
+
 Planned:
+
 - HTTP
 - `httpx` or equivalent
-## Environmental Data
-Planned:
+
+## Environmental Processing
+
+Current:
+
 - `earthaccess`
+- `h5py`
+- `numpy`
 - `pystac-client`
-- raster-processing libraries selected during implementation
-Additional packages should only be added when they meaningfully simplify implementation.
-Avoid unnecessary heavyweight GIS infrastructure.
+- `planetary-computer`
+- `rasterio`
+
+Avoid heavyweight GIS infrastructure unless it materially improves reliability within the hackathon time budget.
+
 ---
+
+# Machine Setup
+
+Every laptop uses the same repository.
+
+## Laptop 1
+
+Eventually runs:
+
+```text
+backend/control/
+frontend/
+```
+
+## Laptop 2
+
+Runs:
+
+```text
+backend/workers/hydro/
+```
+
+Deterministic Hydro core is implemented.
+
+## Laptop 3
+
+Runs:
+
+```text
+backend/workers/flood/
+```
+
+External data access passes. Deterministic worker implementation is the current focus.
+
+---
+
 # Demo Language
-Preferred explanation:
+
+Preferred:
+
 > MeshMind lets an analyst ask one environmental question. Specialist investigations are dispatched in parallel to the workstations that own the approved data resources. Those machines perform the real environmental processing, return structured evidence to Control, and MeshMind validates and combines the results into one briefing.
+
 Correct:
+
 > The Hydrometeorology Agent is executing tools on Laptop 2.
+
+Correct:
+
+> The Surface Water & Terrain Agent is executing tools on Laptop 3.
+
 Incorrect:
+
 > The OpenAI model is running locally on Laptop 2.
-The cloud AI layer and the physical worker execution must not be confused.
+
+Incorrect:
+
+> MeshMind detected a disaster.
+
+The cloud AI layer and physical worker execution must not be confused.
+
 ---
+
 # Current Progress Tracker
+
 ## DONE
+
 - project concept
-- distributed architecture
-- worker responsibility split
+- three-machine architecture
+- worker split
 - environmental dataset selection
 - UI direction
-- test-gated development strategy
-- repository structure
-- `.gitignore`
-- `.env.example`
-- README
-- ignore-rule manual test
+- test-gated development workflow
+- GitHub repository structure
+- Python environment
+- NASA Earthdata authentication
+- GPM data access
+- SMAP data access
+- Sentinel-1 data access
+- Copernicus DEM access
+- HAND access
+- deterministic GPM processor
+- multi-granule GPM accumulation
+- deterministic SMAP processor
+- deterministic Hydro worker
+- real-data Hydro integration
+- 17 automated tests
+
 ## TESTED
-- repository folder structure
-- `.env` exclusion from Git
-- cache exclusion from Git
-- debug-output exclusion from Git
-- README creation
+
+- Git ignore rules
+- real GPM HDF5 processing
+- GPM AOI subsetting
+- GPM fill handling
+- GPM multi-granule accumulation
+- real SMAP HDF5 processing
+- SMAP AOI filtering
+- SMAP fill/range validation
+- combined Hydro worker
+- worker resource/failure handling
+- real Sentinel-1 SAR access
+- real Copernicus DEM raster access
+- real HAND raster access
+
 ## BLOCKED
-Nothing.
+
+Nothing currently.
+
 ## NEXT
-1. Create the initial Git commit.
-2. Create the Python environment.
-3. Install only the dependencies required for the first dataset test.
-4. Implement `scripts/smoke/smoke_gpm.py`.
-5. Run the GPM smoke test.
-6. Manually inspect the real result.
-7. Mark GPM `PASS` or fix it before continuing.
+
+**Phase 3A — Terrain Processing**
+
+Then:
+
+**Phase 3B — Sentinel-1 Candidate Surface Water**
+
+Then:
+
+**Phase 3C — Flood Worker**
+
+Then:
+
+**Phases 4–6 — Contracts, Remote Workers, Real Parallelism**
+
 ## CUT FOR NOW
-Until the core pipeline works:
+
+Until deterministic workers and distributed execution are complete:
+
 - frontend implementation
 - OpenAI agent implementation
-- complex ML flood models
-- elaborate GIS infrastructure
 - optional sponsor integrations
 - unnecessary dashboards
 - fake telemetry
 - unsupported disaster predictions
+- complex ML flood models
