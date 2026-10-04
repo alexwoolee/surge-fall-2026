@@ -1,8 +1,8 @@
-# MeshMind frontend implementation handoff
+# Amalga frontend implementation handoff
 
 ## Scope and integration
 
-The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branch. Visual direction, navigation, and core components are preserved; the optional Dam worker extends the original two-worker interface. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The [root README](../README.md) covers setup; [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) hold development instructions and phase checkpoints.
+The frontend from `origin/frontend` and the prompt-routed worker integration are combined on `main`. Visual direction, navigation, and core components are preserved; the optional Dam worker extends the original two-worker interface. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The [root README](../README.md) covers setup; [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) hold development instructions and phase checkpoints.
 
 ## File groups
 
@@ -12,15 +12,15 @@ The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branc
 | `package.json`, `package-lock.json` | Frontend dependencies and dev/test/lint/build/start commands |
 | `components.json` | shadcn configuration and Animate UI registry |
 | `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, `eslint.config.mjs`, `.gitignore` | Frontend-only tooling |
-| `src/app/layout.tsx`, `src/app/globals.css`, `src/app/icon.svg` | Metadata, visual system, brand asset |
-| `src/app/page.tsx`, `src/app/history/page.tsx` | Home and history routes |
-| `src/app/session/[id]/page.tsx`, `src/app/session/[id]/briefing/page.tsx` | Investigation and briefing routes |
-| `src/app/worker/[workerId]/page.tsx`, `src/app/not-found.tsx` | Worker route validation and missing-page handling |
+| `src/app/layout.tsx`, `src/app/globals.css`, `src/app/icon.png` | Metadata, visual system, brand asset |
+| `src/app/(workspace)/page.tsx`, `src/app/(workspace)/history/page.tsx` | Home and history routes |
+| `src/app/(workspace)/session/[id]/page.tsx`, `src/app/(workspace)/session/[id]/briefing/page.tsx` | Investigation and briefing routes |
+| `src/app/viewer/[role]/page.tsx`, `src/app/not-found.tsx` | Optional legacy viewers and missing-page handling |
 | `src/components/ui/` | shadcn Button, Input, Textarea |
 | `src/components/animate-ui/primitives/effects/fade.tsx` | Adapted Animate UI Fade/Fades with a stable div wrapper |
 | `src/components/meshmind/session-sidebar.tsx`, `home-view.tsx`, `history-view.tsx`, `composer.tsx` | Control shell, navigation/search, input, history |
 | `src/components/meshmind/agent-status.tsx`, `session-badge.tsx`, `logo.tsx` | Identity and explicit status labels |
-| `src/components/meshmind/session-view.tsx`, `activity-card.tsx`, `status-timeline.tsx`, `worker-view.tsx` | Observable activity, independent worker state, focused execution views |
+| `src/components/meshmind/session-view.tsx`, `activity-card.tsx`, `status-timeline.tsx` | Observable activity, independent worker state, focused execution views |
 | `src/components/meshmind/analyst-review-banner.tsx`, `partial-result-card.tsx`, `validation-failure-card.tsx`, `briefing-card.tsx` | Review and outcome components |
 | `src/components/meshmind/briefing-view.tsx`, `download-briefing-button.tsx` | Detailed briefing and download |
 | `src/hooks/use-meshmind.ts` | Provider-backed reads, refresh, and error handling |
@@ -40,11 +40,11 @@ The app was generated inside `frontend/` using Next.js App Router, TypeScript, T
 
 The manifest includes Next.js 16, React 19, Tailwind 4, TypeScript 5, ESLint 9/Next configuration, and `tsx` for Node tests. UI dependencies are `radix-ui`, `class-variance-authority`, `cn`, `lucide-react`, `tw-animate-css`, and `motion`. The lockfile supplies exact resolved versions. The shadcn CLI and unused Base UI dependency were removed from runtime dependencies after generation.
 
-shadcn setup: **radix-nova**. Components retained: **Button, Input, Textarea**; unused Card, Badge, and Separator primitives were removed. MeshMind behavior lives outside generic primitives. Animate UI registry: `https://animate-ui.com/r/{name}.json`. Its generated **Fade/Fades** and `use-is-in-view` hook were adapted to use a stable `motion.div` wrapper and ref handling. The unused `asChild`/Slot adapter was removed to avoid creating component types during render and satisfy React lint rules.
+shadcn setup: **radix-nova**. Components retained: **Button, Input, Textarea**; unused Card, Badge, and Separator primitives were removed. Amalga behavior lives outside generic primitives. Animate UI registry: `https://animate-ui.com/r/{name}.json`. Its generated **Fade/Fades** and `use-is-in-view` hook were adapted to use a stable `motion.div` wrapper and ref handling. The unused `asChild`/Slot adapter was removed to avoid creating component types during render and satisfy React lint rules.
 
 The sphere uses custom CSS conic/radial shading to match the reference geometry, with a 3.4-second spin and 2.6-second halo for active work. A generic icon would not reproduce that sphere. Reduced motion disables CSS animation/transitions and makes Fade immediate; all status meanings remain explicit text. This handling was code-reviewed, without changing the host's motion preference.
 
-## Design mapping
+## Original design mapping
 
 | Reference | Applied direction |
 | --- | --- |
@@ -62,7 +62,7 @@ The sphere uses custom CSS conic/radial shading to match the reference geometry,
 | Chladni plate — motif origin | Low-contrast decorative atmosphere only |
 | Session 2 — seismic, urgent alert | Outcome hierarchy only; urgency semantics replaced with analyst-review language |
 
-Rejected obsolete concepts: a third specialist; Fire/Seismic/Air Quality capabilities; Company labels; server dashboards; job/queue counts, node load, uptime, paths, mounts, server/job IDs, heartbeat claims, and infrastructure administration. The decorative motif is not topology or scientific data and has no "Dither field" product control.
+Original design exclusions (the later Dam worker is now supported): Fire/Seismic/Air Quality capabilities; Company labels; server dashboards; job/queue counts, node load, uptime, paths, mounts, server/job IDs, heartbeat claims, and infrastructure administration. The decorative motif is not topology or scientific data and has no "Dither field" product control.
 
 Fake tool menus, voice, and model modes were omitted. Real measurements come from validated Control evidence; illustrative measurements remain isolated in the explicit demo provider. Activity describes accepted requests, resources, processing, returned evidence, and validation. Candidate surface-water evidence and configured review conditions do not establish a confirmed flood or emergency-response capability.
 
@@ -89,7 +89,7 @@ The server route accepts only the fixed route/method allowlist and loopback Cont
 
 ## Prompt routing and conditional Dam assessment
 
-`ControlConfig.routingMode="prompt"` enables generic composer guidance and server-provided example prompts. `availableWorkers` controls whether Dam Condition appears as available in Home/sidebar; the actual session `workers` controls all observed activity. Hydro and Flood are required, Dam is optional, and unknown worker roles are rejected. A Dam page for a session without that worker clearly says it was not included. Legacy configured-case servers, two-worker history and the explicit fixture demo remain supported.
+`ControlConfig.routingMode="prompt"` enables generic composer guidance and server-provided example prompts. `availableWorkers` controls whether Dam Condition appears as available in Home/sidebar; the actual session `workers` controls all observed activity. Hydro and Flood are required, Dam is optional, and unknown worker roles are rejected. Dam activity is included only for sessions that dispatch that worker. Legacy configured-case servers, two-worker history and the explicit fixture demo remain supported.
 
 `risk.ts` accepts only the public assessment fields with finite 0–100 risk score (unknown requires null), 0–1 evidence-confidence score, known levels, and high/critical alert consistency. Session and briefing assessments must match. `risk-summary.tsx` renders high/critical assessments as accessible alerts, preserves unknown and lower levels, escapes text through React, and distinguishes both scores from failure probabilities or certainty of an environmental event. The UI does not calculate scores or decide whether private owner records apply. The API's optional risk fields are absent on old reports.
 
@@ -99,13 +99,13 @@ The primary worker display is served directly by each Python worker at `/dashboa
 
 ## Optional Control-hosted legacy viewers
 
-`src/proxy.ts` applies the viewer-mode Host/method/path boundary to every request. `viewer-auth.ts` validates the exact configured Tailscale or loopback Host authority, permits both worker dashboard pages/read endpoints and required assets, and rejects methods other than GET. Dashboard requests need no browser login or credentials. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck the listener boundary. Internal Python API credentials are accepted unconditionally. Real OpenAI authentication remains separate and unchanged.
+`src/proxy.ts` applies the viewer-mode Host/method/path boundary to every request. `viewer-auth.ts` validates the exact configured Tailscale or loopback Host authority, permits Hydro, Flood and Dam viewer pages/read endpoints and required assets, and rejects methods other than GET. Dashboard requests need no browser login or credentials. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck the listener boundary. Internal Python API credentials are accepted unconditionally. Real OpenAI authentication remains separate and unchanged.
 
 `viewer-proxy.ts` selects a fixed loopback `/viewer/{role}` endpoint, defaulting to `http://127.0.0.1:8001`. Internal token values, incoming browser credentials, and cookies are ignored and never forwarded; no authentication challenge reaches the browser. Its schema parser excludes unexpected fields and foreign worker identities, bounds the event history, and validates observation timestamps. Responses have no shared cache, backend cookies, untrusted redirects, or private error text.
 
 `worker-follower.tsx` is a focused screen without operator navigation or actions. `viewer-polling.ts` follows the server's latest execution snapshot every second, without overlapping requests, including after completion. It preserves observed event history instead of inventing animation time for fast work; a failed read labels prior data as stale. New execution IDs replace the complete view.
 
-The portable `scripts/start-viewers.mjs` accepts and ignores the optional legacy `--env-file` flag, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. Its npm command uses `node --` so a legacy `--env-file` reaches the launcher instead of Node’s own environment-file parser. It uses the same production build as the local operator listener. `viewer.test.ts` covers login-free access to both dashboards, Host/method/path isolation, independent endpoint guards, unconditional acceptance of missing/arbitrary internal credentials, fixed upstream/redaction, absence of browser authentication challenges, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
+The portable `scripts/start-viewers.mjs` accepts and ignores the optional legacy `--env-file` flag, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. Its npm command uses `node --` so a legacy `--env-file` reaches the launcher instead of Node’s own environment-file parser. It uses the same production build as the local operator listener. `viewer.test.ts` covers login-free access to the worker viewers, Host/method/path isolation, independent endpoint guards, unconditional acceptance of missing/arbitrary internal credentials, fixed upstream/redaction, absence of browser authentication challenges, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
 
 ## Preserved fixture implementation
 
@@ -135,7 +135,7 @@ Agent `ready` means available; a completed worker is ready for future work. `act
 
 All sample values, coverage, provenance, scientific prose, limitations, review conditions, and clock timings live in `src/lib/mock-data.ts`. These are illustrative fixtures, not current observations or reproduced validated backend outputs. New prompts retain user text but use the fixed Abbotsford / Sumas Prairie demo area/window. Named seed sessions are examples, not geocoded runs.
 
-Seed IDs: `ready`, `running`, `partial`, `checks-failed`, `failed`. Seed `running` is frozen at 5 seconds for inspection. New runs advance normally. Worker `?session=<id>` selects the same investigation; `/worker/flood?session=partial` demonstrates unavailable Laptop 3.
+Seed IDs: `ready`, `running`, `partial`, `checks-failed`, `failed`. Seed `running` is frozen at 5 seconds for inspection. New runs advance normally. Use the selected session transcript for per-worker activity; standalone worker pages are served by each Python worker.
 
 Local storage key `meshmind.frontend-demo.v1` stores versioned compact records. Reads reload persisted records so reloads, route changes, and tabs on the same origin share the run/retry. This is not cross-laptop synchronization. Malformed data is rejected; storage failure falls back to memory. A failed write cannot replace newer memory with older persisted state.
 
@@ -164,4 +164,4 @@ The original UI lane had passed desktop/laptop/narrow visual checks, with a brow
 
 ## Control dashboard startup
 
-`npm run start` and `npm run dev` use `scripts/start-control.mjs`. The launcher retains loopback binding, prints the dashboard URL, and opens the local browser once. It explicitly supplies the port so Next dev cannot select a different occupied-port fallback. It first observes its own child’s bound-listener message, then confirms `/icon.svg` responds with an SVG before printing/opening; Next’s early readiness log alone does not prove configuration succeeded. Failed startup or a stopped child cannot trigger browser opening. `--no-open-dashboard` prints the same link without launching a browser. macOS, Windows and Linux use their platform opener without a shell, with a manual-link fallback on opener failure. Tests cover startup/exit races, headless and custom-port behavior, occupied ports, readiness failure and platform commands.
+`npm run start` and `npm run dev` use `scripts/start-control.mjs`. The launcher retains loopback binding, prints the dashboard URL, and opens the local browser once. It explicitly supplies the port so Next dev cannot select a different occupied-port fallback. It first observes its own child’s bound-listener message, then confirms `/icon.png` responds with a PNG before printing/opening; Next’s early readiness log alone does not prove configuration succeeded. Failed startup or a stopped child cannot trigger browser opening. `--no-open-dashboard` prints the same link without launching a browser. macOS, Windows and Linux use their platform opener without a shell, with a manual-link fallback on opener failure. Tests cover startup/exit races, headless and custom-port behavior, occupied ports, readiness failure and platform commands.

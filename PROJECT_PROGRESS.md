@@ -5,6 +5,36 @@ phase checkpoints, validation evidence and development workflow that previously
 lived in the root README. Current generic setup is in [README.md](README.md);
 the team's existing machine commands are in [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md).
 
+## Amalga integration on main — October 4, 2026
+
+The user explicitly approved merging `codex/toddbrook-private-worker` into
+`main`, then integrating `origin/frontend` (`3741e9d`). The feature branch is
+retained; the working checkout and current deployment instructions use `main`.
+This supersedes the earlier instructions to keep the feature unmerged. No branch
+is deleted by this integration.
+
+The backend, live historical acquisition, cutoff checks, private Dam routing,
+AI synthesis, saved investigations and no-login access come from the feature
+branch. The frontend contributes the Amalga branding, workspace shell, icon rail,
+search, conversation layout and report styling. Merge resolution preserves all
+three worker roles and automatic browser opening. Legacy environment variable
+and storage identifiers remain compatible with existing laptop configurations.
+Worker checklists keep prior stages green and mark every row complete at the end,
+as a display-only override. Reports focus on available observations without
+routine missing-period callouts; retained evidence and risk calculations are
+unchanged.
+
+Integration validation: **1,941 Python tests passed**, **77 frontend tests
+passed**, and dependency checks, frontend lint, the production build and
+TypeScript checks passed. Read-only checks against the restarted Control
+preserved all ten saved investigations' measurements, worker results and risk
+assessments. All ten HTML downloads and all three worker viewer endpoints
+responded successfully; the frontend parsed all ten sessions, including six
+with retained AI synthesis. Browser checks covered the Amalga home, saved
+investigation, full briefing and worker activity pages. No new worker job or
+paid AI request was submitted for this merge. These checks do not replace a
+fresh multi-laptop run after the other devices update.
+
 ## Toddbrook feature branch — October 4, 2026
 
 The user requested a third worker on **`codex/toddbrook-private-worker`**, kept

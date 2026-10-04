@@ -176,16 +176,54 @@ def build_briefing(agent_report: dict) -> dict:
     }
 
 
+_ABSENT_DISPLAY_VALUES = frozenset({
+    "Unavailable.", "Unavailable", "Unavailable; zero is not substituted.",
+    "Unavailable; no source result was returned.", "Not returned", "Not available",
+})
+_ROUTINE_SOURCE_NOTES = frozenset({
+    "The requested period predates this product.",
+    "The catalog returned no eligible observations for the requested area and interval.",
+    "Terrain excluded because its observation date cannot be verified against the historical cutoff.",
+})
+
+
+def _present_risk_text(value, level):
+    if level == "unknown":
+        return value
+    sentences = re.split(r"(?<=[.!?])\s+", value)
+    retained = [sentence for sentence in sentences if sentence !=
+                "DEM and HAND are unavailable, so local topographic screening cannot be applied here."]
+    return " ".join(retained) if retained else value
+
+
+def _briefing_presentation(briefing):
+    """Project display rows without changing saved evidence or availability."""
+    for key in ("metrics", "reviewConditions", "sourceProvenance"):
+        if not isinstance(briefing[key], list) or len(briefing[key]) > 128:
+            raise ValueError
+    sources = [{**row, "coverage": row["coverage"].replace("Only part of the requested rainfall interval is available.", "").strip()}
+               for row in briefing["sourceProvenance"] if row["resources"] not in _ABSENT_DISPLAY_VALUES]
+    operational = [row for row in briefing["sourceProvenance"]
+                   if row["resources"] in _ABSENT_DISPLAY_VALUES and row["coverage"] not in _ROUTINE_SOURCE_NOTES]
+    return {
+        "metrics": [row for row in briefing["metrics"] if row["value"] not in _ABSENT_DISPLAY_VALUES],
+        "conditions": [row for row in briefing["reviewConditions"] if row["status"] != "not-assessable"],
+        "sources": sources, "operational": operational,
+        "limitations": [text for text in briefing["limitations"] if text != "Missing evidence stays unavailable. It is not treated as zero or evidence of safety."],
+        "coverage": " ".join(f"{row['dataset']}: {row['coverage']}" for row in sources),
+    }
+
+
 def render_briefing_html(briefing: dict) -> str:
     """Render a standalone, script-free, escaped HTML snapshot of a built view.
 
     Only explicitly selected presentation fields can enter the document. Fixed
     headings/attributes mean source strings never become HTML, URLs or CSS.
     """
-    def text(value):
+    def text(value, *, branded=True):
         if not isinstance(value, str) or len(value) > 100_000:
             raise GroundingValidationError("The briefing contains an invalid display field.")
-        return escape(value, quote=True)
+        return escape(value.replace("MeshMind", "Amalga") if branded else value, quote=True)
 
     def paragraphs(values):
         if not isinstance(values, list) or len(values) > 128:
@@ -196,7 +234,7 @@ def render_briefing_html(briefing: dict) -> str:
         if not isinstance(rows, list) or len(rows) > 128:
             raise GroundingValidationError("The briefing contains an invalid table.")
         head = "".join(f'<th scope="col">{label}</th>' for label in headers)
-        body = "".join("<tr>" + "".join(f"<td>{text(row[key])}</td>" for key in keys) + "</tr>" for row in rows)
+        body = "".join("<tr>" + "".join(f"<td>{text(row[key], branded=key != "resources")}</td>" for key in keys) + "</tr>" for row in rows)
         return f'<div class="table-wrap"><table><caption>{caption}</caption><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table></div>'
 
     try:
@@ -208,43 +246,50 @@ def render_briefing_html(briefing: dict) -> str:
         if not isinstance(sections, list) or len(sections) > 32:
             raise ValueError
         title = text(briefing["title"])
-        availability = ("Partial or unreported spatial coverage is present. Check the source-specific coverage below."
-                        if briefing["partial"] else "Validated source results are available; temporal limitations still apply.")
-        if briefing.get('risk') is not None:
-            availability = 'Screening briefing prepared from the available evidence. Product availability is recorded in source notes.'
-        body = f'<header><p class="eyebrow">MeshMind · Analyst support</p><h1>{title}</h1></header>'
+        display = _briefing_presentation(briefing)
+        availability = ('Screening briefing prepared from the available evidence.' if briefing.get('risk') is not None
+                        else 'Evidence briefing prepared from validated source results.')
+        body = f'<header><p class="eyebrow">Amalga · Analyst support</p><h1>{title}</h1></header>'
         if briefing.get('risk') is not None:
             from backend.shared.risk_contracts import RiskView
             risk = RiskView.model_validate(briefing['risk'])
             score = 'Not assessable' if risk.score is None else f'{risk.score}/100 ordinal index'
             role = 'alert' if risk.alert else 'status'
-            body += (f'<section role="{role}" aria-label="Flood-risk screening" class="risk-summary">'
-                     '<h2>' + text(risk.title) + '</h2>' + paragraphs([risk.summary, risk.basis]) +
+            body += (f'<section role="{role}" aria-label="Flood-risk screening" class="risk-summary risk-{risk.level}">'
+                     '<p class="eyebrow">' + text('Risk not assessable' if risk.level == 'unknown' else risk.level.title() + ' risk') + '</p>' +
+                     '<h2>' + text(risk.title) + '</h2>' + paragraphs([_present_risk_text(risk.summary, risk.level), _present_risk_text(risk.basis, risk.level)]) +
                      '<details><summary>Risk index and evidence confidence</summary><p><strong>Risk level: ' + text(risk.level) +
                      ' · ' + text(score) + '</strong></p><p>Evidence confidence: ' + text(risk.confidenceLevel) +
                      f' ({risk.confidenceScore:.3f} on a 0–1 evidence index).</p>' +
                      paragraphs(['These indices are not probabilities of flooding or dam failure.']) + '</details></section>')
         body += '<aside aria-label="Execution context">' + paragraphs([briefing.get("executionNotice", "Execution context unavailable; no new execution is established."), availability]) + '</aside>'
-        body += '<section><h2>Original request</h2><p class="muted">User context, not an environmental finding.</p><blockquote>' + text(briefing["originalRequest"]) + '</blockquote></section>'
-        body += '<section><h2>Study area and time coverage</h2>' + paragraphs([briefing["studyArea"], briefing["requestedWindow"], briefing["actualCoverage"]]) + '</section>'
-        body += '<section><h2>Environmental measurements</h2>' + table("Validated measurements", ["Measurement", "Observed value"], ["label", "value"], briefing["metrics"]) + '</section>'
+        body += '<section><h2>Original request</h2><p class="muted">User context, not an environmental finding.</p><blockquote>' + text(briefing["originalRequest"], branded=False) + '</blockquote></section>'
+        body += '<section><h2>Study area and time coverage</h2>' + paragraphs([briefing["studyArea"], briefing["requestedWindow"], display["coverage"]]) + '</section>'
+        body += '<section><h2>Environmental measurements</h2>' + table("Validated measurements", ["Measurement", "Observed value"], ["label", "value"], display["metrics"]) + '</section>'
         for section in sections:
+            if briefing.get('risk') is not None and section["id"] == "risk":
+                continue
             body += '<section><h2>' + text(section["title"]) + '</h2>' + paragraphs(section["paragraphs"]) + '</section>'
-        body += '<section><h2>Analyst-review conditions</h2>' + paragraphs([briefing["demoNotice"]])
-        body += table("Configured demonstration conditions", ["Condition", "Observed", "Configured", "Outcome"], ["condition", "observed", "configured", "status"], briefing["reviewConditions"]) + '</section>'
-        body += '<section><h2>Source provenance</h2>' + table("Source products and exact public identifiers", ["Dataset", "Access", "Resources", "Coverage"], ["dataset", "access", "resources", "coverage"], briefing["sourceProvenance"]) + '</section>'
+        if display["conditions"]:
+            body += '<section><h2>Analyst-review conditions</h2>' + paragraphs([briefing["demoNotice"].replace("MeshMind", "Amalga")])
+            body += table("Assessable configured conditions", ["Condition", "Observed", "Configured", "Outcome"], ["condition", "observed", "configured", "status"], display["conditions"]) + '</section>'
+        body += '<details class="technical"><summary>Sources, processing and technical notes</summary>'
+        body += '<section><h2>Source provenance</h2>' + table("Source products and exact public identifiers", ["Dataset", "Access", "Resources", "Coverage"], ["dataset", "access", "resources", "coverage"], display["sources"]) + '</section>'
+        if display["operational"]:
+            body += '<section><h2>Operational notes</h2>' + paragraphs([f"{row['dataset']}: {row['coverage']}" for row in display["operational"]]) + '</section>'
         body += '<section><h2>Processing provenance</h2>' + table("Recorded processing", ["Investigation", "Worker role", "Method", "Processing duration"], ["investigation", "location", "method", "duration"], briefing["processingProvenance"]) + '</section>'
-        body += '<section><h2>Limitations</h2>' + paragraphs(briefing["limitations"]) + '</section>'
-        body += '<footer><h2>Use of this briefing</h2><p>' + text(briefing["disclaimer"]) + '</p></footer>'
+        body += '<section><h2>Limitations</h2>' + paragraphs(display["limitations"]) + '</section>'
+        body += '<p class="muted">Only measured values and assessable conditions are listed. For other values, zero is not substituted; retained evidence preserves all availability and rule outcomes.</p></details>'
+        body += '<footer><h2>Use of this briefing</h2><p>' + text(briefing["disclaimer"].replace("MeshMind", "Amalga")) + '</p></footer>'
     except (KeyError, TypeError, ValueError, AttributeError):
         raise GroundingValidationError("The briefing view is incomplete or invalid.") from None
     return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + title + '</title><style>' + _STYLE + '</style></head><body><main>' + body + '</main></body></html>\n'
 
 
 _STYLE = """
-:root{color-scheme:light;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#243340;background:#f7f8fa}
-*{box-sizing:border-box}body{margin:0;line-height:1.65}main{max-width:1100px;margin:3rem auto;padding:3rem;background:#fff;border:1px solid #e1e7ed;border-radius:18px}
-h1{font-size:2.4rem;line-height:1.2;font-weight:650;letter-spacing:-.04em}h2{font-size:1.35rem;line-height:1.4;margin-top:0}p{overflow-wrap:anywhere}section{margin-top:2.5rem}aside{padding:1rem 1.3rem;background:#eef4f8;border-left:4px solid #59778f;border-radius:5px}.eyebrow,.muted{color:#617387}.eyebrow{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase}blockquote{margin:0;padding:1rem 1.3rem;background:#f7f8fa;border-left:3px solid #d7e0e8;white-space:pre-wrap;overflow-wrap:anywhere}
-.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.88rem}caption{text-align:left;color:#617387;padding:.3rem 0 .8rem}th,td{padding:.85rem;text-align:left;vertical-align:top;border-bottom:1px solid #dfe6ec;overflow-wrap:anywhere}th{background:#f1f5f8;font-weight:600}td{min-width:100px}footer{border-top:1px solid #d7e0e8;margin-top:3rem;padding-top:1.5rem;color:#425568}
-@media(max-width:720px){main{margin:0;padding:1.3rem;border:0;border-radius:0}h1{font-size:2rem}}@media print{body{background:#fff}main{border:0;margin:0;padding:0;max-width:none}section,aside{break-inside:avoid}table{font-size:8pt}th,td{padding:.3rem}}
+:root{color-scheme:dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f4f2ef;background:#0c0b0a}
+*{box-sizing:border-box}body{margin:0;line-height:1.65}main{max-width:960px;margin:3rem auto;padding:2.5rem;background:#151413;border:1px solid #34312e;border-radius:22px}
+h1{font-size:2.3rem;line-height:1.2;font-weight:550;letter-spacing:-.04em}h2{font-size:1.2rem;line-height:1.4;margin-top:0}p{overflow-wrap:anywhere}section{margin-top:2.2rem}aside{padding:1rem 1.2rem;background:#1b1a18;border:1px solid #34312e;border-radius:12px;font-size:.88rem;color:#a39e98}.eyebrow,.muted{color:#a39e98}.eyebrow{font-size:.75rem;letter-spacing:.1em;text-transform:uppercase}blockquote{margin:0;padding:1rem 1.2rem;background:#1b1a18;border-left:2px solid #78736d;white-space:pre-wrap;overflow-wrap:anywhere}
+.risk-summary{padding:1.4rem;background:#1b1a18;border:1px solid #46423d;border-radius:14px;margin-bottom:1.8rem}.risk-high,.risk-critical{border-color:#be7045}.risk-high>.eyebrow,.risk-critical>.eyebrow{color:#ffc091}details{margin-top:1.2rem}summary{cursor:pointer;color:#d4cfc9;font-weight:550}.technical{margin-top:2rem;border-top:1px solid #34312e;padding-top:1.4rem}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:.85rem}caption{text-align:left;color:#a39e98;padding:.3rem 0 .8rem}th,td{padding:.8rem;text-align:left;vertical-align:top;border-bottom:1px solid #34312e;overflow-wrap:anywhere}th{background:#1b1a18;font-weight:550;color:#d4cfc9}td{min-width:100px}footer{border-top:1px solid #34312e;margin-top:2.5rem;padding-top:1.5rem;color:#a39e98;font-size:.88rem}
+@media(max-width:720px){main{margin:0;padding:1.3rem;border:0;border-radius:0}h1{font-size:1.8rem}}@media print{:root,body,main,aside,blockquote,th,.risk-summary{color:#222;background:#fff}main{border:0;margin:0;padding:0;max-width:none}.eyebrow,.muted,caption,footer,summary{color:#444}section,aside{break-inside:avoid}details> :not(summary){display:block}table{font-size:8pt}th,td{padding:.3rem}}
 """

@@ -267,7 +267,7 @@ def create_worker_app(
             with lock:
                 executor = None
 
-    app = FastAPI(title=f"MeshMind {worker_id}", version="1.0", lifespan=lifespan)
+    app = FastAPI(title=f"Amalga {worker_id}", version="1.0", lifespan=lifespan)
     app.add_middleware(_RequestGuard, token=token, public_get_paths=PUBLIC_GET_PATHS)
 
     def require_dashboard_query(request):

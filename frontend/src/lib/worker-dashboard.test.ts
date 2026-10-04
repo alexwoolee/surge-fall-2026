@@ -1,10 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { StatusTimeline } from "../components/meshmind/status-timeline";
+import type { WorkerStep } from "./types";
 import { validateDashboardState, formatDuration, observedStages, startDashboardPolling, attachDashboardLifecycle, dashboardStatusLabel } from "../../../backend/shared/dashboard_assets/dashboard.js";
 const idle = { role: "hydro", name: "Hydrometeorology Agent", status: "idle", task: null, events: [], notice: "Observed on this worker." };
 const finished = { ...idle, status: "complete", task: { id: "shared-task_2026", state: "complete", receivedAt: "2026-10-05T00:00:00.123456+00:00", startedAt: "2026-10-05T00:00:00.123456+00:00", completedAt: "2026-10-05T00:00:00.361109+00:00", durationSeconds: 0.237653 }, events: [{ state: "task_received", observedAt: "2026-10-05T00:00:00.123456+00:00", label: "Task accepted" }, { state: "complete", observedAt: "2026-10-05T00:00:00.361109+00:00", label: "Worker result ready" }] };
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+test("merged Amalga timeline keeps prior checks green across sparse snapshots and all rows green at completion", () => {
+  const steps: WorkerStep[] = [
+    { id: "accepted", label: "Accepted", state: "pending", detail: "Not observed" },
+    { id: "processing", label: "Processing", state: "active" },
+    { id: "returned", label: "Returned", state: "pending" },
+  ];
+  const original = structuredClone(steps);
+  const running = renderToStaticMarkup(createElement(StatusTimeline, { steps }));
+  assert.equal((running.match(/timeline-step step-complete/g) || []).length, 1);
+  assert.equal((running.match(/timeline-step step-active/g) || []).length, 1);
+  assert.equal((running.match(/timeline-step step-pending/g) || []).length, 1);
+  assert.doesNotMatch(running, /Not observed/);
+  const finished = renderToStaticMarkup(createElement(StatusTimeline, { steps, terminal: true }));
+  assert.equal((finished.match(/timeline-step step-complete/g) || []).length, 3);
+  assert.doesNotMatch(finished, /step-pending|step-active|step-failed|Not observed/);
+  assert.deepEqual(steps, original);
+});
 test("worker dashboard accepts shared non-UUID task IDs and real microsecond timestamps", () => {
   assert.equal(validateDashboardState(idle), idle);
   assert.equal(validateDashboardState(finished), finished);

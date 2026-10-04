@@ -42,7 +42,7 @@ test("upstream secrets, errors, redirects and incorrect content are not reflecte
 });
 test("native HTML download has fixed filename, safe content type and no upstream cookies", async () => {
   const response = await proxyControl(new Request(`http://localhost:3000/api/control/sessions/${ID}/briefing`, { headers: { Host: "localhost:3000" } }), ["sessions", ID, "briefing"], { env, fetcher: async () => new Response("<!doctype html><title>Grounded briefing</title>", { headers: { "Content-Type": "text/html", "Content-Disposition": "inline;filename=untrusted.exe", "Set-Cookie": "secret" } }) });
-  assert.equal(response.status, 200); assert.equal(response.headers.get("Content-Disposition"), `attachment; filename="meshmind-${ID}-briefing.html"`); assert.equal(response.headers.get("set-cookie"), null); assert.match(await response.text(), /Grounded briefing/);
+  assert.equal(response.status, 200); assert.equal(response.headers.get("Content-Disposition"), `attachment; filename="amalga-${ID}-briefing.html"`); assert.equal(response.headers.get("set-cookie"), null); assert.match(await response.text(), /Grounded briefing/);
 });
 test("bounds request and upstream response bodies even without Content-Length", async () => {
   let called = false;

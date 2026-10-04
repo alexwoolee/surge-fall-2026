@@ -72,6 +72,6 @@ export async function proxyControl(request: Request, path: string[], options: { 
     const type = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
     if (type !== (isHtml ? "text/html" : "application/json")) { await response.body?.cancel(); return fail(502); }
     const bytes = await boundedBytes(response.body, 4 * 1024 * 1024, deadline);
-    return new Response(bytes as BodyInit, { status: response.status, headers: { ...headers, "Content-Type": isHtml ? "text/html; charset=utf-8" : "application/json", ...(isHtml ? { "Content-Disposition": `attachment; filename="meshmind-${path[1]}-briefing.html"`, "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" } : {}) } });
+    return new Response(bytes as BodyInit, { status: response.status, headers: { ...headers, "Content-Type": isHtml ? "text/html; charset=utf-8" : "application/json", ...(isHtml ? { "Content-Disposition": `attachment; filename="amalga-${path[1]}-briefing.html"`, "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox" } : {}) } });
   } catch { return fail(502); }
 }

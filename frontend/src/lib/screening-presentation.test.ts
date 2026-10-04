@@ -76,3 +76,88 @@ test("history labels remain neutral for available reports and explicit for failu
   assert.match(renderToStaticMarkup(createElement(SessionBadge, { status: "failed" })), />Failed</);
   assert.match(renderToStaticMarkup(createElement(SessionBadge, { status: "checks-failed" })), />Checks failed</);
 });
+
+test("presentation omits only known absent rows and preserves measured zero, operational errors and raw evidence", async () => {
+  const { presentBriefing } = await import("./briefing-presentation");
+  const value = await screening();
+  const briefing = value.briefing!;
+  briefing.metrics = [{ label: "Measured rain", value: "0 mm" }, { label: "Absent product", value: "Unavailable." }];
+  briefing.sourceProvenance = [
+    { dataset: "Measured rainfall", access: "NASA", resources: "Exact public identifier unavailable for one or more resources; private paths and URLs are omitted.", coverage: "2007-12-09T00:00:00Z to 2007-12-09T03:00:00Z. Only part of the requested rainfall interval is available." },
+    { dataset: "Absent soil", access: "NASA", resources: "Unavailable.", coverage: "The requested period predates this product." },
+    { dataset: "Failed imagery", access: "Worker", resources: "Unavailable.", coverage: "The assigned worker could not authenticate with the external data provider." },
+  ];
+  briefing.reviewConditions = [
+    { id: "R1", condition: "Assessed", observed: "0 mm", configured: "> 50 mm", status: "not-triggered" },
+    { id: "R2", condition: "Unassessed", observed: "Unavailable", configured: "> 0.4", status: "not-assessable" },
+  ];
+  const original = JSON.stringify(briefing);
+  const display = presentBriefing(briefing);
+  assert.deepEqual(display.metrics, [{ label: "Measured rain", value: "0 mm" }]);
+  assert.deepEqual(display.conditions.map((row) => row.id), ["R1"]);
+  assert.deepEqual(display.sources.map((row) => row.dataset), ["Measured rainfall"]);
+  assert.match(display.actualCoverage, /2007-12-09T03:00:00Z/);
+  assert.doesNotMatch(display.actualCoverage, /Only part|predates/);
+  assert.equal(display.operationalSources[0]?.dataset, "Failed imagery");
+  assert.equal(JSON.stringify(briefing), original);
+});
+
+test("unknown classification remains explicit without changing report indices", async () => {
+  const value = await screening();
+  value.briefing!.risk = { ...risk, level: "unknown", score: null, alert: false,
+    title: "Risk not assessable", summary: "Available observations do not establish an overall classification." };
+  const html = renderToStaticMarkup(createElement(PartialResultCard, {
+    analysis: value, onRetry: () => assert.fail("Rendering cannot dispatch work"), retrying: false,
+  }));
+  assert.match(html, /Risk not assessable/);
+  assert.doesNotMatch(html, /role="alert"|Partial result|partial briefing/);
+});
+
+test("Amalga presentation brands generated prose while preserving the original request and resource identifiers", async () => {
+  const { presentBriefing } = await import("./briefing-presentation");
+  const value = await screening();
+  const briefing = value.briefing!;
+  briefing.originalRequest = "Original MeshMind request";
+  briefing.sections = [{ id: "method", title: "MeshMind processing", paragraphs: ["MeshMind raster processing."] }];
+  briefing.sourceProvenance = [{ dataset: "Checked source", access: "MeshMind processor", resources: "Exact-ID-MeshMind", coverage: "Recorded interval" }];
+  const before = JSON.stringify(briefing);
+  const display = presentBriefing(briefing);
+  assert.equal(display.sections[0].title, "Amalga processing");
+  assert.equal(display.sections[0].paragraphs[0], "Amalga raster processing.");
+  assert.equal(display.sources[0].access, "Amalga processor");
+  assert.equal(display.sources[0].resources, "Exact-ID-MeshMind");
+  const html = renderToStaticMarkup(createElement(BriefingIntroduction, { briefing }));
+  assert.match(html, /Amalga briefing/);
+  assert.match(html, /Original MeshMind request/);
+  assert.equal(JSON.stringify(briefing), before);
+});
+
+test("summary card keeps the AI risk visible and screening thresholds closed", async () => {
+  const value = await screening();
+  const html = renderToStaticMarkup(createElement(PartialResultCard, {
+    analysis: value, onRetry: () => assert.fail("Rendering cannot dispatch work"), retrying: false,
+  }));
+  assert.match(html, /<details><summary>Technical screening checks<\/summary>/);
+  assert.ok(html.indexOf(risk.summary) < html.indexOf("Technical screening checks"));
+  assert.doesNotMatch(html, /<details open/);
+});
+
+test("risk prose omits only the exact routine public-product sentence and preserves substantive caveats", async () => {
+  const { presentRiskText } = await import("./briefing-presentation");
+  const routine = "DEM and HAND are unavailable, so local topographic screening cannot be applied here.";
+  const driver = "Rainfall of 25 mm reinforces concern from recorded dam deterioration.";
+  assert.equal(presentRiskText(`${driver} ${routine}`, "high"), driver);
+  assert.equal(presentRiskText(`${driver} ${routine}`, "unknown"), `${driver} ${routine}`);
+  assert.equal(presentRiskText(routine, "high"), routine);
+  const mixed = "DEM and HAND are unavailable, while rainfall of 25 mm reinforces the recorded dam concern.";
+  const dam = "Dam monitoring records are unavailable, so the structural condition is uncertain.";
+  const operational = "The external data provider could not authenticate, so the worker returned no observations.";
+  for (const text of [mixed, dam, operational]) assert.equal(presentRiskText(text, "high"), text);
+  const value = await screening();
+  value.briefing!.risk = { ...risk, basis: `${driver} ${routine}` };
+  const original = JSON.stringify(value.briefing);
+  const html = renderToStaticMarkup(createElement(BriefingIntroduction, { briefing: value.briefing! }));
+  assert.match(html, /Rainfall of 25 mm reinforces concern/);
+  assert.doesNotMatch(html, /DEM and HAND are unavailable/);
+  assert.equal(JSON.stringify(value.briefing), original);
+});

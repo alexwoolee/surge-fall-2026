@@ -28,7 +28,7 @@ test("workers advance independently before validation, review, and a ready brief
   setElapsed(DEMO_TIMING.hydroComplete);
   state = await provider.getAnalysis(id);
   assert.ok(state);
-  assert.equal(state.workers.hydro.status, "ready");
+  assert.equal(state.workers.hydro.status, "complete");
   assert.equal(state.workers.hydro.returned, true);
   assert.equal(state.workers.flood.status, "active");
   assert.equal(state.workers.flood.returned, false);
@@ -96,7 +96,7 @@ test("retry dispatches only flood and preserves the validated hydro result throu
   const retry = await provider.getAnalysis(id);
   assert.ok(retry);
   assert.equal(retry.retrying, true);
-  assert.equal(retry.workers.hydro.status, "ready");
+  assert.equal(retry.workers.hydro.status, "complete");
   assert.equal(retry.workers.hydro.validated, true);
   assert.equal(retry.workers.flood.status, "active");
   assert.ok(retry.workers.hydro.steps.every((step) => step.state === "complete"));
@@ -225,12 +225,12 @@ test("native download data URI decodes to the exact escaped HTML and uses a part
   assert.ok(state?.briefing);
   const download = getMockBriefingDownload(state.briefing);
   const prefix = "data:text/html;charset=utf-8,";
-  assert.equal(download.filename, "meshmind-partial-briefing-demo.html");
+  assert.equal(download.filename, "amalga-partial-briefing.html");
   assert.ok(download.href.startsWith(prefix));
   const decoded = decodeURIComponent(download.href.slice(prefix.length));
   assert.equal(decoded, renderMockBriefingHtml(state.briefing));
   assert.ok(decoded.includes("&lt;script&gt;unsafe()&lt;/script&gt;"));
   assert.ok(!decoded.includes("<script>"));
   assert.ok(decoded.includes("Not assessable"));
-  assert.equal(getMockBriefingDownload({ ...state.briefing, partial: false }).filename, "meshmind-briefing-demo.html");
+  assert.equal(getMockBriefingDownload({ ...state.briefing, partial: false }).filename, "amalga-briefing.html");
 });

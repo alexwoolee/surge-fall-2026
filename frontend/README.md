@@ -1,6 +1,6 @@
-# MeshMind frontend
+# Amalga frontend
 
-The existing environmental-analysis interface now connects to Control by default. Control coordinates Hydrometeorology and Surface Water & Terrain, plus a conditional Dam Condition worker for Toddbrook Reservoir, validates their independent evidence, and provides a grounded HTML briefing. The approved visual design is preserved.
+The Amalga interface on `main` connects to Control by default. Control coordinates Hydrometeorology and Surface Water & Terrain, plus a conditional Dam Condition worker for Toddbrook Reservoir, validates their independent evidence, and provides a grounded HTML briefing. The approved visual design is preserved.
 
 ## Run locally
 
@@ -30,7 +30,7 @@ Internal Control, worker, and viewer credential values are ignored unconditional
 
 When Control enables prompt routing, Home offers example requests and asks for a location and explicit dates. Hydro and Flood run for each resolved request; Dam Condition is included only for Toddbrook Reservoir, Whaley Bridge, Derbyshire. The default case is an example, not a restriction on the request. Control owns location/date resolution and decides whether the request can be accepted. The frontend never dispatches a private-record worker based on matching prompt text.
 
-Requests can select historical dates or ranges. A single ISO date selects that UTC day. Hydro and Flood query available observations at runtime; unavailable products or dates remain explicit coverage gaps. The generic interface does not assume a preselected recent input archive.
+Requests can select historical dates or ranges. A single ISO date selects that UTC day. Hydro and Flood query observations for the requested location and dates at runtime. The generic interface does not assume a preselected recent input archive.
 
 Older configured-case servers still show their fixed study area and window. Retained evidence reviews and two-worker history keep their existing behavior.
 
@@ -38,7 +38,7 @@ The session view polls server state without overlapping requests. Worker availab
 
 Review mode is prominently labeled **Retained evidence review** and never claims new remote execution. The briefing includes the original request as user context, every validated measurement, review conditions, source/processing provenance, limitations, and the required analyst-support disclaimer.
 
-Partial results retain independently validated worker evidence. Missing observations remain unavailable, and dependent rules remain not assessable. Retry buttons appear only for workers explicitly allowed by Control; its bounded retry preserves the other worker. Uncertain POST responses are never replayed automatically. An explicit repeat of the same request reuses its idempotency key, including after a browser reload when session storage is available.
+The report retains independently validated worker evidence. Retry buttons appear only for workers explicitly allowed by Control; its bounded retry preserves the other worker. Uncertain POST responses are never replayed automatically. An explicit repeat of the same request reuses its idempotency key, including after a browser reload when session storage is available.
 
 Risk assessments, when supplied by Control, appear on both the investigation and briefing. High and critical levels use an accessible alert; unknown stays not assessable. The displayed review index is not a failure probability, and evidence confidence is not certainty of flooding or dam failure. Malformed scores, alert-level conflicts, foreign worker roles, and differing session/briefing assessments are rejected before display. Owner-record labels do not make a claim about record origin.
 
@@ -51,18 +51,15 @@ Downloads use a native same-origin link through the bounded server route. The se
 | `/` | Prompt-based or configured-case composer and recent investigations |
 | `/history` | Searchable server-backed history |
 | `/session/[id]` | Independent worker activity and result |
-| `/session/[id]/briefing` | Full or partial grounded briefing |
-| `/worker/hydro?session=[id]` | Hydrometeorology activity for the selected session |
-| `/worker/flood?session=[id]` | Surface Water & Terrain activity for the selected session |
-| `/worker/dam?session=[id]` | Dam Condition activity only when included in the selected session |
+| `/session/[id]/briefing` | Grounded briefing and download |
 
-A worker page without a selected session does not invent an active investigation. Sidebar worker links use the most recent known session.
+The operator workspace has no worker dashboard routes: the lead sees each agent's reported activity in the session transcript only. Worker owners use the read-only viewers below.
 
 ## Worker-owned dashboards
 
 The primary worker screens are served by each worker's Python API, with no Node installation or frontend build on that laptop:
 
-Open `/dashboard` on the selected worker's configured host and port. The current machine assignments and commands are in [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md).
+Open `/dashboard` on the selected worker's configured host and port. The current four-laptop assignments and commands are in [the deployment guide](../docs/TODDBROOK_SETUP.md).
 
 The worker launcher opens its own dashboard automatically; `--no-open-dashboard` disables that convenience. The page reads only its own `/dashboard/state` endpoint and follows the latest accepted task. Processing duration is displayed in milliseconds, including fast Hydro work. Worker completion is distinct from Control's later evidence checks and combined briefing. Worker task APIs accept internal credentials unconditionally while retaining their route and payload checks.
 
@@ -70,7 +67,7 @@ The self-contained HTML, CSS, and JavaScript live in `backend/shared/dashboard_a
 
 ## Optional Control-hosted legacy viewers
 
-The earlier two-role Control-hosted viewer is optional; it is not the worker-owned dashboard described above. A separate viewer-only Next process can display Control-observed activity over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control, then run from `frontend/`:
+The Control-hosted viewer is optional; it is not the worker-owned dashboard described above. A separate viewer-only Next process can display Control-observed activity over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control, then run from `frontend/`:
 
 ```bash
 npm run start:viewers -- --host 100.100.3.5 --port 3001 --upstream http://127.0.0.1:8001
@@ -80,12 +77,13 @@ The legacy `--env-file` flag remains accepted but is optional and ignored. Missi
 
 - Hydro view: `http://100.100.3.5:3001/viewer/hydro`.
 - Flood view: `http://100.100.3.5:3001/viewer/flood`.
+- Dam view: `http://100.100.3.5:3001/viewer/dam`.
 
-The legacy viewer does not expose a Dam route; use the Dam worker's own dashboard or its selected-session activity page.
+The Dam view follows sessions that include Toddbrook's site-specific worker.
 
-These are read-only views of the same current execution session. Open both before Ryan submits the request. They automatically follow each new execution, show a shared session ID and UTC request time, and retain actual observed events when a worker completes between polls. Completed earlier work is labeled while waiting for another investigation; it is never replayed as current processing. Missing updates show a stale-state warning and stop active animations.
+These are read-only views of the same current execution session. Open the relevant views before Ryan submits the request. They automatically follow each new execution, show a shared session ID and UTC request time, and retain actual observed events when a worker completes between polls. Completed earlier work is labeled while waiting for another investigation; it is never replayed as current processing. Missing updates show a stale-state warning and stop active animations.
 
-The launcher binds only to explicit loopback or Tailscale addresses, forces viewer mode, and clears operator, worker, and OpenAI credentials from the child process. Viewer mode rejects all mutations, operator pages, and operator APIs. Both read-only worker dashboards are available to anyone who can reach the configured Tailscale or loopback listener. Only the two dashboard pages, their read endpoints, and required static assets are allowed. Each read endpoint selects the fixed matching Python backend projection. No internal credential is read or sent by the viewer proxy.
+The launcher binds only to explicit loopback or Tailscale addresses, forces viewer mode, and clears operator, worker, and OpenAI credentials from the child process. Viewer mode rejects all mutations, operator pages, and operator APIs. The read-only worker dashboards are available to anyone who can reach the configured Tailscale or loopback listener. Only the dashboard pages, their read endpoints, and required static assets are allowed. Each read endpoint selects the fixed matching Python backend projection. No internal credential is read or sent by the viewer proxy.
 
 ## Explicit fixture demo
 
@@ -97,6 +95,6 @@ Seeded IDs: `ready`, `running`, `partial`, `checks-failed`, and `failed`. Demo s
 
 Frontend tests cover the original fixture provider plus real API adaptation, unknown/malformed responses, cancellation, idempotency across interrupted responses/reload, bounded targeted retry requests, fixed proxy destinations, same-origin writes, credential/error redaction, bounded bodies, and native HTML delivery headers. Browser verification and the Phase 9 human checkpoint are recorded in the root validation notes; automated frontend tests alone do not establish physical worker execution.
 
-The implementation remains inside `frontend/**`. See [IMPLEMENTATION.md](./IMPLEMENTATION.md) for the preserved design mapping and integration boundary. See the [root README](../README.md) for general setup, [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) for development instructions, and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) for phase history and checkpoints.
+The Next.js application lives in `frontend/**`; standalone worker assets live in `backend/shared/dashboard_assets/`. See [IMPLEMENTATION.md](./IMPLEMENTATION.md) for the preserved design mapping and integration boundary. See the [root README](../README.md) for general setup, [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) for development instructions, and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) for phase history and checkpoints.
 
-> MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.
+> Amalga is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.

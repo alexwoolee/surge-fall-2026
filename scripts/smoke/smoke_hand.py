@@ -1,5 +1,5 @@
 """
-MeshMind Phase 1E
+Amalga Phase 1E
 Global 30m HAND dataset-access smoke test.
 
 Purpose:
@@ -42,7 +42,7 @@ HAND_S3_BASE = (
 
 
 def load_test_case() -> dict:
-    """Load the shared MeshMind test configuration."""
+    """Load the shared Amalga test configuration."""
 
     with CONFIG_PATH.open(
         "r",
@@ -97,7 +97,7 @@ def find_raster_asset(item):
 def main() -> None:
 
     print("=" * 60)
-    print("MeshMind - GLO-30 HAND Smoke Test")
+    print("Amalga - GLO-30 HAND Smoke Test")
     print("=" * 60)
 
     # -----------------------------------------------------

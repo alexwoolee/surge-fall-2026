@@ -2,7 +2,7 @@ import type { BriefingViewModel, DemoScenario, ReviewCondition, ValidationFailur
 
 /** All sample measurements, provenance, timings, and scientific prose live here. */
 export const DEMO_NOTICE = "Demo data · Simulated workflow. These example observations are not a live environmental assessment.";
-export const DISCLAIMER = "MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.";
+export const DISCLAIMER = "Amalga is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.";
 
 export const AGENTS = {
   control: { name: "Control", location: "Laptop 1", resources: [] as string[] },

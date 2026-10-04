@@ -1,4 +1,4 @@
-# Prepared Dam inputs
+# Amalga Dam inputs
 
 The repository includes the prepared date bundle for this demonstration:
 

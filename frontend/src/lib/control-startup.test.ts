@@ -64,11 +64,11 @@ test("browser commands are shell-free platform launchers with the URL as one arg
   assert.deepEqual(browserCommand(URL, "win32"), ["rundll32.exe", ["url.dll,FileProtocolHandler", URL]]);
   assert.deepEqual(browserCommand(URL, "linux"), ["xdg-open", [URL]]);
 });
-test("readiness probes only the local icon and requires an actual SVG response", async (t) => {
-  const requests: string[] = []; let response = new Response(null, { headers: { "Content-Type": "image/svg+xml" } });
+test("readiness probes only the local icon and requires an actual PNG response", async (t) => {
+  const requests: string[] = []; let response = new Response(null, { headers: { "Content-Type": "image/png" } });
   t.mock.method(globalThis, "fetch", async (url: string, options: RequestInit) => { requests.push(url); assert.equal(options.method, "HEAD"); assert.equal(options.redirect, "error"); return response; });
   assert.equal(await probeDashboard(URL, new AbortController().signal), true);
   response = new Response(null, { headers: { "Content-Type": "text/html" } }); assert.equal(await probeDashboard(URL, new AbortController().signal), false);
   response = new Response(null, { status: 503 }); assert.equal(await probeDashboard(URL, new AbortController().signal), false);
-  assert.deepEqual(requests, Array(3).fill(`${URL}/icon.svg`));
+  assert.deepEqual(requests, Array(3).fill(`${URL}/icon.png`));
 });

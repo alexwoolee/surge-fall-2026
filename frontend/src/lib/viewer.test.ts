@@ -17,7 +17,7 @@ const waiting: WorkerViewerSnapshot = { session: null, worker: null, observedAt:
 const done: WorkerViewerSnapshot = { session: { id: ID, title: "Abbotsford", createdAt: "2026-10-05T00:00:00Z", executionNotice: "Historical inputs; current execution.", status: "partial" }, worker: { id: "hydro", name: "Hydro", location: "Laptop 2", status: "complete", steps: [{ id: "processing", label: "Processing", state: "complete" }], summary: "Evidence returned", resources: ["GPM"], returned: true, validated: true }, observedAt: "2026-10-05T00:00:01Z", events: [{ id: "1", observedAt: "2026-10-05T00:00:00Z", label: "Task accepted" }, { id: "2", observedAt: "2026-10-05T00:00:01Z", label: "Evidence returned" }] };
 
 test("viewer ignores internal credentials while preserving the requested role", () => {
-  for (const role of ["hydro", "flood"] as const) {
+  for (const role of ["hydro", "flood", "dam"] as const) {
     const req = request(`/viewer/${role}`);
     assert.equal(req.headers.get("authorization"), null);
     assert.deepEqual(authorizeViewer(req, role, env), { role, token: "" });
@@ -30,8 +30,8 @@ test("viewer ignores internal credentials while preserving the requested role", 
   assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_UI_MODE: "operator" }) as Response).status, 404);
   for (const token of [undefined, "", "same", "arbitrary\r\nheader", "任意"]) assert.deepEqual(authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_HYDRO_TOKEN: token, MESHMIND_VIEWER_FLOOD_TOKEN: token }), { role: "hydro", token: "" });
 });
-test("viewer listener opens both read-only dashboards and assets without login while blocking operator surfaces", () => {
-  for (const path of ["/viewer/hydro", "/viewer/flood", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/api/viewer/flood", "/_next/static/chunks/app-123.js", "/icon.svg"]) assert.equal(guardViewerSurface(request(path), env), null, path);
+test("viewer listener opens all three read-only dashboards and assets without login while blocking operator surfaces", () => {
+  for (const path of ["/viewer/hydro", "/viewer/flood", "/viewer/dam", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/api/viewer/flood", "/api/viewer/dam", "/_next/static/chunks/app-123.js", "/icon.png", "/apple-icon.png", "/amalga-logo.png"]) assert.equal(guardViewerSurface(request(path), env), null, path);
   for (const path of ["/", "/history", `/session/${ID}`, "/worker/hydro", "/viewer/unknown", "/api/viewer/unknown", "/api/control/config", "/api/control/sessions", "/_next/data/build/index.json", "/_next/image?url=http://evil", "/viewer/hydro?session=anything", "/api/viewer/hydro?target=evil", "/api/viewer/hydro/retry", "/viewer/hydro/extra"]) {
     const denied = guardViewerSurface(request(path), env); assert.equal(denied?.status, 403, path); assert.equal(denied?.headers.get("www-authenticate"), null);
   }
@@ -54,7 +54,7 @@ test("operator proxy independently denies viewer-mode requests even with an oper
   assert.equal(response.status, 403); assert.equal(calls, 0);
 });
 test("viewer APIs ignore credentials and read only the requested fixed upstream route", async () => {
-  for (const role of ["hydro", "flood"] as const) {
+  for (const role of ["hydro", "flood", "dam"] as const) {
     const snapshot = { ...done, worker: { ...done.worker!, id: role } };
     const result = await proxyWorkerViewer(request(`/api/viewer/${role}`, { Cookie: "private-browser-cookie", Authorization: "Bearer caller-secret-must-not-be-forwarded" }), role, { env, fetcher: async (input, init) => {
       assert.equal(String(input), `http://127.0.0.1:8001/viewer/${role}`); assert.equal(init?.method, "GET"); assert.equal(init?.redirect, "error");
@@ -114,7 +114,7 @@ test("viewer launch ignores legacy token content, validates binding and clears i
 
 test("viewer upstream works with absent or arbitrary internal tokens and no configured URL", async () => {
   for (const token of [undefined, "", "arbitrary value", "invalid\r\nheader", "任意"]) {
-    for (const role of ["hydro", "flood"] as const) {
+    for (const role of ["hydro", "flood", "dam"] as const) {
       const settings = { MESHMIND_UI_MODE: "viewer", MESHMIND_VIEWER_HOST: env.MESHMIND_VIEWER_HOST, MESHMIND_VIEWER_HYDRO_TOKEN: token, MESHMIND_VIEWER_FLOOD_TOKEN: token };
       const result = await proxyWorkerViewer(request(`/api/viewer/${role}`), role, { env: settings, fetcher: async (input, init) => {
         assert.equal(String(input), `http://127.0.0.1:8001/viewer/${role}`); assert.deepEqual(init?.headers, { Accept: "application/json" }); return Response.json(waiting);

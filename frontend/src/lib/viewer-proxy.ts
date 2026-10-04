@@ -1,12 +1,13 @@
 import { authorizeViewer, viewerFailure, viewerHeaders, type ViewerEnvironment } from "./viewer-auth";
 import { parseViewerSnapshot } from "./viewer-contract";
 import type { WorkerId } from "./types";
+import { isWorkerId } from "./workers";
 
 export async function proxyWorkerViewer(request: Request, role: WorkerId, options: { env?: ViewerEnvironment; fetcher?: typeof fetch } = {}): Promise<Response> {
   const env = options.env ?? process.env;
   const identity = authorizeViewer(request, role, env);
   if (identity instanceof Response) return identity;
-  if (!["hydro", "flood"].includes(role) || new URL(request.url).search) return viewerFailure(403);
+  if (!isWorkerId(role) || new URL(request.url).search) return viewerFailure(403);
   let origin: URL;
   try {
     origin = new URL(env.MESHMIND_VIEWER_API_URL || "http://127.0.0.1:8001");

@@ -1,5 +1,5 @@
 """
-MeshMind Phase 1A
+Amalga Phase 1A
 GPM IMERG dataset-access smoke test.
 
 Purpose:
@@ -92,7 +92,7 @@ def inspect_hdf5(file_path: Path) -> None:
 
 def main() -> None:
     print("=" * 60)
-    print("MeshMind - GPM IMERG Smoke Test")
+    print("Amalga - GPM IMERG Smoke Test")
     print("=" * 60)
 
     test_case = load_test_case()

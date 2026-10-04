@@ -284,7 +284,7 @@ def create_reservoir_app(service):
             yield
         finally:
             await service.close()
-    app = FastAPI(title='MeshMind Control', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title='Amalga Control', lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(_RequestGuard)
     app.state.control_service = service
 
@@ -339,7 +339,7 @@ def create_reservoir_app(service):
         if value['state'] != 'finished' or value.get('briefing') is None:
             raise HTTPException(409, 'A checked briefing is not available.')
         return HTMLResponse(render_briefing_html(value['briefing']), headers={
-            'Content-Disposition': f'attachment; filename="meshmind-{value["id"]}.html"',
+            'Content-Disposition': f'attachment; filename="amalga-{value["id"]}.html"',
             'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"})
 
     @app.get('/viewer/{role}')

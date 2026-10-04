@@ -1,5 +1,5 @@
 """
-MeshMind Phase 1D
+Amalga Phase 1D
 Copernicus DEM GLO-30 dataset-access smoke test.
 
 Purpose:
@@ -47,7 +47,7 @@ def load_test_case() -> dict:
 def main() -> None:
 
     print("=" * 60)
-    print("MeshMind - Copernicus DEM GLO-30 Smoke Test")
+    print("Amalga - Copernicus DEM GLO-30 Smoke Test")
     print("=" * 60)
 
     test_case = load_test_case()

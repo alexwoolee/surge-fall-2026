@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { isDemoMode } from "@/lib/data-provider";
@@ -33,7 +33,7 @@ export function WorkerView({ workerId, sessionId = isDemoMode ? "running" : "" }
         </div>
         <section className="worker-task-card" aria-labelledby="worker-task-title">
           <header className="worker-task-header"><h2 id="worker-task-title">{analysis.title}</h2><span>Dispatched by Control · Laptop 1</span></header>
-          <StatusTimeline steps={worker.steps} />
+          <StatusTimeline steps={worker.steps} terminal={worker.returned || analysis.status !== "running" || worker.status === "complete" || worker.status === "failed"} />
           <p className={`worker-summary ${worker.status === "down" || worker.status === "failed" ? "failure-detail" : ""}`} role="status">{worker.summary}</p>
         </section>
         <p className="worker-resource-note">Approved resources on this worker: {worker.resources.join(", ")}.<br />Python produces the numerical measurements; the model does not.</p>

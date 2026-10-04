@@ -49,8 +49,8 @@ export function openDashboard(url) {
 }
 export async function probeDashboard(url, signal) {
   try {
-    const response = await fetch(`${url}/icon.svg`, { method: "HEAD", redirect: "error", cache: "no-store", signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) });
-    return response.status === 200 && response.headers.get("content-type")?.split(";")[0] === "image/svg+xml";
+    const response = await fetch(`${url}/icon.png`, { method: "HEAD", redirect: "error", cache: "no-store", signal: AbortSignal.any([signal, AbortSignal.timeout(1500)]) });
+    return response.status === 200 && response.headers.get("content-type")?.split(";")[0] === "image/png";
   } catch { return false; }
 }
 

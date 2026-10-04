@@ -54,7 +54,7 @@ function workerState(id: EnvironmentalWorkerId, elapsed: number, flags: { down: 
   const complete = !flags.failed && !(id === "flood" && flags.down) && ((id === "hydro" && flags.retry) || elapsed >= completedAt);
   const down = id === "flood" && flags.down;
   const invalid = id === "flood" && flags.invalid;
-  const status = flags.failed || invalid ? "failed" : down ? "down" : complete ? "ready" : "active";
+  const status = flags.failed || invalid ? "failed" : down ? "down" : complete ? "complete" : "active";
   const steps: WorkerStep[] = WORKER_STEPS[id].map((step, index, all) => {
     if (flags.failed) return { id: step.id, label: step.label, state: index === 0 ? "failed" as const : "pending" as const, detail: index === 0 ? "Dispatch could not be completed" : "Not reached" };
     if (down) {

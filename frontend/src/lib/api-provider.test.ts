@@ -29,7 +29,7 @@ test("uses same-origin contract, authoritative history/state and safe download U
   assert.equal((await provider.getAnalysis(ID))!.isDemo, false);
   assert.deepEqual(calls.map((call) => call.path), ["/api/control/config", "/api/control/sessions", `/api/control/sessions/${ID}`]);
   assert.ok(calls.every((call) => call.init?.cache === "no-store" && call.init?.credentials === "same-origin" && !JSON.stringify(call.init?.headers).includes("Authorization")));
-  assert.deepEqual(briefingDownload(ID), { href: `/api/control/sessions/${ID}/briefing`, filename: `meshmind-${ID}-briefing.html` });
+  assert.deepEqual(briefingDownload(ID), { href: `/api/control/sessions/${ID}/briefing`, filename: `amalga-${ID}-briefing.html` });
   assert.throws(() => briefingDownload("../../secret"));
 });
 test("does not automatically replay uncertain creation; explicit repeat retains key across reload", async () => {

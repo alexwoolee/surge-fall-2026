@@ -127,7 +127,7 @@ function renderDashboard(document, snapshot) {
   const root = document.getElementById("dashboard");
   root.dataset.status = TERMINAL.includes(snapshot.status) ? "complete" : snapshot.status; root.dataset.stale = "false";
   document.getElementById("connection-warning").hidden = true;
-  document.title = `MeshMind · ${snapshot.name}`;
+  document.title = `Amalga · ${snapshot.name}`;
   setText("role-label", snapshot.role === "hydro" ? "Hydrometeorology" : snapshot.role === "dam" ? "Reservoir Risk" : "Surface Water & Terrain");
   setText("worker-name", snapshot.name);
   setText("worker-subtitle", snapshot.status === "active" ? "Executing on this laptop" : "Hosted on this laptop");

@@ -58,7 +58,7 @@ def test_expected_2007_gaps_produce_a_normal_assessable_briefing_without_changin
         assert source['resources'] == 'Unavailable.'
         assert source['coverage'] == REASONS[EXPECTED[component]]
         assert source['coverage'] not in briefing['actualCoverage']
-        assert html.count(source['coverage']) == (2 if component in {'smap', 'sentinel1', 'dem', 'hand'} else 1)
+        assert source['coverage'] not in html  # Routine gaps stay in retained evidence, not the report display.
     assert all(condition['status'] == 'not-assessable' for condition in briefing['reviewConditions'][:2])
     assert 'Partial or unreported spatial coverage' not in html
     assert 'Screening briefing prepared from the available evidence.' in html

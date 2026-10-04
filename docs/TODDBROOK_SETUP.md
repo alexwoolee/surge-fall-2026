@@ -1,9 +1,9 @@
 # Prompt-routed investigations and the Toddbrook worker
 
-This work is on **`codex/toddbrook-private-worker`**. Use the same branch and commit
-on all four devices. **Do not merge into `main` until the user explicitly approves.**
-The existing configured-case flow on `main` remains available; the new Control
-flow is selected with `--generic`.
+Use **`main`** and the same commit on all four devices. The Toddbrook worker and
+Amalga interface are integrated there. Preserve `codex/toddbrook-private-worker`
+as a retained development branch; do not delete it. Start prompt-routed Control
+with `--generic`; the earlier configured-case flow remains available.
 
 Hydro and Flood process every resolved location/date request independently. The
 Dam worker participates only for **Toddbrook Reservoir, Whaley Bridge,
@@ -47,26 +47,27 @@ helpers remain untracked, and excluded metadata is not in the prepared bundle.
 Wait for any current investigation to finish. Stop the service in its own terminal
 with Ctrl+C before changing its checkout. Preserve existing virtual environments,
 Earthdata login, caches and ignored configuration. An already running old server
-must be restarted from this branch before the joint check.
+must be restarted from the matching main commit before the joint check.
 
 In an existing **worker checkout**, first run:
 
 ```sh
 git status --short
 git fetch --prune origin
-git switch codex/toddbrook-private-worker
-git pull --ff-only origin codex/toddbrook-private-worker
+git switch main
+git pull --ff-only origin main
 git rev-parse HEAD
 ```
 
 Stop and inspect if there are local edits, a conflicting branch, or divergent
-commits. Do not reset, clean, force checkout, overwrite UI work, or merge `main`.
-The branch must have been published before another laptop can fetch it.
+commits. Do not reset, clean, force checkout or overwrite UI work. Preserve the
+existing feature branches. The matching main commit must be published before
+another laptop can fetch it.
 
 For a new separate worker checkout, run from a directory where you keep projects:
 
 ```sh
-git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
+git clone --branch main https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
 cd surge-fall-2026-toddbrook-worker
 ```
 
@@ -105,9 +106,8 @@ argument. Saved credentials remain local. Ensure this laptop can reach NASA's
 services over the Internet. Hydro queries matching GPM/SMAP resources at runtime
 for each resolved date/window and area, then downloads or reuses matching cached
 files. Up to four file downloads run concurrently; the full selected set is
-processed without skipping samples. **Do not supply the old fixed Hydro input ZIP as the generic input.** It is
-not coverage for arbitrary historical requests. Products unavailable for a date
-stay explicitly unavailable.
+processed without skipping samples. The generic workflow discovers its inputs directly; the old fixed Hydro input
+ZIP is not needed.
 
 Start and leave this terminal running:
 
@@ -158,7 +158,7 @@ instructions above instead of cloning over it.
 
 ```powershell
 cd $HOME
-git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
+git clone --branch main https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
 cd surge-fall-2026-toddbrook-worker
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
@@ -192,8 +192,7 @@ This generic dated mode excludes undated DEM/HAND before discovery or file reads
 reporting `observation_date_unverified`; the legacy configured flow is unchanged.
 It needs Internet access. Reusing **nonprivate geospatial caches only** is optional.
 Flood must not consume the prepared Dam bundle included in the checkout. Do not
-copy the original owner archive or another person's credentials. A period before
-a product's coverage is unavailable. Do not
+copy the original owner archive or another person's credentials. Do not
 disable the Windows firewall if remote access fails; report the connection result
 so the listener, tailnet policy and narrowly scoped access can be checked.
 
@@ -216,8 +215,8 @@ If clean, update the branch and verify Python/Tailscale:
 
 ```sh
 git fetch --prune origin
-git switch codex/toddbrook-private-worker
-git pull --ff-only origin codex/toddbrook-private-worker
+git switch main
+git pull --ff-only origin main
 git rev-parse HEAD
 .venv/bin/python --version
 tailscale ip -4
@@ -228,7 +227,7 @@ If the old checkout is not suitable, create a separate one instead:
 
 ```sh
 cd ~
-git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
+git clone --branch main https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
 cd surge-fall-2026-toddbrook-worker
 python3.12 -m venv .venv
 ```
@@ -290,7 +289,7 @@ the new physical-laptop investigation has passed.
 
 ## Ryan — macOS Control and interface
 
-Use the matching branch in the Control checkout:
+Use the matching main commit in the Control checkout:
 
 ```sh
 cd "/Users/diamster/Stormhacks 2026/surge-fall-2026"
@@ -336,7 +335,7 @@ npm run start
 ```
 
 The UI defaults to Control at `http://127.0.0.1:8001`. Reuse an existing matching
-UI process only if its production build contains this branch's changes. Leave
+UI process only if its production build matches the current main commit. Leave
 Control's own listener on loopback. This command needs no fixed GPM/SMAP file list.
 On another setup, replace `env.phase8.download` with `.env.phase8.local`. At most
 one bounded Responses API request runs after each new investigation's checked
@@ -364,7 +363,7 @@ Before submitting anything, confirm the same Git commit on all devices and that
 all three worker dashboards are open. Submit one investigation at a time from
 Ryan's UI and wait for its terminal result. Do not resubmit simply because a worker
 finishes between browser polls. Hydro downloads may take longer for an uncached
-date; missed data remains a coverage limitation rather than zero rainfall.
+date; the acquisition stage stays visible while matching files arrive.
 
 Run these two requested assessments separately:
 
@@ -372,28 +371,25 @@ Run these two requested assessments separately:
 
 > Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2007-12-09. Start with a plain-language explanation of how rainfall, soil moisture and dam condition combine. Distinguish routine maintenance from a concerning combination or a severe independent concern, then show supporting technical evidence. Use observations through the end of that UTC day only.
 
-December 9, 2007 has live GPM coverage and a moderate Dam-only screening result;
-its checked daily rainfall is low, so it is not a heavy-rainfall example. No later
-replacement period is needed for data access. That date predates SMAP and
-Sentinel-1 coverage; their absence appears in the combined report's source
-notes and does not represent a failed download.
+December 9, 2007 is the earlier comparison case. Review the returned rainfall
+and Dam findings together; do not require a particular final risk level. The
+report records which observations were used.
 
 A single ISO date requests that **UTC calendar day** from Hydro/Flood. An explicit
 ordered range is inclusive, bounded to at most seven days. The final date is the
 **end-of-day cutoff** (the following midnight is an exclusive endpoint). Modern
 reprocessed estimates of historical environmental observations are allowed; this
 is not a recreation of the public products available on that date. Observations
-after the cutoff must not enter the results. Undated DEM/HAND remain unavailable
-with `observation_date_unverified` in this generic flow.
+after the cutoff must not enter the results. The generic flow uses dated
+observations; source details are retained in the report.
 
 Control's AI should explain how the available measurements and records fit
 together. For example, it may consider whether rainfall increases concern where
 spillway deterioration is recorded, or how wet soil affects the interpretation of
 rainfall and surface water. These are examples for contextual inference, not
 mandatory interaction rules or fixed combined-risk thresholds. The opening
-summary comes before technical details. Expected product absences stay in source
-notes and do not add a "partial" label to the screen; genuine worker/provider
-failures remain visible. The AI must not invent measurements or later observations.
+summary comes before technical details. Source notes support that explanation;
+the AI must not invent measurements or later observations.
 
 Dam uses its prepared snapshot containing only records both observed and available
 by the cutoff, without future maintenance closures. Recurring operational
@@ -402,10 +398,8 @@ period. Private operational coverage remains **2007-09-03 through 2008-02-29** a
 **2015-10-01 through 2019-07-31**. Assessment dates may extend at most seven days
 beyond either endpoint, using last-known evidence with its actual age. Thus
 **2019-08-01 uses July 31 or earlier observations**, not newly invented August 1
-records. The final tail days are 2008-03-07 and 2019-08-07; other gaps must show
-unknown/unavailable private coverage. Hydro/Flood still query their requested
-dates. SMAP and Sentinel-1 do not cover 2007, so those missing products are expected
-and must remain explicit.
+records. The final supported tail days are 2008-03-07 and 2019-08-07. Hydro/Flood
+still query the requested dates, and the report records the evidence actually used.
 
 Confirm shared task/session identity, independently completed or explicitly
 unavailable worker evidence, matching location/dates, actual product coverage,
@@ -422,9 +416,8 @@ an official or independently verified reservoir/catchment boundary):
 
 Only Hydro and Flood should appear in that session. Karan's Dam dashboard must
 retain its previous task with no new accepted task for this request. The Control
-briefing must not use Toddbrook private evidence. Missing products remain source
-notes in a normal report; they are not a reason to call the Dam worker.
-Keep the branch unmerged until the user reviews the joint results and approves.
+briefing must not use Toddbrook private evidence. Source availability does not
+change which location a private dataset belongs to.
 
 Date-coverage check:
 
@@ -439,16 +432,16 @@ not a forecast for dates that have not occurred.
 
 **Kazi — Hydro**
 
-> In my separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve all UI work, credentials, caches and local edits; do not reset, clean, merge or push. Confirm Python 3.12, install the pinned requirements, and run the appropriate offline tests. Help me save Earthdata login interactively on this device without printing credentials. Hydro must query NASA at runtime for Control's requested location/dates; do not use the old fixed input ZIP as generic coverage. Modern reprocessed historical estimates are allowed, but observations after the requested UTC day's cutoff are excluded. This demo checkout includes the prepared Dam bundle, but Hydro must not read it or use it as input. Start one Hydro process with scripts.run_worker on 100.100.3.2:8002 and leave its own dashboard open. Report commit, test summary and readiness only; wait for Ryan to submit the joint task.
+> In my separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use main. Preserve all UI work, credentials, caches and local edits; do not reset, clean, merge or push. Confirm Python 3.12, install the pinned requirements, and run the appropriate offline tests. Help me save Earthdata login interactively on this device without printing credentials. Hydro must query NASA at runtime for Control's requested location/dates; do not use the old fixed input ZIP as generic coverage. Modern reprocessed historical estimates are allowed, but observations after the requested UTC day's cutoff are excluded. This demo checkout includes the prepared Dam bundle, but Hydro must not read it or use it as input. Start one Hydro process with scripts.run_worker on 100.100.3.2:8002 and leave its own dashboard open. Report commit, test summary and readiness only; wait for Ryan to submit the joint task.
 
 **Alex — Flood**
 
-> In a separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve my other work and local settings; do not reset, clean, merge or push. Confirm Python 3.12, install pinned requirements and run the appropriate offline tests. Flood queries public historical satellite observations at runtime; generic dated tasks exclude undated DEM/HAND before discovery or file reads. Modern reprocessing is allowed, but observations after the requested UTC day's cutoff are excluded. Public geospatial caches may be reused. This demo checkout includes the prepared Dam bundle, but Flood must not read it or use it as input. Start one Flood process with scripts.run_worker on 100.100.3.3:8003 and leave its own dashboard open. Report commit, test summary and readiness; do not submit extra tasks or claim a joint run passed yet.
+> In a separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use main. Preserve my other work and local settings; do not reset, clean, merge or push. Confirm Python 3.12, install pinned requirements and run the appropriate offline tests. Flood queries public historical satellite observations at runtime; generic dated tasks exclude undated DEM/HAND before discovery or file reads. Modern reprocessing is allowed, but observations after the requested UTC day's cutoff are excluded. Public geospatial caches may be reused. This demo checkout includes the prepared Dam bundle, but Flood must not read it or use it as input. Start one Flood process with scripts.run_worker on 100.100.3.3:8003 and leave its own dashboard open. Report commit, test summary and readiness; do not submit extra tasks or claim a joint run passed yet.
 
 **Karan — Dam**
 
-> In my Linux worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Stop my current worker before updating; preserve existing work and owner data without reset, clean, merge or push. Pull the matching commit and verify private_data/toddbrook_runtime/as_of.zip exists. This prepared demo bundle is intentionally shared in Git; no data installer, extraction or separate transfer is needed. Run the snapshot and Dam tests with fixtures. Set MESHMIND_DAM_DATA_DIR to this checkout's private_data/toddbrook_runtime/data, replacing any old override, then start one Dam process with scripts.run_worker on 100.100.3.4:8004. Dam reads only the requested date's members directly from the sibling as_of.zip, with no future observations or closures and no fallback to the full source. Emit bounded derived results without excluded origin/classification or evaluation metadata. Preserve raw archives and old development copies separately. Leave the dashboard open and report commit, tests, bundle presence and readiness without raw records or credentials. Wait for Ryan's agreed August 1, 2019 and December 9, 2007 tasks; other locations must not reach this worker.
+> In my Linux worker checkout, read docs/TODDBROOK_SETUP.md and use main. Stop my current worker before updating; preserve existing work and owner data without reset, clean, merge or push. Pull the matching commit and verify private_data/toddbrook_runtime/as_of.zip exists. This prepared demo bundle is intentionally shared in Git; no data installer, extraction or separate transfer is needed. Run the snapshot and Dam tests with fixtures. Set MESHMIND_DAM_DATA_DIR to this checkout's private_data/toddbrook_runtime/data, replacing any old override, then start one Dam process with scripts.run_worker on 100.100.3.4:8004. Dam reads only the requested date's members directly from the sibling as_of.zip, with no future observations or closures and no fallback to the full source. Emit bounded derived results without excluded origin/classification or evaluation metadata. Preserve raw archives and old development copies separately. Leave the dashboard open and report commit, tests, bundle presence and readiness without raw records or credentials. Wait for Ryan's agreed August 1, 2019 and December 9, 2007 tasks; other locations must not reach this worker.
 
 **Ryan — Control**
 
-> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker without merging or pushing. Preserve work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, then start backend.control.serve with --generic --worker-env-file .env.reservoir.local --openai-env-file env.phase8.download --history-dir outputs/debug/reservoir-cutoff/history. Reuse the existing private OpenAI file without printing its key; another setup can use .env.phase8.local with OPENAI_API_KEY and OPENAI_MODEL=gpt-5.4-mini. Build/start the UI on loopback. Each new job permits at most one bounded AI request over checked aggregates; history reopening must not call it again. AI should infer the contextual combined risk, not apply mandatory interaction thresholds, and lead with a plain-language explanation. If AI is unavailable, label the fallback and retain the evidence. The prepared bundle is shared through Git, but only Dam may consume it during investigations. Wait for matching commits and readiness before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Check cutoff compliance, conditional Dam routing, source notes, visible operational errors and the download. Preserve prior history and keep the branch unmerged until I explicitly approve.
+> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use main without merging or pushing. Preserve work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, then start backend.control.serve with --generic --worker-env-file .env.reservoir.local --openai-env-file env.phase8.download --history-dir outputs/debug/reservoir-cutoff/history. Reuse the existing private OpenAI file without printing its key; another setup can use .env.phase8.local with OPENAI_API_KEY and OPENAI_MODEL=gpt-5.4-mini. Build/start the UI on loopback. Each new job permits at most one bounded AI request over checked aggregates; history reopening must not call it again. AI should infer the contextual combined risk, not apply mandatory interaction thresholds, and lead with a plain-language explanation. If AI is unavailable, label the fallback and retain the evidence. The prepared bundle is shared through Git, but only Dam may consume it during investigations. Wait for matching commits and readiness before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Check cutoff compliance, conditional Dam routing, source notes, visible operational errors and the download. Preserve prior history and the retained codex/toddbrook-private-worker branch; do not delete branches.

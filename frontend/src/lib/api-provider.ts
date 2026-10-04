@@ -140,4 +140,4 @@ export function createApiProvider({ fetcher = (...args) => fetch(...args), uuid 
   };
 }
 export const apiProvider = createApiProvider();
-export function briefingDownload(id: string) { if (!UUID.test(id)) throw new Error("Invalid investigation ID"); return { href: `${ROOT}/sessions/${id}/briefing`, filename: `meshmind-${id}-briefing.html` }; }
+export function briefingDownload(id: string) { if (!UUID.test(id)) throw new Error("Invalid investigation ID"); return { href: `${ROOT}/sessions/${id}/briefing`, filename: `amalga-${id}-briefing.html` }; }

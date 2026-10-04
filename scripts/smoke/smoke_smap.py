@@ -1,5 +1,5 @@
 """
-MeshMind Phase 1B
+Amalga Phase 1B
 SMAP L4 dataset-access smoke test.
 
 Purpose:
@@ -101,7 +101,7 @@ def inspect_hdf5(file_path: Path) -> None:
 def main() -> None:
 
     print("=" * 60)
-    print("MeshMind - SMAP L4 Smoke Test")
+    print("Amalga - SMAP L4 Smoke Test")
     print("=" * 60)
 
     test_case = load_test_case()

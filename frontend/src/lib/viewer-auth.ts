@@ -1,5 +1,6 @@
 /** Node-only viewer access boundary; never import this module from client code. */
 import type { WorkerId } from "./types";
+import { isWorkerId } from "./workers";
 
 export type ViewerEnvironment = Record<string, string | undefined>;
 export type ViewerIdentity = { role: WorkerId; token: string };
@@ -31,7 +32,7 @@ export function validateViewerRequest(request: Request, env: ViewerEnvironment =
 export function authorizeViewer(request: Request, role: WorkerId, env: ViewerEnvironment = process.env): ViewerIdentity | Response {
   const denied = validateViewerRequest(request, env);
   if (denied) return denied;
-  if (role !== "hydro" && role !== "flood") return viewerFailure(404);
+  if (!isWorkerId(role)) return viewerFailure(404);
   return { role, token: "" };
 }
 
@@ -41,14 +42,14 @@ export function guardViewerSurface(request: Request, env: ViewerEnvironment = pr
   const denied = validateViewerRequest(request, env);
   if (denied) return denied;
   const url = new URL(request.url); const path = url.pathname;
-  const viewerPage = path === "/viewer/hydro" || path === "/viewer/flood";
-  const viewerApi = path === "/api/viewer/hydro" || path === "/api/viewer/flood";
+  const viewerPage = ["/viewer/hydro", "/viewer/flood", "/viewer/dam"].includes(path);
+  const viewerApi = ["/api/viewer/hydro", "/api/viewer/flood", "/api/viewer/dam"].includes(path);
   // Next emits dynamic-segment bundle paths such as app/viewer/%5Brole%5D/.
   // Decode only bracket escapes; encoded separators/dots and all other percent
   // sequences remain disallowed instead of broadly decoding the asset path.
   const assetPath = path.replace(/%5b/gi, "[").replace(/%5d/gi, "]");
   const asset = /^\/_next\/static\/[A-Za-z0-9_./\[\]-]+$/.test(assetPath) && !assetPath.includes("..");
-  if (!(viewerPage || viewerApi || asset || path === "/icon.svg")) return viewerFailure(403);
+  if (!(viewerPage || viewerApi || asset || path === "/icon.png" || path === "/apple-icon.png" || path === "/amalga-logo.png")) return viewerFailure(403);
   // Next's internal RSC query is required for rendering, but no arbitrary query
   // parameters or destination/session selectors are accepted by viewer endpoints.
   if (viewerApi && url.search || viewerPage && [...url.searchParams.keys()].some((key) => key !== "_rsc")) return viewerFailure(403);

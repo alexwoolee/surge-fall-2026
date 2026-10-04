@@ -313,7 +313,7 @@ def create_app(*, service: ControlService, token=None, viewer_tokens=None):
         finally:
             await service.close()
 
-    app = FastAPI(title="MeshMind Control", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(title="Amalga Control", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(_ControlAccessGuard, token=token, viewer_tokens=viewer_tokens)
     app.state.control_service = service
 
@@ -372,7 +372,7 @@ def create_app(*, service: ControlService, token=None, viewer_tokens=None):
         if view is None:
             raise HTTPException(409, "A checked briefing is not available.")
         return HTMLResponse(render_briefing_html(view), headers={
-            "Content-Disposition": f'attachment; filename="meshmind-{session["id"]}.html"',
+            "Content-Disposition": f'attachment; filename="amalga-{session["id"]}.html"',
             "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'",
         })
 
