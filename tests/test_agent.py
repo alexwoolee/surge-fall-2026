@@ -143,6 +143,52 @@ def test_review_retains_exact_deterministic_evidence_without_worker_dispatch(pre
     assert client.calls[1]['text']['format']['strict'] is True
 
 
+@pytest.mark.parametrize('failure_stage', [None, 'interpretation', 'explanation'])
+def test_request_retention_opt_in_is_local_only_in_success_and_fallback(prepared, monkeypatch, failure_stage):
+    forbid_dispatch(monkeypatch)
+    case, _evidence, _policy = prepared
+    real_render = agent.render_explanation
+    render_calls = []
+
+    def capture_context(*args, **kwargs):
+        render_calls.append(deepcopy(kwargs))
+        return real_render(*args, **kwargs)
+
+    monkeypatch.setattr(agent, 'render_explanation', capture_context)
+    replies = ([AgentAPIError('timeout')] if failure_stage == 'interpretation' else
+               [plan(), AgentAPIError('timeout')] if failure_stage == 'explanation' else
+               [plan(), explanation()])
+    clients = []
+    for include_request in (False, True):
+        snapshots = []
+        render_calls.clear()
+        client = ScriptedClient(*replies)
+        clients.append(client)
+        result = review(prepared, client, include_request=include_request, persist=snapshots.append)
+        assert result['status'] == ('complete' if failure_stage is None else 'degraded')
+        assert len(client.calls) == (1 if failure_stage == 'interpretation' else 2)
+        assert not result['dispatch_attempted']
+        assert render_calls
+        for context in render_calls:
+            assert context['study_area_name'] == case.name
+            assert context['execution_mode'] == 'review'
+            assert context['original_request'] == (REQUEST if include_request else None)
+        for snapshot in snapshots:
+            assert (REQUEST in json.dumps(snapshot)) == include_request
+            if include_request:
+                assert 'untrusted' in snapshot['explanation']['narrative'].lower()
+    assert clients[0].calls == clients[1].calls
+
+
+@pytest.mark.parametrize('include_request', [None, 1, 0, 'yes', 'false', [], {}])
+def test_request_retention_rejects_non_boolean_before_any_side_effect(prepared, monkeypatch, include_request):
+    forbid_dispatch(monkeypatch)
+    client, snapshots = ScriptedClient(), []
+    with pytest.raises(ValueError, match='boolean opt-in'):
+        review(prepared, client, include_request=include_request, persist=snapshots.append)
+    assert client.calls == [] and snapshots == []
+
+
 @pytest.mark.parametrize('field', ['reference_time', 'threshold_db', 'resources', 'requested_window', 'bbox'])
 def test_saved_evidence_must_match_every_configured_field_before_api(prepared, field):
     case, evidence, policy = prepared
@@ -293,11 +339,19 @@ def test_persist_callback_receives_detached_snapshots(prepared):
     assert len(result['requests']) == 2 and len(result['deterministic']['fusion']['metrics']) == 8
 
 
-def test_new_execution_dispatches_exact_configured_tasks_once_and_persists_before_explanation(prepared, monkeypatch):
+@pytest.mark.parametrize('include_request', [False, True])
+def test_new_execution_dispatches_exact_configured_tasks_once_and_persists_before_explanation(prepared, monkeypatch, include_request):
     case, evidence, policy = prepared
     settings = control_settings()
     run = dispatch_result(case, evidence)
     snapshots, events, calls = [], [], []
+    real_render, render_calls = agent.render_explanation, []
+
+    def capture_context(*args, **kwargs):
+        render_calls.append(deepcopy(kwargs))
+        return real_render(*args, **kwargs)
+
+    monkeypatch.setattr(agent, 'render_explanation', capture_context)
 
     def persist(value):
         snapshots.append(value)
@@ -313,7 +367,7 @@ def test_new_execution_dispatches_exact_configured_tasks_once_and_persists_befor
     monkeypatch.setattr(agent, 'run_analysis', execute)
     client = ScriptedClient(plan(), explanation(), events=events)
     result = asyncio.run(run_agent(REQUEST, case, policy, client, execute=True,
-                                  control_settings=settings, persist=persist))
+                                  control_settings=settings, persist=persist, include_request=include_request))
     assert calls == [(case.hydro, case.flood, settings, {'execution_mode': 'parallel'})]
     assert result['status'] == 'complete' and result['mode'] == 'execute'
     assert result['dispatch_attempted'] and result['execution_repeated']
@@ -326,6 +380,14 @@ def test_new_execution_dispatches_exact_configured_tasks_once_and_persists_befor
     assert snapshots[4]['deterministic'] == result['deterministic']
     assert snapshots[4]['explanation']['status'] == 'fallback'
     assert SECRET not in json.dumps(client.calls)
+    assert len(render_calls) == 2
+    for context in render_calls:
+        assert context['study_area_name'] == case.name
+        assert context['execution_mode'] == 'execute'
+        assert context['original_request'] == (REQUEST if include_request else None)
+    for snapshot in snapshots:
+        if snapshot['explanation'] is not None:
+            assert (REQUEST in json.dumps(snapshot)) == include_request
 
 
 @pytest.mark.parametrize('fail_save,dispatches', [(1, 0), (2, 0), (3, 0), (4, 1), (5, 1)])

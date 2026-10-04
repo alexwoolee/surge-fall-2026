@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from backend.control.alerts import DEMO_NOTICE, ReviewPolicy, ReviewResult, evaluate_review_conditions
 from backend.control.fusion import DISCLAIMER, FusionResult
+from backend.control.explanation_methods import build_method_facts
 
 
 MAX_SELECTED_FACTS = 16
@@ -178,17 +179,62 @@ def explanation_schema(catalog: dict) -> dict:
     }
 
 
-def render_explanation(report: dict, selected_fact_ids: list[str] | None, *, status="complete") -> dict:
+def _display_context(fused, study_area_name, original_request, execution_mode):
+    """Keep optional operator/request text local and explicitly outside evidence.
+
+    JSON quoting keeps line breaks and quotes visibly inside the user quotation.
+    A future HTML consumer must still escape all text rather than interpret it.
+    """
+    if (study_area_name is not None and (
+            not isinstance(study_area_name, str) or not 1 <= len(study_area_name.strip()) <= 120
+            or any(ord(char) < 32 or ord(char) == 127 for char in study_area_name))):
+        raise GroundingValidationError("Study area display context must be bounded text.")
+    if (original_request is not None and (
+            not isinstance(original_request, str) or not original_request.strip()
+            or len(original_request.encode("utf-8")) > 4096
+            or any(ord(char) < 32 and char not in "\n\t" for char in original_request))):
+        raise GroundingValidationError("Original request context must be bounded text.")
+    if execution_mode not in (None, "review", "execute"):
+        raise GroundingValidationError("Execution context must identify review or execute mode.")
+    bbox = fused.bbox.model_dump(mode="json")
+    lines = ["Study area (configured label): " + json.dumps(study_area_name, ensure_ascii=False) + "."
+             if study_area_name is not None else "Study area label: unreported."]
+    lines.append("Study area bounds in degrees (WGS84): " + ", ".join(
+        f"{key} {bbox[key]!r}" for key in ("west", "south", "east", "north")) + ".")
+    lines.append("Original request (untrusted user context, not an environmental finding): "
+                 + json.dumps(original_request, ensure_ascii=False)
+                 if original_request is not None
+                 else "Original request: not retained; request saving was not enabled.")
+    if execution_mode == "review":
+        lines.append("Execution context: review of retained worker evidence; no new worker dispatch or data acquisition is represented by this explanation.")
+    elif execution_mode == "execute":
+        lines.append("Execution context: results of the caller-authorized worker investigation. Physical parallel execution requires separate identity and timing evidence; it is not inferred here.")
+    else:
+        lines.append("Execution context: unreported; this explanation does not establish a new worker execution or physical parallelism.")
+    return {
+        "study_area_name": study_area_name, "bbox": bbox,
+        "original_request": original_request, "request_retained": original_request is not None,
+        "execution_mode": execution_mode,
+        "text": "\n\n".join(lines),
+    }
+
+
+def render_explanation(report: dict, selected_fact_ids: list[str] | None, *, status="complete",
+                       study_area_name=None, original_request=None, execution_mode=None) -> dict:
     """Render model-selected highlights and an unskippable evidence context.
 
     None selects every measurement and condition for deterministic fallback;
     the model selection bound applies only to an explicit model-provided list.
-    Exact measurements and every rule outcome remain available independently
-    of highlight order. Neither this function nor the model edits the report.
+    Every measurement, method, limit and rule remains in the full narrative
+    independently of highlights. Display context and method facts are local;
+    they do not expand the model-facing catalog. Original request retention is
+    explicit and labels that text as user context, never validated evidence.
+    Neither this function nor the model edits the report.
     """
     if status not in {"complete", "fallback"}:
         raise GroundingValidationError("Explanation status must be complete or fallback.")
     detached, fused, review = _validated_report(report)
+    context = _display_context(fused, study_area_name, original_request, execution_mode)
     catalog = _catalog(fused, review)
     if selected_fact_ids is None:
         selected = [key for key, fact in catalog.items() if fact["kind"] in {"measurement", "unavailable", "rule"}]
@@ -200,14 +246,45 @@ def render_explanation(report: dict, selected_fact_ids: list[str] | None, *, sta
         selected = list(selected_fact_ids)
     highlights = [catalog[key] for key in selected]
     mandatory = [fact for fact in catalog.values()
-                 if fact["kind"] in {"time", "coverage", "limitation", "disclaimer", "unavailable"}]
+                 if fact["kind"] in {"measurement", "time", "coverage", "limitation", "disclaimer", "unavailable"}]
+    methods = build_method_facts(fused)
+    mandatory.extend(methods)
     outcomes = [fact for fact in catalog.values() if fact["kind"] == "rule"]
-    narrative_facts = {fact["id"]: fact for fact in highlights + outcomes + mandatory}
+    available = sum(item.status == "available" for item in fused.components.values())
+    combined = {
+        "id": "combined.summary", "kind": "summary",
+        "text": (f"Combined observations: {available} of {len(fused.components)} source components have validated results. "
+                 f"Demonstration review conditions: {review.triggered_count} triggered, "
+                 f"{review.not_triggered_count} not triggered, {review.not_assessable_count} not assessable. "
+                 "These are configured analyst-review criteria, not a flood confirmation or severity classification. "
+                 "Component availability does not imply full coverage or simultaneous observations."),
+        "source_refs": ["/fusion/status", "/review/triggered_count", "/review/not_triggered_count",
+                        "/review/not_assessable_count"],
+    }
+    mandatory.append(combined)
+    sections = [{"id": "context", "title": "Study area and request", "text": context["text"],
+                 "source_refs": ["/fusion/bbox"]}]
+
+    def section(section_id, title, facts):
+        sections.append({"id": section_id, "title": title,
+                         "text": "\n\n".join(fact["text"] for fact in facts),
+                         "source_refs": list(dict.fromkeys(ref for fact in facts for ref in fact["source_refs"]))})
+
+    section("combined", "Combined observations", [combined, catalog["policy.notice"]])
+    section("measurements", "Environmental measurements", [catalog[f"metric.{key}"] for key in fused.metrics])
+    section("conditions", "Analyst-review conditions", outcomes)
+    section("observation_context", "Observation times and coverage",
+            [fact for fact in catalog.values() if fact["kind"] in {"time", "coverage"}])
+    section("methods", "Sources and processing", [fact for fact in methods if fact["kind"] != "source_limitation"])
+    section("limitations", "Limitations", [fact for fact in catalog.values() if fact["id"].startswith("limitation.")]
+            + [fact for fact in methods if fact["kind"] == "source_limitation"])
+    section("disclaimer", "Use of this briefing", [catalog["disclaimer"]])
     return {
         "status": status, "selected_fact_ids": selected, "highlights": highlights,
         "mandatory_context": mandatory, "rule_outcomes": outcomes,
         "measurements": detached["fusion"]["metrics"],
-        "narrative": "\n\n".join(fact["text"] for fact in narrative_facts.values()),
-        "source_refs": list(dict.fromkeys(ref for fact in narrative_facts.values() for ref in fact["source_refs"])),
+        "context": context, "sections": sections,
+        "narrative": "\n\n".join(part["title"] + "\n" + part["text"] for part in sections),
+        "source_refs": list(dict.fromkeys(ref for part in sections for ref in part["source_refs"])),
         "disclaimer": DISCLAIMER,
     }

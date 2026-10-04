@@ -83,6 +83,9 @@ def main(argv=None):
     mode.add_argument('--input', type=Path, help='Retained original requests plus dispatch/combined evidence; no worker calls.')
     mode.add_argument('--execute', action='store_true', help='Explicitly authorize one new combined worker dispatch for the configured case.')
     parser.add_argument('--request', required=True, help='Natural-language request, up to 4096 UTF-8 bytes. Never include credentials.')
+    parser.add_argument('--include-request', action='store_true',
+                        help='Save the exact request in the local explanation as untrusted user context. '
+                             'Omitted by default for privacy; review it for sensitive information before enabling or sharing.')
     parser.add_argument('--config', type=Path, default=ROOT / 'config/test_case.example.json')
     parser.add_argument('--rules', type=Path, required=True, help='Explicit deterministic demonstration policy.')
     parser.add_argument('--output', type=Path, default=ROOT / 'outputs/debug/agent/result.json')
@@ -127,7 +130,8 @@ def main(argv=None):
         stage = 'agent_run'
         def persist(report):
             nonlocal last_report
-            # No prompt, raw model response or private settings are persisted.
+            # The original request is included only with --include-request.
+            # Raw model responses and private settings are never persisted.
             report = {**report, 'attempt_id': attempt['attempt_id'], 'source_sha256': digest,
                       'model': model, 'api': 'OpenAI Responses'}
             last_report = report
@@ -135,7 +139,8 @@ def main(argv=None):
             attempt.update(validation=report['validation'], dispatch_attempted=report['dispatch_attempted'])
             write_review_report(attempt_path, attempt)
         report = asyncio.run(run_agent(args.request, case, policy, client, evidence=evidence,
-                                       execute=args.execute, control_settings=control, persist=persist))
+                                       execute=args.execute, control_settings=control, persist=persist,
+                                       include_request=args.include_request))
         print(f"Phase 8 agent: {report['status']}; validation: {report['validation']}.")
         if report['error']:
             print(f"Stage: {report['error']['stage']}; code: {report['error']['code']}.")

@@ -171,14 +171,18 @@ def _bound_review(evidence, case, policy):
 
 async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, client, *,
                     evidence=None, execute=False, control_settings: ControlSettings | None = None,
-                    persist: Callable[[dict], None] | None = None):
+                    persist: Callable[[dict], None] | None = None, include_request: bool = False):
     """At most two model calls and one authorized combined dispatch.
 
     A replay first revalidates its deterministic result and preserves it even if
     interpretation or explanation fails. New execution requires an independent
     caller flag and configuration; model output can never grant that authority.
     Persistence failures propagate, so no subsequent action runs without evidence.
+    Original request text is saved in the local explanation only with an explicit
+    include_request opt-in; it remains untrusted context, not environmental evidence.
     """
+    if type(include_request) is not bool:
+        raise ValueError('Including original request text requires an explicit boolean opt-in.')
     if (type(execute) is not bool or (execute and evidence is not None)
             or (not execute and evidence is None)):
         raise ValueError('Select either retained-evidence review or explicit new execution.')
@@ -197,9 +201,14 @@ async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, cl
         'requests': [task.model_dump(mode='json') for task in (case.hydro, case.flood)],
         'worker_evidence': None, 'error': None,
     }
+    render_context = {
+        'study_area_name': case.name,
+        'original_request': request if include_request else None,
+        'execution_mode': report['mode'],
+    }
     if not execute:
         report['deterministic'] = _bound_review(evidence, case, policy)
-        report['explanation'] = render_explanation(report['deterministic'], None, status='fallback')
+        report['explanation'] = render_explanation(report['deterministic'], None, status='fallback', **render_context)
     def save():
         if persist is not None:
             persist(deepcopy(report))
@@ -236,7 +245,7 @@ async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, cl
         save()  # Save independent worker results before fusion or another model call.
         try:
             report['deterministic'] = _bound_review(report['worker_evidence'], case, policy)
-            report['explanation'] = render_explanation(report['deterministic'], None, status='fallback')
+            report['explanation'] = render_explanation(report['deterministic'], None, status='fallback', **render_context)
         except (ValueError, TypeError, KeyError, OverflowError, RecursionError):
             report.update(status='degraded', validation='FAIL', error={'stage': 'deterministic_review', 'code': 'invalid_evidence'})
             save()
@@ -250,7 +259,7 @@ async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, cl
             text={'format': {'type': 'json_schema', 'name': 'grounded_fact_selection',
                              'strict': True, 'schema': explanation_schema(catalog)}},
         )
-        report['explanation'] = render_explanation(report['deterministic'], _selection(response))
+        report['explanation'] = render_explanation(report['deterministic'], _selection(response), **render_context)
     except (AgentAPIError, ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
         report.update(status='degraded', validation='FAIL', error={
             'stage': 'explanation', 'code': error.code if isinstance(error, AgentAPIError) else 'invalid_response'})

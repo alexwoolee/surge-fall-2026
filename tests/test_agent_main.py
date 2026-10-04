@@ -72,6 +72,32 @@ def test_complete_replay_saves_checked_measurements_sidecar_and_input_digest(cli
     assert originals == {name: cli_files[name].read_bytes() for name in originals}
 
 
+@pytest.mark.parametrize('failure_stage', [None, 'interpretation', 'explanation'])
+def test_include_request_cli_flag_persists_context_in_complete_and_fallback_reports(cli_files, monkeypatch, failure_stage):
+    replies = ([AgentAPIError('timeout')] if failure_stage == 'interpretation' else
+               [plan(), AgentAPIError('timeout')] if failure_stage == 'explanation' else
+               [plan(), explanation()])
+    client = install_client(monkeypatch, ScriptedClient(*replies))
+    assert agent_main.main(cli_argv(cli_files) + ['--include-request']) == (0 if failure_stage is None else 1)
+    report = read_json(cli_files['output'])
+    assert REQUEST in json.dumps(report['explanation'])
+    assert 'untrusted' in report['explanation']['narrative'].lower()
+    assert not report['dispatch_attempted']
+    assert len(client.calls) == (1 if failure_stage == 'interpretation' else 2)
+    assert SECRET not in json.dumps(report)
+    assert REQUEST not in json.dumps(read_json(attempt_path(cli_files)))
+
+
+def test_include_request_cli_help_explains_local_privacy_opt_in(capsys):
+    with pytest.raises(SystemExit) as stopped:
+        agent_main.main(['--help'])
+    assert stopped.value.code == 0
+    help_text = ' '.join(capsys.readouterr().out.split())
+    assert '--include-request' in help_text
+    assert 'untrusted user context' in help_text
+    assert 'Omitted by default for privacy' in help_text
+
+
 def test_explicit_execute_dispatches_configured_tasks_once_without_real_network(cli_files, prepared, monkeypatch, capsys):
     case, evidence, _policy = prepared
     run = dispatch_result(case, evidence)
