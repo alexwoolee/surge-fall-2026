@@ -120,7 +120,7 @@ def main() -> None:
     results = earthaccess.search_data(
         short_name=GPM_SHORT_NAME,
         version=GPM_VERSION,
-        bounding_box=bbox,
+        bounding_box=tuple(bbox),
         temporal=(start_time, end_time),
         count=5,
     )

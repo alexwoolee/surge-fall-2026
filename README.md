@@ -12,7 +12,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 3C — Combined Flood Worker**
+**Phase 4 — Shared Contracts and Worker APIs**
 
 Completed so far:
 
@@ -25,11 +25,13 @@ Completed so far:
 - multi-tile DEM and HAND processing with approved real-data review
 - calibrated Sentinel-1 RTC candidate-water processing with approved visual review
 - combined deterministic Flood worker and terminal validation checkpoint
-- automated test suite: **249 passing tests**
+- shared Pydantic task/result/status contracts
+- Hydro and Flood HTTP APIs validated with real data on loopback
+- automated test suite: **390 passing tests**
 
 Current focus:
 
-**Phase 3C terminal checkpoint before shared contracts and worker APIs**
+**Phase 4 terminal checkpoint before real remote worker communication**
 
 ## Status Matrix
 
@@ -53,8 +55,8 @@ Flood Worker    PASS
 
 DISTRIBUTED SYSTEM
 
-Shared Contracts        NOT STARTED
-Worker HTTP APIs        NOT STARTED
+Shared Contracts        PASS
+Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         NOT STARTED
 Parallel Execution      NOT STARTED
 Control Fusion          NOT STARTED
@@ -65,12 +67,13 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Define shared Pydantic contracts and worker APIs.
+1. Review the Phase 4 terminal checkpoint and approve advancing.
 2. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
 3. Prove both workers execute at the same time.
 
 Current validation commands and limits are recorded in
-[Phase 3C validation](docs/phase3c-validation.md). The earlier
+[Phase 4 validation](docs/phase4-validation.md). The earlier
+[combined Flood](docs/phase3c-validation.md),
 [terrain](docs/manual-test-checklist.md) and
 [Sentinel-1](docs/phase3b-validation.md) reviews remain available.
 
@@ -574,13 +577,34 @@ they are not terrain measurements restricted to candidate-water pixels.
 The worker performs no common-grid overlay, water-depth calculation, flood
 confirmation or severity classification. See the [terminal checkpoint](docs/phase3c-validation.md).
 
+## Worker API Integration
+
+The Phase 4 terminal checkpoint runs temporary Hydro and Flood servers on
+loopback and processes real resources through `POST /tasks`, task/status polling,
+and result retrieval. Results reproduce the values above; typed JSON round trips,
+authentication rejection and idempotent task retries passed. Processing times
+and provenance are recorded in the ignored JSON report.
+
+Run:
+
+```sh
+.venv/bin/python -m scripts.validate.validate_worker_apis --download-hydro
+```
+
+The download option uses an existing local Earthdata login. See the
+[Phase 4 commands and API contract](docs/phase4-validation.md) for setup and
+resource options. The API retains one active task and bounded completed history
+per process. Use one Uvicorn process per worker; registry state is in memory and
+is lost on restart. These local checks do not establish remote or parallel
+execution. No new HTML/manual visual review is needed for this phase.
+
 ---
 
 # Automated Tests
 
 Current full test suite:
 
-**249 tests passing**
+**390 tests passing**
 
 Run:
 
@@ -624,6 +648,8 @@ python -m pytest -v
 - combined worker summaries, source traceability and strict JSON serialization
 - component failure isolation with successful evidence retained
 - terminal validation, repeatability, failure reports and stale-PASS protection
+- contract serialization, finite measurements and bounded request validation
+- responsive HTTP status, authentication, idempotency and result/task consistency
 
 Existing passing tests are protected behavior. New work must not silently break them.
 
@@ -872,9 +898,10 @@ Responsibilities:
 
 ### `backend/workers/hydro/main.py`
 
-**Not implemented yet**
+**Implemented**
 
-Future FastAPI entry point for Laptop 2.
+FastAPI application factory for Laptop 2; bounded Hydro tasks resolve resource
+basenames inside configured data folders before calling the existing service.
 
 ## Flood Worker
 
@@ -937,51 +964,50 @@ FloodResult
 The service returns a structured dictionary containing task/worker identity,
 processing status, compact summaries, full component evidence, separate coverage,
 safe provenance, limitations and component errors. Successful components are
-retained if another fails. Formal Pydantic `FloodResult` contracts follow in
-Phase 4; no HTTP endpoint or distributed execution is claimed yet.
+retained if another fails. The API now validates the service output with the shared Pydantic `FloodResult`
+contract. Distributed execution remains Phase 5.
 
 ### `backend/workers/flood/main.py`
 
-**Not implemented yet**
+**Implemented**
 
-Future FastAPI entry point for Laptop 3.
+FastAPI application factory for Laptop 3; bounded tasks discover approved
+resources and invoke the existing combined Flood service.
 
 ## Shared
 
 ### `backend/shared/contracts.py`
 
-**Not implemented yet**
+**Implemented**
 
-Expected Pydantic models:
+Pydantic models:
 
 ```text
 AnalysisTask
 HydroResult
 FloodResult
 WorkerStatus
+TaskStatus
 CombinedAnalysis
 ```
 
 ### `backend/shared/settings.py`
 
-Planned settings:
-
-- Control host/port
-- worker URLs
-- local resource paths
-- environment configuration
+Implemented worker settings: GPM/SMAP data folders, task retention capacity, and
+an optional Bearer token, read from exported `MESHMIND_*` variables.
+Control/remote-worker URL configuration follows in Phase 5.
 
 ### `backend/shared/status.py`
 
-Planned real task states:
+Implemented task states:
 
 ```text
 task_received
 dataset_located
 processing
 preparing_result
-sending_result
 complete
+partial
 failed
 ```
 
@@ -1142,6 +1168,8 @@ Required:
 - automated tests
 
 ## Phase 4 — Shared Contracts and Worker APIs
+
+**Real-data HTTP and automated validation PASS; user checkpoint pending.**
 
 Required:
 
@@ -1723,7 +1751,9 @@ The cloud AI layer and physical worker execution must not be confused.
 - calibrated Sentinel-1 candidate-water processor
 - combined deterministic Flood worker
 - real-data Flood integration and repeatability
-- 249 automated tests
+- shared task/result/status contracts
+- both worker HTTP APIs with local real-data validation
+- 390 automated tests
 
 ## TESTED
 
@@ -1743,6 +1773,8 @@ The cloud AI layer and physical worker execution must not be confused.
 - terrain multi-tile clipping and statistics
 - Sentinel-1 candidate-water visual review
 - combined Flood worker JSON, provenance and component-failure handling
+- local real-data Hydro/Flood HTTP task, status and result endpoints
+- request bounds, authentication, duplicate handling and capacity limits
 
 ## BLOCKED
 
@@ -1750,7 +1782,7 @@ Nothing currently.
 
 ## NEXT
 
-**Phase 4 — Shared Contracts and Worker APIs**
+**Phase 4 checkpoint acknowledgment**, then:
 
 **Phase 5 — Remote Worker Communication**
 

@@ -1,4 +1,4 @@
-﻿earthaccess==0.19.0
+earthaccess==0.19.0
 h5py==3.16.0
 numpy==2.5.3
 planetary-computer==1.0.0
@@ -7,3 +7,9 @@ pytest==9.1.1
 # Rasterio 1.5 wheels require macOS 15; retain a macOS 14-compatible wheel.
 rasterio==1.4.4; sys_platform == "darwin" and platform_release < "24.0"
 rasterio==1.5.2; sys_platform != "darwin" or platform_release >= "24.0"
+
+# Phase 4 contracts, HTTP worker servers, and API tests.
+pydantic==2.13.5
+fastapi==0.142.2
+uvicorn==0.54.0
+httpx==0.28.1
