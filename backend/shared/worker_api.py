@@ -13,7 +13,6 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from copy import deepcopy
 from datetime import datetime, timezone
-import hmac
 import json
 import math
 import re
@@ -30,7 +29,6 @@ from backend.shared.contracts import (
     AnalysisTask, FloodResult, HydroResult, TaskStatus, WorkerClock, WorkerStatus,
 )
 from backend.shared.status import TaskState
-from backend.shared.settings import validate_token
 from backend.shared.worker_dashboard import (
     DASHBOARD_ASSETS, MAX_DASHBOARD_EVENTS, PUBLIC_GET_PATHS, dashboard_asset,
     dashboard_event, dashboard_headers, dashboard_snapshot,
@@ -76,29 +74,16 @@ def _finite_json(value):
 
 
 class _RequestGuard:
-    """Authenticate before reading bounded JSON; never echo untrusted inputs."""
+    """Bound JSON requests without interpreting legacy internal credentials."""
 
-    def __init__(self, app, *, token: str | None, public_get_paths=()):
+    def __init__(self, app, *, token=None, public_get_paths=()):
+        # Keep these keyword arguments compatible with existing app factories.
         self.app = app
-        self.token = token.encode("utf-8") if token is not None else None
-        self.public_get_paths = frozenset(public_get_paths)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
-        if (scope["method"] == "GET" and scope["path"] in self.public_get_paths
-                and scope.get("raw_path", scope["path"].encode("ascii")) == scope["path"].encode("ascii")):
-            return await self.app(scope, receive, send)
         headers = {key.lower(): value for key, value in scope["headers"]}
-        if self.token is not None:
-            auth = headers.get(b"authorization", b"").split(b" ", 1)
-            if (len(auth) != 2 or auth[0].lower() != b"bearer"
-                    or not hmac.compare_digest(auth[1], self.token)):
-                response = JSONResponse(
-                    {"detail": "Authentication required."}, status_code=401,
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
-                return await response(scope, receive, send)
         if scope["method"] != "POST":
             return await self.app(scope, receive, send)
         try:
@@ -175,7 +160,6 @@ def create_worker_app(
         raise ValueError("A supported worker, analysis type and callable runner are required.")
     if isinstance(capacity, bool) or not isinstance(capacity, int) or not 1 <= capacity <= 1024:
         raise ValueError("Task capacity must be an integer from 1 to 1024.")
-    validate_token(token)
     result_type = HydroResult if worker_id == "hydro-worker" else FloodResult
     lock = Lock()
     records: dict[str, _Record] = {}

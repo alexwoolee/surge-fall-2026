@@ -1,5 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { authorizeViewer, guardViewerSurface, validViewerAuthority } from "./viewer-auth";
 import { proxyWorkerViewer } from "./viewer-proxy";
 import { proxyControl } from "./control-proxy";
@@ -13,11 +16,11 @@ const request = (path = "/viewer/hydro", headers = {}, method = "GET") => new Re
 const waiting: WorkerViewerSnapshot = { session: null, worker: null, observedAt: null, events: [] };
 const done: WorkerViewerSnapshot = { session: { id: ID, title: "Abbotsford", createdAt: "2026-10-05T00:00:00Z", executionNotice: "Historical inputs; current execution.", status: "partial" }, worker: { id: "hydro", name: "Hydro", location: "Laptop 2", status: "complete", steps: [{ id: "processing", label: "Processing", state: "complete" }], summary: "Evidence returned", resources: ["GPM"], returned: true, validated: true }, observedAt: "2026-10-05T00:00:01Z", events: [{ id: "1", observedAt: "2026-10-05T00:00:00Z", label: "Task accepted" }, { id: "2", observedAt: "2026-10-05T00:00:01Z", label: "Evidence returned" }] };
 
-test("viewer requires no browser credentials and selects server credentials by requested role", () => {
+test("viewer ignores internal credentials while preserving the requested role", () => {
   for (const role of ["hydro", "flood"] as const) {
     const req = request(`/viewer/${role}`);
     assert.equal(req.headers.get("authorization"), null);
-    assert.deepEqual(authorizeViewer(req, role, env), { role, token: role === "hydro" ? env.MESHMIND_VIEWER_HYDRO_TOKEN : env.MESHMIND_VIEWER_FLOOD_TOKEN });
+    assert.deepEqual(authorizeViewer(req, role, env), { role, token: "" });
     // Old cached browser credentials neither grant privileges nor block access.
     assert.deepEqual(authorizeViewer(request(`/viewer/${role}`, { Authorization: "Basic invalid-cached-value" }), role, env), authorizeViewer(req, role, env));
   }
@@ -25,8 +28,7 @@ test("viewer requires no browser credentials and selects server credentials by r
     const result = authorizeViewer(req, "hydro", env); assert.ok(result instanceof Response); assert.equal(result.status, expected); assert.equal(result.headers.get("www-authenticate"), null);
   }
   assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_UI_MODE: "operator" }) as Response).status, 404);
-  assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_FLOOD_TOKEN: env.MESHMIND_VIEWER_HYDRO_TOKEN }) as Response).status, 503);
-  assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_HYDRO_TOKEN: "" }) as Response).status, 503);
+  for (const token of [undefined, "", "same", "arbitrary\r\nheader", "任意"]) assert.deepEqual(authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_HYDRO_TOKEN: token, MESHMIND_VIEWER_FLOOD_TOKEN: token }), { role: "hydro", token: "" });
 });
 test("viewer listener opens both read-only dashboards and assets without login while blocking operator surfaces", () => {
   for (const path of ["/viewer/hydro", "/viewer/flood", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/api/viewer/flood", "/_next/static/chunks/app-123.js", "/icon.svg"]) assert.equal(guardViewerSurface(request(path), env), null, path);
@@ -51,12 +53,12 @@ test("operator proxy independently denies viewer-mode requests even with an oper
   const response = await proxyControl(request("/api/control/sessions"), ["sessions"], { env, fetcher: async () => { calls++; return Response.json({}); } });
   assert.equal(response.status, 403); assert.equal(calls, 0);
 });
-test("viewer APIs need no browser login and use only the requested server-side role token upstream", async () => {
+test("viewer APIs ignore credentials and read only the requested fixed upstream route", async () => {
   for (const role of ["hydro", "flood"] as const) {
     const snapshot = { ...done, worker: { ...done.worker!, id: role } };
     const result = await proxyWorkerViewer(request(`/api/viewer/${role}`, { Cookie: "private-browser-cookie", Authorization: "Bearer caller-secret-must-not-be-forwarded" }), role, { env, fetcher: async (input, init) => {
       assert.equal(String(input), `http://127.0.0.1:8001/viewer/${role}`); assert.equal(init?.method, "GET"); assert.equal(init?.redirect, "error");
-      assert.deepEqual(init?.headers, { Authorization: `Bearer ${role === "hydro" ? env.MESHMIND_VIEWER_HYDRO_TOKEN : env.MESHMIND_VIEWER_FLOOD_TOKEN}`, Accept: "application/json" });
+      assert.deepEqual(init?.headers, { Accept: "application/json" });
       return Response.json(snapshot, { headers: { "Set-Cookie": "backend-private", "X-Secret": "private", "WWW-Authenticate": "Basic unwanted" } });
     } });
     assert.equal(result.status, 200); assert.deepEqual(await result.json(), snapshot); assert.equal(result.headers.get("set-cookie"), null); assert.equal(result.headers.get("www-authenticate"), null);
@@ -97,13 +99,44 @@ test("viewer has no overlapping polls and aborting discards pending responses", 
   await new Promise((resolve) => setImmediate(resolve)); assert.equal(calls, 1); assert.equal(schedules, 0);
   stop(); assert.equal(signal!.aborted, true); complete(Response.json(waiting)); await new Promise((resolve) => setImmediate(resolve)); assert.equal(snapshots, 0); assert.equal(schedules, 0);
 });
-test("viewer launch parser is literal, validates binding and clears inherited operator credentials", () => {
+test("viewer launch ignores legacy token content, validates binding and clears inherited credentials", () => {
   const text = `MESHMIND_VIEWER_HYDRO_TOKEN='${env.MESHMIND_VIEWER_HYDRO_TOKEN}'\nMESHMIND_VIEWER_FLOOD_TOKEN=${env.MESHMIND_VIEWER_FLOOD_TOKEN}\n`;
   const tokens = parseViewerEnv(text); const args = parseViewerArgs(["--env-file", "../private.env", "--host", "100.100.3.5", "--port", "3001"]);
   const child = viewerChildEnvironment(args, tokens, { ...env, NODE_ENV: "test", PATH: "path", OPENAI_API_KEY: "private-key", MESHMIND_WORKER_TOKEN: "private-worker" });
-  assert.equal(child.MESHMIND_UI_MODE, "viewer"); assert.equal(child.MESHMIND_VIEWER_HOST, "100.100.3.5:3001"); assert.equal(child.MESHMIND_CONTROL_API_TOKEN, ""); assert.equal(child.MESHMIND_CONTROL_API_URL, ""); assert.equal(child.OPENAI_API_KEY, ""); assert.equal(child.MESHMIND_WORKER_TOKEN, undefined);
-  assert.equal(parseViewerArgs(["--env-file", "x"]).host, "127.0.0.1");
+  assert.equal(child.MESHMIND_UI_MODE, "viewer"); assert.equal(child.MESHMIND_VIEWER_HOST, "100.100.3.5:3001"); assert.equal(child.MESHMIND_CONTROL_API_TOKEN, ""); assert.equal(child.MESHMIND_CONTROL_API_URL, ""); assert.equal(child.OPENAI_API_KEY, ""); assert.equal("MESHMIND_WORKER_TOKEN" in child, false);
+  assert.equal(parseViewerArgs([]).host, "127.0.0.1");
+  for (const path of ["", "/definitely/missing/file.env", "invalid\0path"]) assert.equal(parseViewerArgs(["--env-file", path]).host, "127.0.0.1");
+  assert.equal(child.MESHMIND_VIEWER_HYDRO_TOKEN, ""); assert.equal(child.MESHMIND_VIEWER_FLOOD_TOKEN, "");
   for (const host of ["0.0.0.0", "192.168.1.2", "100.63.0.1", "100.128.0.1", "evil.example", "100.100.3.05"]) assert.throws(() => parseViewerArgs(["--env-file", "x", "--host", host]));
-  for (const invalidText of ["MESHMIND_VIEWER_HYDRO_TOKEN=$(cat ~/.secret)", `${text}OPENAI_API_KEY=secret\n`, text.replace(env.MESHMIND_VIEWER_FLOOD_TOKEN, env.MESHMIND_VIEWER_HYDRO_TOKEN)]) assert.throws(() => parseViewerEnv(invalidText));
+  for (const invalidText of ["MESHMIND_VIEWER_HYDRO_TOKEN=$(cat ~/.secret)", `${text}OPENAI_API_KEY=secret\n`, text.replace(env.MESHMIND_VIEWER_FLOOD_TOKEN, env.MESHMIND_VIEWER_HYDRO_TOKEN)]) assert.deepEqual(parseViewerEnv(invalidText), {});
   assert.equal(validViewerAuthority("100.100.3.5:3001"), true); assert.equal(validViewerAuthority("100.100.3.5:3001@evil.example"), false);
+});
+
+test("viewer upstream works with absent or arbitrary internal tokens and no configured URL", async () => {
+  for (const token of [undefined, "", "arbitrary value", "invalid\r\nheader", "任意"]) {
+    for (const role of ["hydro", "flood"] as const) {
+      const settings = { MESHMIND_UI_MODE: "viewer", MESHMIND_VIEWER_HOST: env.MESHMIND_VIEWER_HOST, MESHMIND_VIEWER_HYDRO_TOKEN: token, MESHMIND_VIEWER_FLOOD_TOKEN: token };
+      const result = await proxyWorkerViewer(request(`/api/viewer/${role}`), role, { env: settings, fetcher: async (input, init) => {
+        assert.equal(String(input), `http://127.0.0.1:8001/viewer/${role}`); assert.deepEqual(init?.headers, { Accept: "application/json" }); return Response.json(waiting);
+      } });
+      assert.equal(result.status, 200); assert.deepEqual(await result.json(), waiting);
+    }
+  }
+});
+
+
+test("viewer npm command keeps a missing legacy env-file argument away from Node's own option parser", () => {
+  const project = fileURLToPath(new URL("../../", import.meta.url));
+  const manifest = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+  const [executable, ...args] = manifest.scripts["start:viewers"].split(/\s+/);
+  assert.equal(executable, "node");
+  // Invalid binding exits before a server starts. A missing credential file must
+  // still reach our validation instead of Node trying to load it first.
+  const result = spawnSync(process.execPath, [...args, "--env-file", "/definitely-missing-meshmind-viewer-credentials.env", "--host", "invalid-host"], {
+    cwd: project, encoding: "utf8", timeout: 5000, env: { ...process.env, NODE_OPTIONS: "" },
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Viewer startup configuration is invalid/);
+  assert.doesNotMatch(result.stderr, /not found|ENOENT|definitely-missing-meshmind/);
 });

@@ -65,26 +65,26 @@ def test_fresh_worker_dashboard_is_idle_and_readable_without_credentials(role, h
         assert "frame-ancestors 'none'" in csp and "'unsafe-inline'" not in csp
 
 
-@pytest.mark.parametrize("path", [
-    "/status", "/clock", "/tasks/unknown", "/tasks/unknown/result", "/docs", "/openapi.json",
-    "/dashboard/", "/dashboard/index.html", "/dashboard/arbitrary.js", "/dashboard/state/",
-    "/dashboard/%2e%2e/worker_api.py", "/dash%62oard", "/dashboard/%73tate", "/unknown",
+@pytest.mark.parametrize("path,expected", [
+    ("/status", 200), ("/clock", 200), ("/tasks/unknown", 404), ("/tasks/unknown/result", 404),
+    ("/docs", 200), ("/openapi.json", 200), ("/dashboard/", 307), ("/dashboard/index.html", 404),
+    ("/dashboard/arbitrary.js", 404), ("/dashboard/state/", 307),
+    ("/dashboard/%2e%2e/worker_api.py", 404), ("/dash%62oard", 200), ("/dashboard/%73tate", 200), ("/unknown", 404),
 ])
-def test_public_dashboard_does_not_expand_existing_worker_api_auth(hydro_result, path):
+def test_worker_routes_and_fixed_dashboard_assets_remain_bounded(hydro_result, assets, path, expected):
     with TestClient(app_for(hydro_result, token=TOKEN), follow_redirects=False) as client:
         response = client.get(path)
-        assert response.status_code == 401
-        assert response.headers["www-authenticate"] == "Bearer"
-        assert client.get("/status", headers=AUTH).status_code == 200
+        assert response.status_code == expected
+        assert "www-authenticate" not in response.headers
 
 
 @pytest.mark.parametrize("method", ["POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"])
 def test_public_dashboard_never_accepts_mutations_or_other_methods(hydro_result, method):
     with TestClient(app_for(hydro_result, token=TOKEN), follow_redirects=False) as client:
         for path in PUBLIC_PATHS:
-            assert client.request(method, path, json={}).status_code == 401
+            assert client.request(method, path, json={}).status_code == 405
             assert client.request(method, path, json={}, headers=AUTH).status_code == 405
-        assert client.post("/tasks", json=hydro_task(hydro_result)).status_code == 401
+        assert client.post("/tasks", json={}).status_code == 422
         assert client.get("/status", headers=AUTH).json()["retained_tasks"] == 0
 
 
@@ -98,14 +98,14 @@ def test_exact_paths_do_not_accept_task_or_file_selectors(hydro_result, assets):
         assert snapshot(client)["task"] is None
 
 
-def test_default_request_guard_does_not_make_control_dashboard_routes_public():
+def test_default_request_guard_ignores_legacy_credentials():
     app = FastAPI()
     app.add_middleware(_RequestGuard, token=TOKEN)
     @app.get("/dashboard")
     async def protected():
         return {"private": True}
     with TestClient(app) as client:
-        assert client.get("/dashboard").status_code == 401
+        assert client.get("/dashboard").status_code == 200
         assert client.get("/dashboard", headers=AUTH).json() == {"private": True}
 
 

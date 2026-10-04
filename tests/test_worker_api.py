@@ -255,18 +255,21 @@ def test_wrong_worker_unknown_task_and_missing_lifespan_do_not_start_work(flood_
         client.close()
 
 
-def test_optional_bearer_auth_applies_to_every_route(flood_result):
+@pytest.mark.parametrize("authorization", [None, "", "Bearer incorrect", "Basic arbitrary", "Bearer", "Bearer bad\r\nvalue", b"\xff\x00"])
+def test_internal_worker_routes_ignore_legacy_authorization(flood_result, authorization):
+    headers = {} if authorization is None else {"Authorization": authorization}
     with TestClient(app_for(flood_result, token="private-worker-token")) as client:
-        for path in ("/status", "/tasks/unknown", "/tasks/unknown/result", "/docs", "/openapi.json", "/unknown"):
-            for headers in ({}, {"Authorization": "Bearer incorrect"}):
-                response = client.get(path, headers=headers)
-                assert response.status_code == 401
-                assert response.headers["www-authenticate"] == "Bearer"
-                assert "private-worker-token" not in response.text
-        assert client.post("/tasks", json=flood_task(flood_result)).status_code == 401
-        headers = {"Authorization": "Bearer private-worker-token"}
-        assert client.get("/status", headers=headers).json()["retained_tasks"] == 0
+        for path, code in (("/status", 200), ("/clock", 200), ("/tasks/unknown", 404),
+                           ("/tasks/unknown/result", 404), ("/docs", 200), ("/openapi.json", 200), ("/unknown", 404)):
+            response = client.get(path, headers=headers)
+            assert response.status_code == code
+            assert "www-authenticate" not in response.headers
+            assert "private-worker-token" not in response.text
+        assert client.post("/tasks", json={}, headers=headers).status_code == 422
+        assert client.get("/status").json()["retained_tasks"] == 0
         assert client.post("/tasks", json=flood_task(flood_result), headers=headers).status_code == 202
+        assert terminal(client)["state"] == "complete"
+        assert client.get("/tasks/api-task/result", headers=headers).status_code == 200
 
 
 @pytest.mark.parametrize("body", [
@@ -302,7 +305,13 @@ def test_body_size_is_bounded_even_without_content_length(flood_result):
         assert client.get("/status").json()["retained_tasks"] == 0
 
 
-@pytest.mark.parametrize("options", [{"capacity": 0}, {"capacity": True}, {"capacity": 1025}, {"token": " "}, {"token": 7}])
+@pytest.mark.parametrize("options", [{"capacity": 0}, {"capacity": True}, {"capacity": 1025}])
 def test_invalid_registry_configuration_is_rejected(flood_result, options):
     with pytest.raises(ValueError):
         app_for(flood_result, **options)
+
+
+@pytest.mark.parametrize("token", [None, "", " ", 7, "bad\r\nvalue", "☃", {"legacy": True}])
+def test_worker_factory_accepts_unused_legacy_tokens(flood_result, token):
+    with TestClient(app_for(flood_result, token=token)) as client:
+        assert client.get("/status").status_code == 200

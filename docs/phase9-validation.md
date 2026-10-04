@@ -1,5 +1,12 @@
 # Phase 9 — Real Control UI and downloadable briefing
 
+> Historical checkpoint record. For current startup use [README](../README.md)
+> or [developer setup](../DEVELOPER_SETUP.md); project status is in
+> [project progress](../PROJECT_PROGRESS.md). MeshMind now ignores internal
+> tokens, including missing or invalid values. Authentication requirements
+> and 401 checks below record the earlier implementation. External OpenAI
+> and NASA Earthdata credentials remain subject to those services.
+
 Current checkout: use `main` for all roles. The user authorized branch
 consolidation after Phase 9 acceptance; branch names in this validation history
 identify the original development lanes. Their commits remain in `main`.

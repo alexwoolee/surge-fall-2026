@@ -1,11 +1,10 @@
 """Start the local Control web API with explicit private operator configuration.
 
-One Uvicorn process, loopback only. The Next.js proxy holds the API token on
-the server; worker credentials and model keys never enter browser settings.
+One Uvicorn process, loopback only. Internal APIs do not require credentials;
+external model keys remain private server configuration.
 """
 
 import argparse
-import os
 from pathlib import Path
 
 import uvicorn
@@ -18,14 +17,12 @@ from backend.control.reporting import read_evidence
 from backend.shared.settings import ControlSettings, ROOT, WorkerEndpoint
 
 
-_CONTROL_KEYS = {"MESHMIND_CONTROL_API_TOKEN", "MESHMIND_CONTROL_API_URL"}
-_VIEWER_KEYS = {"MESHMIND_VIEWER_HYDRO_TOKEN", "MESHMIND_VIEWER_FLOOD_TOKEN"}
 _WORKER_KEYS = {"HYDRO_WORKER_URL", "HYDRO_WORKER_TOKEN", "FLOOD_WORKER_URL", "FLOOD_WORKER_TOKEN",
                 "MESHMIND_CONTROL_SOURCE_IP", "MESHMIND_REQUEST_TIMEOUT_SECONDS",
                 "MESHMIND_TASK_TIMEOUT_SECONDS", "MESHMIND_POLL_INTERVAL_SECONDS"}
 
 
-def read_private_assignments(path, allowed):
+def read_private_assignments(path, allowed, *, ignored=()):
     """Literal, bounded assignments only; no shell expansion or environment edits."""
     try:
         with Path(path).open("rb") as stream:
@@ -33,8 +30,14 @@ def read_private_assignments(path, allowed):
         if len(raw) > 16384:
             raise ValueError
         result = {}
-        for line in raw.decode("utf-8-sig").splitlines():
-            line = line.strip()
+        ignored_bytes = {key.encode("ascii") for key in ignored}
+        for raw_line in raw.removeprefix(b"\xef\xbb\xbf").splitlines():
+            # Obsolete internal credential values are never decoded or parsed.
+            # Their whitespace, quoting, encoding and duplicates are immaterial.
+            raw_key = raw_line.strip().removeprefix(b"export ").partition(b"=")[0].strip()
+            if raw_key in ignored_bytes:
+                continue
+            line = raw_line.decode("utf-8").strip()
             if not line or line.startswith("#"):
                 continue
             line = line.removeprefix("export ")
@@ -55,7 +58,7 @@ def read_private_assignments(path, allowed):
 def worker_settings(path=None):
     if path is None:
         return ControlSettings.from_env()
-    values = read_private_assignments(path, _WORKER_KEYS)
+    values = read_private_assignments(path, _WORKER_KEYS, ignored={"HYDRO_WORKER_TOKEN", "FLOOD_WORKER_TOKEN"})
     try:
         return ControlSettings(
             hydro=WorkerEndpoint(values.get("HYDRO_WORKER_URL", ""), "hydro-worker", values.get("HYDRO_WORKER_TOKEN") or None),
@@ -70,13 +73,8 @@ def worker_settings(path=None):
 
 
 def viewer_tokens(path=None):
-    """Load optional role-scoped read-only credentials without changing the environment."""
-    if path is None:
-        return None
-    values = read_private_assignments(path, _VIEWER_KEYS)
-    if set(values) != _VIEWER_KEYS:
-        raise ValueError("The viewer file requires a separate token for each worker role.")
-    return {role: values[f"MESHMIND_VIEWER_{role.upper()}_TOKEN"] for role in ("hydro", "flood")}
+    """Compatibility hook; obsolete internal credential files are not read."""
+    return None
 
 
 def main(argv=None):
@@ -86,10 +84,10 @@ def main(argv=None):
     mode.add_argument("--execute", action="store_true", help="Enable new worker investigations for the configured case.")
     parser.add_argument("--config", type=Path, default=ROOT / "config/test_case.example.json")
     parser.add_argument("--rules", type=Path, required=True)
-    parser.add_argument("--control-env-file", type=Path, help="Private MESHMIND_CONTROL_API_TOKEN (also used by the Next.js proxy).")
-    parser.add_argument("--viewer-env-file", type=Path, help="Optional private read-only Hydro and Flood viewer tokens; never enables remote operator access.")
+    parser.add_argument("--control-env-file", type=Path, help="Legacy compatibility option; internal credential files are ignored.")
+    parser.add_argument("--viewer-env-file", type=Path, help="Legacy compatibility option; internal credential files are ignored.")
     parser.add_argument("--openai-env-file", type=Path, help="Private OPENAI_API_KEY and OPENAI_MODEL file.")
-    parser.add_argument("--worker-env-file", type=Path, help="Private worker URLs, tokens and bounded Control settings; execute mode only.")
+    parser.add_argument("--worker-env-file", type=Path, help="Worker URLs and bounded Control settings (legacy tokens are ignored); execute mode only.")
     parser.add_argument("--gpm-resources", nargs="+")
     parser.add_argument("--smap-resource")
     parser.add_argument("--history-dir", type=Path, default=ROOT / "outputs/debug/control-web")
@@ -102,12 +100,10 @@ def main(argv=None):
     if args.execute and (not args.gpm_resources or not args.smap_resource):
         parser.error("--execute requires configured --gpm-resources and --smap-resource.")
     if args.input and (args.gpm_resources or args.smap_resource or args.worker_env_file):
-        parser.error("Retained review uses its original resources and does not load worker credentials.")
+        parser.error("Retained review uses its original resources and does not override worker configuration.")
     try:
         from backend.control.web import ControlService, create_app
 
-        values = read_private_assignments(args.control_env_file, _CONTROL_KEYS) if args.control_env_file else os.environ
-        token = values.get("MESHMIND_CONTROL_API_TOKEN", "")
         config, policy = read_case_config(args.config), load_policy(args.rules)
         evidence, control = None, None
         if args.input:
@@ -120,7 +116,7 @@ def main(argv=None):
         client = ResponsesClient(load_openai_settings(args.openai_env_file))
         service = ControlService(case, policy, client, mode="execute" if args.execute else "review",
                                  evidence=evidence, control_settings=control, history_dir=args.history_dir)
-        app = create_app(service=service, token=token, viewer_tokens=viewer_tokens(args.viewer_env_file))
+        app = create_app(service=service)
     except (AgentAPIError, ValueError, TypeError, KeyError, OSError):
         print("Control configuration failed. Check the explicit case, evidence, policy and private settings; no request was sent.")
         return 2

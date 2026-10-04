@@ -250,7 +250,7 @@ def test_server_closes_http_and_parent_log_before_removing_windows_log(tmp_path,
         def __exit__(self, *args):
             events.append(('client_closed',))
         def get(self, path, headers=None):
-            return SimpleNamespace(status_code=401 if headers else 200, json=lambda: {
+            return SimpleNamespace(status_code=200, json=lambda: {
                 'worker_id': 'hydro-worker', 'analysis_type': 'hydrometeorology',
                 'status': 'idle', 'active_task_id': None, 'retained_tasks': 0, 'capacity': 16,
             })

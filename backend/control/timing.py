@@ -130,8 +130,6 @@ async def sample_clocks(settings: ControlSettings, *, samples=3, transport_facto
     async def sample_worker(endpoint):
         try:
             headers = {"Accept": "application/json", "Cache-Control": "no-cache"}
-            if endpoint.token is not None:
-                headers["Authorization"] = f"Bearer {endpoint.token}"
             transport = (transport_factory(endpoint) if transport_factory is not None else
                          httpx.AsyncHTTPTransport(local_address=settings.local_address, trust_env=False))
             async with httpx.AsyncClient(
@@ -167,7 +165,7 @@ async def sample_clocks(settings: ControlSettings, *, samples=3, transport_facto
                     raise ValueError("Clock batch has inconsistent or uncertain offset bounds")
                 return observations
         except Exception:
-            raise ClockCheckError("Worker clock sampling failed; check authentication, reachability, clock stability and the worker version.") from None
+            raise ClockCheckError("Worker clock sampling failed; check reachability, clock stability and the worker version.") from None
 
     tasks = [asyncio.create_task(sample_worker(endpoint)) for endpoint in (settings.hydro, settings.flood)]
     try:

@@ -86,7 +86,7 @@ def main(argv=None):
             except OSError:
                 print('Could not update attempt evidence; do not rely on an older report for this attempt.')
             print(f'Latest review attempt: {attempt_path}')
-        print('Invalid Control configuration; check worker URLs, tokens, bounds, resource names and any review policy.')
+        print('Invalid Control configuration; check worker URLs, bounds, resource names and any review policy.')
         return 2
     order = 'Hydro and Flood concurrently' if args.execution_mode == 'parallel' else 'Hydro then Flood sequentially'
     print(f'Task {hydro.task_id}: dispatching {order} over HTTP.', flush=True)

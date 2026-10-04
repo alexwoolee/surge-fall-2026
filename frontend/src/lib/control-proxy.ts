@@ -49,10 +49,9 @@ export async function proxyControl(request: Request, path: string[], options: { 
   if (request.headers.get("sec-fetch-site") === "cross-site") return fail(403);
   if (isPost && (request.headers.get("origin") !== browserOrigin || request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json")) return fail(403);
   let target: URL;
-  const token = env.MESHMIND_CONTROL_API_TOKEN;
   try {
-    target = new URL(env.MESHMIND_CONTROL_API_URL || "");
-    if (!["http:", "https:"].includes(target.protocol) || !loopback(target.hostname) || target.username || target.password || target.pathname !== "/" || target.search || target.hash || !token || token.length < 32 || /\s/.test(token)) return fail(503);
+    target = new URL(env.MESHMIND_CONTROL_API_URL || "http://127.0.0.1:8001");
+    if (!["http:", "https:"].includes(target.protocol) || !loopback(target.hostname) || target.username || target.password || target.pathname !== "/" || target.search || target.hash) return fail(503);
   } catch { return fail(503); }
   let body: Uint8Array | undefined;
   if (isPost) {
@@ -67,7 +66,7 @@ export async function proxyControl(request: Request, path: string[], options: { 
   }
   target.pathname = `/${route}`;
   try {
-    const response = await fetcher(target, { method: request.method, redirect: "error", cache: "no-store", signal: deadline, headers: { Authorization: `Bearer ${token}`, Accept: isHtml ? "text/html" : "application/json", ...(isPost ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: body as BodyInit } : {}) });
+    const response = await fetcher(target, { method: request.method, redirect: "error", cache: "no-store", signal: deadline, headers: { Accept: isHtml ? "text/html" : "application/json", ...(isPost ? { "Content-Type": "application/json" } : {}) }, ...(body ? { body: body as BodyInit } : {}) });
     if (!response.ok) { await response.body?.cancel(); return fail([400, 401, 403, 404, 409, 422, 429, 503].includes(response.status) ? response.status : 502); }
     if (isPost ? response.status !== 202 : response.status !== 200) { await response.body?.cancel(); return fail(502); }
     const type = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase();

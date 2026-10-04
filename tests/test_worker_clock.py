@@ -1,4 +1,4 @@
-"""Authenticated clock observations remain available while a worker processes."""
+"""Read-only clock observations remain available while a worker processes."""
 
 from datetime import datetime, timedelta, timezone
 from threading import Event
@@ -54,7 +54,7 @@ def test_clock_contract_rejects_invalid_observations(changes):
     ("hydro-worker", "hydrometeorology"),
     ("flood-worker", "surface_water_and_terrain"),
 ])
-def test_clock_authentication_identity_and_read_only_response(worker_id, analysis_type):
+def test_clock_ignores_internal_credentials_and_preserves_identity(worker_id, analysis_type):
     def must_not_run(task, progress):
         pytest.fail("Reading the clock must not execute a task.")
 
@@ -62,9 +62,9 @@ def test_clock_authentication_identity_and_read_only_response(worker_id, analysi
     with TestClient(app) as client:
         for headers in ({}, {"Authorization": "Bearer wrong-token"}):
             response = client.get("/clock", headers=headers)
-            assert response.status_code == 401
-            assert response.headers["WWW-Authenticate"] == "Bearer"
-            assert response.json() == {"detail": "Authentication required."}
+            assert response.status_code == 200
+            assert "WWW-Authenticate" not in response.headers
+            assert WorkerClock.model_validate(response.json()).worker_id == worker_id
             assert TOKEN not in response.text
         before = client.get("/status", headers=AUTH).json()
         sent_at = datetime.now(timezone.utc)

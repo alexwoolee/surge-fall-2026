@@ -9,14 +9,14 @@ export async function proxyWorkerViewer(request: Request, role: WorkerId, option
   if (!["hydro", "flood"].includes(role) || new URL(request.url).search) return viewerFailure(403);
   let origin: URL;
   try {
-    origin = new URL(env.MESHMIND_VIEWER_API_URL || "");
+    origin = new URL(env.MESHMIND_VIEWER_API_URL || "http://127.0.0.1:8001");
     if (!["http:", "https:"].includes(origin.protocol) || !["127.0.0.1", "localhost", "[::1]"].includes(origin.hostname)
       || origin.username || origin.password || origin.pathname !== "/" || origin.search || origin.hash) return viewerFailure(503);
   } catch { return viewerFailure(503); }
   origin.pathname = `/viewer/${role}`;
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(10000)]);
   try {
-    const upstream = await (options.fetcher ?? fetch)(origin, { method: "GET", headers: { Authorization: `Bearer ${identity.token}`, Accept: "application/json" }, cache: "no-store", redirect: "error", signal });
+    const upstream = await (options.fetcher ?? fetch)(origin, { method: "GET", headers: { Accept: "application/json" }, cache: "no-store", redirect: "error", signal });
     if (upstream.status !== 200 || upstream.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
       await upstream.body?.cancel(); return viewerFailure(upstream.status === 401 || upstream.status === 403 ? 503 : 502);
     }

@@ -82,9 +82,8 @@ def _fault_endpoint(mode, token, *, completion_probe=None):
         def _begin(self):
             with state.lock:
                 state.requests.append((self.command, self.path))
-            if self.headers.get("Authorization") != f"Bearer {token}":
-                self._reply(401, {"detail": "Authentication required."})
-                return False
+            # Match the worker's credential-independent behavior so this
+            # fixture reaches its intended timeout or disconnect fault.
             return True
 
         def _reply(self, code, value):

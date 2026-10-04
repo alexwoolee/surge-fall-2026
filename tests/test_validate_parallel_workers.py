@@ -167,7 +167,7 @@ def test_preflight_clock_error_replaces_stale_pass_without_submitting(harness, c
 
 
 @pytest.mark.parametrize("role", ROLES)
-def test_failed_authentication_stops_before_clock_or_task_requests(harness, role):
+def test_failed_access_policy_check_stops_before_clock_or_task_requests(harness, role):
     harness.auth[role] = False
     code, report = validate(harness)
     assert code == 1 and report["validation"] == "FAIL"
@@ -177,15 +177,17 @@ def test_failed_authentication_stops_before_clock_or_task_requests(harness, role
 
 
 @pytest.mark.parametrize("role", ROLES)
-def test_missing_token_cannot_submit_tasks(harness, role):
+@pytest.mark.parametrize("token", [None, "", "invalid\nheader", "unrelated token"])
+def test_any_configured_token_can_submit_tasks(harness, role, token):
     endpoints = [harness.settings.hydro, harness.settings.flood]
     index = ROLES.index(role)
-    endpoints[index] = WorkerEndpoint(endpoints[index].url, role, token=None)
+    endpoints[index] = WorkerEndpoint(endpoints[index].url, role, token=token)
     harness.settings = ControlSettings(*endpoints, local_address="100.100.3.5")
     code, report = validate(harness)
-    assert code == 1 and report["validation"] == "FAIL" and not report["dispatch_attempted"]
-    assert "clock_before" not in report and "dispatch" not in report
-    assert all(call[0] == "authentication" for call in harness.calls)
+    assert code == 0 and report["validation"] == "PASS" and report["dispatch_attempted"]
+    assert "clock_before" in report and "dispatch" in report
+    assert report["authentication_policy"] == "credentials_ignored"
+    assert_results_preserved(report, harness)
 
 
 def test_missing_physical_confirmation_never_contacts_workers(harness):

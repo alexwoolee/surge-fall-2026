@@ -53,17 +53,18 @@ def event_for(record, stage, state=None):
     ("/sessions/unknown/retry", "POST"), ("/viewer/other", "GET"),
     ("/viewer/self", "POST"), ("/viewer/self", "HEAD"), ("/viewer/self", "OPTIONS"),
 ])
-def test_viewer_credentials_cannot_reach_other_role_or_operator_actions(prepared, tmp_path, role, path, method):
+def test_legacy_viewer_credentials_do_not_restrict_routes(prepared, tmp_path, role, path, method):
     async def check():
         service = service_for(prepared, tmp_path)
         async with api(service) as client:
             actual = path.replace("other", "flood" if role == "hydro" else "hydro").replace("self", role)
             response = await client.request(method, actual, headers={"Authorization": "Bearer " + VIEWERS[role]},
                                             content=b"x" * 70000)
-            assert response.status_code == 403
+            expected = (413 if method == "POST" else 405 if method in {"HEAD", "OPTIONS"}
+                        else 404 if "/unknown" in actual else 200)
+            assert response.status_code == expected
+            assert "www-authenticate" not in response.headers
             assert not service.sessions
-            if method != "HEAD":
-                assert response.json() == {"detail": "This viewer cannot access that resource."}
     asyncio.run(check())
 
 
@@ -271,16 +272,15 @@ def test_malformed_new_history_fields_fail_closed_without_rewriting(prepared, tm
     {"hydro": "a" * 32 + "\n"}, {"hydro": "a" * 257}, {"hydro": "a" * 32 + "+"},
     {"hydro": "a" * 32 + "/"}, [VIEWERS["hydro"]],
 ])
-def test_viewer_tokens_must_be_strong_distinct_and_role_scoped(prepared, tmp_path, tokens):
-    with pytest.raises(ValueError):
-        create_app(service=service_for(prepared, tmp_path), token=TOKEN, viewer_tokens=tokens)
+def test_legacy_viewer_token_configuration_is_ignored(prepared, tmp_path, tokens):
+    assert create_app(service=service_for(prepared, tmp_path), token=TOKEN, viewer_tokens=tokens) is not None
 
 
-def test_disabled_and_unknown_viewer_credentials_remain_unauthenticated(prepared, tmp_path):
+def test_absent_and_unknown_viewer_credentials_do_not_block_access(prepared, tmp_path):
     async def check():
         service = service_for(prepared, tmp_path)
         async with api(service, viewers=None) as client:
-            assert (await view(client, "hydro")).status_code == 401
+            assert (await view(client, "hydro")).status_code == 200
             assert (await client.get("/viewer/hydro")).status_code == 200  # Operator inspection remains available.
-            assert (await client.get("/config", headers={"Authorization": "Bearer unknown"})).status_code == 401
+            assert (await client.get("/config", headers={"Authorization": "Bearer unknown"})).status_code == 200
     asyncio.run(check())

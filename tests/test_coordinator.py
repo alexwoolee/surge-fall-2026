@@ -100,7 +100,7 @@ def test_http_lifecycle_preserves_typed_evidence_and_separate_control_times(kind
     assert all(observation.observed_at >= record.control_started_at for observation in record.observations)
     assert DispatchRecord.model_validate_json(record.model_dump_json()) == record
     for method, path, request in worker.calls:
-        assert request.headers["authorization"] == "Bearer configured-token"
+        assert "authorization" not in request.headers
         if method == "POST":
             assert json.loads(request.content)["task_id"] == result["task_id"]
     assert "configured-token" not in record.model_dump_json()
@@ -684,3 +684,13 @@ def test_http_transport_actually_binds_configured_source_socket(hydro_result, mo
     asyncio.run(verify())
     assert ('127.0.0.1', 0) in bindings
     assert peers == ['127.0.0.1']
+
+
+@pytest.mark.parametrize("token", [None, "", "bad\r\nvalue", "☃", 123, {"legacy": True}])
+def test_worker_client_omits_unused_tokens_even_if_invalid_http_headers(hydro_result, token):
+    worker = ScriptedWorker(hydro_result)
+    client = WorkerClient(WorkerEndpoint("http://worker.invalid", "hydro-worker", token),
+                          poll_interval=0.01, transport=httpx.MockTransport(worker.handle))
+    record = asyncio.run(client.run(task_for(hydro_result)))
+    assert record.outcome == "complete"
+    assert all("authorization" not in request.headers for _, _, request in worker.calls)

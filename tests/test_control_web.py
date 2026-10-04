@@ -116,13 +116,14 @@ def runner_for(evidence, *, failed_role=None, outcome="transport_error", ambiguo
     ("/sessions/not-a-uuid", "GET"), ("/sessions/not-a-uuid/retry", "POST"),
     ("/sessions/not-a-uuid/briefing", "GET"), ("/openapi.json", "GET"),
 ])
-def test_all_routes_authenticate_before_reading_invalid_body(prepared, tmp_path, path, method):
+def test_internal_routes_ignore_authorization_and_keep_body_bounds(prepared, tmp_path, path, method):
     async def check():
         service = service_for(prepared, tmp_path)
         async with api(service) as client:
             response = await client.request(method, path, headers={"Authorization": "Bearer wrong"}, content=b"x" * 70000)
-            assert response.status_code == 401
-            assert response.headers["www-authenticate"] == "Bearer"
+            expected = 413 if method == "POST" else 200 if path in {"/config", "/sessions"} else 404
+            assert response.status_code == expected
+            assert "www-authenticate" not in response.headers
             assert service.sessions == {}
     asyncio.run(check())
 
@@ -451,6 +452,26 @@ def test_terminal_worker_failure_and_unknown_ambiguous_identity_cannot_retry(pre
 
 
 @pytest.mark.parametrize("token", [None, "", "short-token", "a" * 31, "a" * 32 + "\n"])
-def test_control_never_starts_with_missing_or_weak_bearer_token(prepared, tmp_path, token):
-    with pytest.raises(ValueError):
-        create_app(service=service_for(prepared, tmp_path), token=token)
+def test_control_accepts_missing_or_unused_legacy_tokens(prepared, tmp_path, token):
+    assert create_app(service=service_for(prepared, tmp_path), token=token) is not None
+
+
+@pytest.mark.parametrize("authorization", [None, "", "Bearer incorrect", "Basic arbitrary", "Bearer", "Bearer bad\r\nvalue", b"\xff\x00"])
+def test_control_session_lifecycle_needs_no_internal_credentials(prepared, tmp_path, authorization):
+    async def check():
+        service = service_for(prepared, tmp_path)
+        app = create_app(service=service, token={"obsolete": True}, viewer_tokens=["unused"])
+        headers = {} if authorization is None else {"Authorization": authorization}
+        async with app.router.lifespan_context(app):
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://control.test", headers=headers) as client:
+                assert (await client.get("/config")).status_code == 200
+                assert (await client.post("/sessions", json={"prompt": REQUEST, "requestId": "invalid"})).status_code == 422
+                identifier = await start(client)
+                await finish(service)
+                assert (await client.get("/sessions")).json()["sessions"][0]["id"] == identifier
+                assert (await client.get(f"/sessions/{identifier}")).status_code == 200
+                assert (await client.get(f"/sessions/{identifier}/briefing")).status_code == 200
+                assert (await client.post(f"/sessions/{identifier}/retry", json={"worker": "flood", "requestId": str(uuid4())})).status_code == 409
+                assert (await client.get("/viewer/hydro")).status_code == 200
+                assert (await client.get("/viewer/flood")).status_code == 200
+    asyncio.run(check())

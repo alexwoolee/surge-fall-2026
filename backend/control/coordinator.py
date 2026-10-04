@@ -234,8 +234,6 @@ class WorkerClient:
         stage = "preflight"
         outcome = "protocol_error"
         headers = {"Accept": "application/json"}
-        if self.settings.token is not None:
-            headers["Authorization"] = f"Bearer {self.settings.token}"
         emit("preflight")
         try:
             async with asyncio.timeout(self.task_timeout):

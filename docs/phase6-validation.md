@@ -1,5 +1,12 @@
 # Phase 6 — Real parallel execution
 
+> Historical checkpoint record. For current startup use [README](../README.md)
+> or [developer setup](../DEVELOPER_SETUP.md); project status is in
+> [project progress](../PROJECT_PROGRESS.md). MeshMind now ignores internal
+> tokens, including missing or invalid values. Authentication requirements
+> and 401 checks below record the earlier implementation. External OpenAI
+> and NASA Earthdata credentials remain subject to those services.
+
 Phase 5 is accepted. Phase 6 was implemented on `codex/parallel-dispatch`, based on
 that accepted checkpoint. **Physical-laptop validation and the human checkpoint
 passed; Phase 6 is complete.** The validator proved 0.227333 seconds of guaranteed execution overlap

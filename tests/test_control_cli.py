@@ -64,7 +64,7 @@ def test_local_endpoint_never_passes_remote_gate(url):
     assert not all(checkpoint.topology_checks(topology_run(), settings(hydro=url), 'control-laptop', True).values())
 
 
-def test_auth_failure_writes_safe_failed_report_before_submission(monkeypatch, tmp_path):
+def test_access_probe_failure_writes_safe_failed_report_before_submission(monkeypatch, tmp_path):
     async def reject(*args):
         raise httpx.ConnectError('unsafe credentials must not appear')
     monkeypatch.setattr(checkpoint, '_authentication_check', reject)
@@ -76,6 +76,28 @@ def test_auth_failure_writes_safe_failed_report_before_submission(monkeypatch, t
     assert code == 1 and 'unsafe credentials' not in payload and 'test-token' not in payload
     assert json.loads(payload)['validation'] == 'FAIL'
     assert json.loads(payload)['task_id'] == tasks[0].task_id
+
+
+@pytest.mark.parametrize('statuses, expected', [
+    ([200, 200, 200], True), ([401], False), ([200, 403], False), ([200, 200, 503], False),
+])
+def test_access_probe_requires_missing_and_arbitrary_credentials_to_work(monkeypatch, statuses, expected):
+    seen = []
+    answers = iter(statuses)
+
+    def handle(request):
+        assert request.method == 'GET' and request.url.path == '/status'
+        seen.append(request.headers.get('authorization'))
+        return httpx.Response(next(answers))
+
+    def transport(**kwargs):
+        assert kwargs == {'local_address': '100.100.3.5', 'trust_env': False}
+        return httpx.MockTransport(handle)
+
+    monkeypatch.setattr(checkpoint.httpx, 'AsyncHTTPTransport', transport)
+    endpoint = WorkerEndpoint('http://hydro.invalid:8002', 'hydro-worker', token=None)
+    assert asyncio.run(checkpoint._authentication_check(endpoint, 5, '100.100.3.5')) is expected
+    assert seen == [None, 'Bearer invalid', 'Basic ignored'][:len(statuses)]
 
 
 def test_local_check_cannot_accept_physical_confirmation():

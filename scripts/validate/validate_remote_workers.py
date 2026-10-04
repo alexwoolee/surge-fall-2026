@@ -61,18 +61,21 @@ async def _authentication_check(endpoint, timeout, local_address=None):
     async with httpx.AsyncClient(base_url=endpoint.url, timeout=timeout, trust_env=False,
                                  follow_redirects=False,
                                  transport=httpx.AsyncHTTPTransport(local_address=local_address, trust_env=False)) as client:
-        # An absent token must fail before any task is submitted.
+        # Keep the historical report/helper name, but check the current policy:
+        # credentials are ignored, including absent and non-Bearer values.
         async with asyncio.timeout(timeout):
-            async with client.stream('GET', '/status') as response:
-                return response.status_code == 401
+            for headers in ({}, {'Authorization': 'Bearer invalid'}, {'Authorization': 'Basic ignored'}):
+                async with client.stream('GET', '/status', headers=headers) as response:
+                    if response.status_code != 200:
+                        return False
+            return True
 
 
 async def _duplicate_check(endpoint, task, record, timeout, local_address=None):
     if record.task_status is None or record.outcome != 'complete':
         return False
-    headers = {'Authorization': f'Bearer {endpoint.token}'} if endpoint.token else {}
     async with httpx.AsyncClient(base_url=endpoint.url, timeout=timeout, trust_env=False,
-                                 follow_redirects=False, headers=headers,
+                                 follow_redirects=False,
                                  transport=httpx.AsyncHTTPTransport(local_address=local_address, trust_env=False)) as client:
         async with asyncio.timeout(timeout):
             async with client.stream('POST', '/tasks', json=task.model_dump(mode='json')) as response:
@@ -93,6 +96,7 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
         'control_host': socket.gethostname(), 'task_id': tasks[0].task_id,
         'control_source_ip': settings.local_address,
         'execution_mode': 'sequential', 'scope': 'local_loopback' if local_check else 'configured_remote_workers',
+        'authentication_policy': 'credentials_ignored',
         'endpoints': {'hydro': settings.hydro.url, 'flood': settings.flood.url},
         'requests': [task.model_dump(mode='json') for task in tasks],
         'limitations': [
@@ -105,12 +109,10 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
     try:
         report['authentication'] = {}
         for endpoint in (settings.hydro, settings.flood):
-            if not endpoint.token:
-                raise ValueError('Remote checkpoint requires configured worker tokens.')
             passed = await _authentication_check(endpoint, settings.request_timeout, settings.local_address)
             report['authentication'][endpoint.expected_worker_id] = passed
             if not passed:
-                raise ValueError('Worker must reject unauthenticated requests.')
+                raise ValueError('Worker must accept missing and arbitrary credentials.')
         print(f'Task {tasks[0].task_id}: dispatching Hydro then Flood...', flush=True)
         run = await run_analysis(*tasks, settings)
         report['dispatch'] = run.model_dump(mode='json')

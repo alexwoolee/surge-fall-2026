@@ -1,4 +1,4 @@
-"""Explicit worker and Control settings; credentials never come from HTTP tasks."""
+"""Explicit worker and Control settings; legacy internal tokens are unused."""
 
 from dataclasses import dataclass, field
 from ipaddress import ip_address
@@ -37,12 +37,12 @@ class WorkerSettings:
 
 
 def validate_token(token: str | None) -> None:
-    """Check a Bearer header value without including credentials in errors."""
-    if token is not None and (
-        not isinstance(token, str) or not 1 <= len(token) <= 512
-        or any(not 33 <= ord(character) <= 126 for character in token)
-    ):
-        raise ValueError('Worker tokens must contain 1 to 512 printable ASCII characters without whitespace.')
+    """Compatibility hook: internal services no longer require credentials.
+
+    Legacy values remain accepted in settings, but are never used as HTTP
+    headers. External data and model-service credentials have separate checks.
+    """
+    return None
 
 
 @dataclass(frozen=True)

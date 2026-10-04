@@ -1,9 +1,7 @@
-"""Authenticated Control API and a deliberately narrow public state projection."""
+"""Bounded Control API and a deliberately narrow public state projection."""
 
 from contextlib import asynccontextmanager
 from copy import deepcopy
-import hmac
-import re
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
@@ -15,7 +13,6 @@ from backend.control.briefing import build_briefing, render_briefing_html
 from backend.control.agent import INVESTIGATION
 from backend.control.sessions import ControlService, SessionError, canonical_id
 from backend.shared.contracts import FloodResult, HydroResult, TaskStatus
-from backend.shared.settings import validate_token
 from backend.shared.worker_api import _RequestGuard
 
 
@@ -265,26 +262,11 @@ viewer never falls back to a retained-evidence review or invents a heartbeat.
     }
 
 
-class _ControlAccessGuard:
-    """Viewer credentials grant one GET route; operator behavior is unchanged."""
+class _ControlAccessGuard(_RequestGuard):
+    """Compatibility wrapper retaining request bounds without internal auth."""
 
-    def __init__(self, app, *, token, viewer_tokens):
-        self.app = app
-        self.operator = _RequestGuard(app, token=token)
-        self.viewers = {role: value.encode("ascii") for role, value in viewer_tokens.items()}
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            headers = {key.lower(): value for key, value in scope["headers"]}
-            auth = headers.get(b"authorization", b"").split(b" ", 1)
-            if len(auth) == 2 and auth[0].lower() == b"bearer":
-                for role, token in self.viewers.items():
-                    if hmac.compare_digest(auth[1], token):
-                        if scope["method"] == "GET" and scope["path"] == "/viewer/" + role:
-                            return await self.app(scope, receive, send)
-                        response = JSONResponse({"detail": "This viewer cannot access that resource."}, status_code=403)
-                        return await response(scope, receive, send)
-        return await self.operator(scope, receive, send)
+    def __init__(self, app, *, token=None, viewer_tokens=None):
+        super().__init__(app)
 
 
 class SessionRequest(BaseModel):
@@ -317,22 +299,9 @@ class RetryRequest(BaseModel):
         return canonical_id(value)
 
 
-def create_app(*, service: ControlService, token: str, viewer_tokens=None):
-    validate_token(token)
-    if token is None or len(token) < 32:
-        raise ValueError("Control requires a private bearer token of at least 32 characters.")
+def create_app(*, service: ControlService, token=None, viewer_tokens=None):
     if not isinstance(service, ControlService):
         raise ValueError("An explicitly configured Control service is required.")
-    if viewer_tokens is None:
-        viewer_tokens = {}
-    if not isinstance(viewer_tokens, dict) or not set(viewer_tokens).issubset(_ROLES):
-        raise ValueError("Viewer tokens require supported worker roles.")
-    seen = {token}
-    for value in viewer_tokens.values():
-        validate_token(value)
-        if value is None or re.fullmatch(r"[A-Za-z0-9_-]{32,256}", value) is None or value in seen:
-            raise ValueError("Viewer tokens must be distinct URL-safe tokens of 32 to 256 characters.")
-        seen.add(value)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -343,7 +312,7 @@ def create_app(*, service: ControlService, token: str, viewer_tokens=None):
             await service.close()
 
     app = FastAPI(title="MeshMind Control", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(_ControlAccessGuard, token=token, viewer_tokens=dict(viewer_tokens))
+    app.add_middleware(_ControlAccessGuard, token=token, viewer_tokens=viewer_tokens)
     app.state.control_service = service
 
     @app.exception_handler(RequestValidationError)

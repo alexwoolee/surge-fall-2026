@@ -178,8 +178,7 @@ def _server(kind, settings, token, folder):
                                     '--no-access-log', '--log-level', 'warning'], cwd=ROOT, env=env,
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=log, close_fds=True, **options)
             try:
-                with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=15, trust_env=False,
-                              headers={'Authorization': f'Bearer {token}'}) as client:
+                with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=15, trust_env=False) as client:
                     deadline = time.monotonic()+30
                     while True:
                         if process.poll() is not None:
@@ -196,10 +195,11 @@ def _server(kind, settings, token, folder):
                         if time.monotonic() >= deadline:
                             raise RuntimeError(f'{kind} API did not become ready.')
                         time.sleep(0.1)
-                    # Verify the real server enforces its configured token.
-                    unauthorized = client.get('/status', headers={'Authorization': 'Bearer invalid'})
-                    if unauthorized.status_code != 401:
-                        raise RuntimeError('Configured API authentication did not reject an invalid token.')
+                    # The successful readiness read had no credentials. Arbitrary
+                    # credentials must also leave the normal API response intact.
+                    arbitrary_auth = client.get('/status', headers={'Authorization': 'Bearer invalid'})
+                    if arbitrary_auth.status_code != 200:
+                        raise RuntimeError('Worker API did not accept arbitrary credentials.')
                     yield client
             finally:
                 _stop_server(process, windows=windows)
@@ -249,7 +249,8 @@ def _request(client, task, model, timeout):
     if retry.status_code != 202 or TaskStatus.model_validate(retry.json()).completed_at != status.completed_at:
         raise RuntimeError('Duplicate task was not idempotent.')
     return {'status': status.model_dump(mode='json'), 'observed_states': states, 'result': payload,
-            'json_round_trip': 'PASS', 'duplicate_submission': 'PASS', 'authentication': 'PASS'}
+            'json_round_trip': 'PASS', 'duplicate_submission': 'PASS', 'authentication': 'PASS',
+            'authentication_policy': 'credentials_ignored'}
 
 
 def main(argv=None):

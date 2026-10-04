@@ -2,7 +2,7 @@
 
 ## Scope and integration
 
-The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branch. Visual direction, two-worker architecture, navigation, and core components are preserved. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The root README is the architecture and checkpoint authority.
+The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branch. Visual direction, two-worker architecture, navigation, and core components are preserved. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The [root README](../README.md) covers setup; [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) hold development instructions and phase checkpoints.
 
 ## File groups
 
@@ -67,7 +67,7 @@ Fake tool menus, voice, and model modes were omitted. Real measurements come fro
 
 ## Provider boundary
 
-`src/lib/data-provider.ts` chooses the real API provider by default. Only build-time `NEXT_PUBLIC_MESHMIND_MODE=demo` enables fixtures; network failure never changes provider. The browser sends relative `/api/control` requests. Python exposes these authenticated endpoints:
+`src/lib/data-provider.ts` chooses the real API provider by default. Only build-time `NEXT_PUBLIC_MESHMIND_MODE=demo` enables fixtures; network failure never changes provider. The browser sends relative `/api/control` requests. Python exposes these endpoints:
 
 | Route | Contract |
 | --- | --- |
@@ -76,13 +76,13 @@ Fake tool menus, voice, and model modes were omitted. Real measurements come fro
 | `POST /sessions` | `{prompt, requestId}` → accepted `{id}` |
 | `GET /sessions/{id}` | Existing `AnalysisState` plus `isDemo:false`, `executionMode`, `executionNotice`, `retryableWorkers` |
 | `POST /sessions/{id}/retry` | `{worker, requestId}` → accepted same-session `{id}` |
-| `GET /sessions/{id}/briefing` | Standalone authenticated HTML attachment |
+| `GET /sessions/{id}/briefing` | Standalone HTML attachment |
 
 The API adapter validates response shapes and rejects fixture flags in live responses. Caller IDs are UUIDs. Private backend error text is not reflected into the UI. All numerical values, scientific prose, provenance, and rule outcomes originate in Python. `unknown` means execution has not been observed; `complete` describes returned work without claiming current worker availability.
 
 Session polling is sequential, abortable, and stops on terminal status. Errors retain last received evidence with a stale-state notice. History reloads from Control. Retry buttons use `retryableWorkers`, support either missing specialist, and disappear when the bounded retry is unavailable. Neither start nor retry automatically replays a network failure. An explicit repeat reuses the same idempotency key; a small pending-action map persists in session storage where available.
 
-The server route accepts only the fixed route/method allowlist and loopback Control origins. It validates JSON bodies, prompt byte/character bounds, UUIDs, and same-origin POSTs before attaching the server-only token. It passes no caller cookies/authentication headers, follows no redirects, and bounds body sizes and total request duration. Backend error bodies, cookies, and arbitrary filenames are excluded. The native download uses a fixed same-origin URL and safe attachment headers. Default npm servers bind only to 127.0.0.1 because this is a local operator workspace without public user authentication.
+The server route accepts only the fixed route/method allowlist and loopback Control origins. It validates JSON bodies, prompt byte/character bounds, UUIDs, and same-origin POSTs before forwarding the request. Internal token values are ignored unconditionally and no Authorization header is constructed. The default Control origin is `http://127.0.0.1:8001`. It passes no caller cookies/authentication headers, follows no redirects, and bounds body sizes and total request duration. Backend error bodies, cookies, and arbitrary filenames are excluded. The native download uses a fixed same-origin URL and safe attachment headers. Default npm servers bind only to 127.0.0.1 because this is a local operator workspace without public user authentication.
 
 `BriefingViewModel.executionNotice` distinguishes retained evidence from current execution. The visible briefing renders all measurements and sections. Source and processing provenance are safe projections supplied by Python. Original request text is explicitly user context, not a finding.
 
@@ -92,13 +92,13 @@ The primary worker display is served directly by each Python worker at `/dashboa
 
 ## Optional Control-hosted legacy viewers
 
-`src/proxy.ts` applies the viewer-mode Host/method/path boundary to every request. `viewer-auth.ts` validates the exact configured Tailscale or loopback Host authority, permits both worker dashboard pages/read endpoints and required assets, and rejects methods other than GET. Dashboard requests need no browser login or credentials. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck the listener boundary. Python API authentication is unchanged.
+`src/proxy.ts` applies the viewer-mode Host/method/path boundary to every request. `viewer-auth.ts` validates the exact configured Tailscale or loopback Host authority, permits both worker dashboard pages/read endpoints and required assets, and rejects methods other than GET. Dashboard requests need no browser login or credentials. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck the listener boundary. Internal Python API credentials are accepted unconditionally. Real OpenAI authentication remains separate and unchanged.
 
-`viewer-proxy.ts` selects the server-only role token from the requested endpoint and sends it as bearer authentication to a fixed loopback `/viewer/{role}` endpoint. Incoming browser credentials and cookies are ignored and never forwarded; no authentication challenge reaches the browser. Its schema parser excludes unexpected fields and foreign worker identities, bounds the event history, and validates observation timestamps. Responses have no shared cache, backend cookies, untrusted redirects, or private error text.
+`viewer-proxy.ts` selects a fixed loopback `/viewer/{role}` endpoint, defaulting to `http://127.0.0.1:8001`. Internal token values, incoming browser credentials, and cookies are ignored and never forwarded; no authentication challenge reaches the browser. Its schema parser excludes unexpected fields and foreign worker identities, bounds the event history, and validates observation timestamps. Responses have no shared cache, backend cookies, untrusted redirects, or private error text.
 
 `worker-follower.tsx` is a focused screen without operator navigation or actions. `viewer-polling.ts` follows the server's latest execution snapshot every second, without overlapping requests, including after completion. It preserves observed event history instead of inventing animation time for fast work; a failed read labels prior data as stale. New execution IDs replace the complete view.
 
-The portable `scripts/start-viewers.mjs` reads a literal private token file, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. It uses the same production build as the local operator listener. `viewer.test.ts` covers login-free access to both dashboards, Host/method/path isolation, independent endpoint guards, server-only role-token selection, fixed upstream/redaction, absence of browser authentication challenges, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
+The portable `scripts/start-viewers.mjs` accepts and ignores the optional legacy `--env-file` flag, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. Its npm command uses `node --` so a legacy `--env-file` reaches the launcher instead of Node’s own environment-file parser. It uses the same production build as the local operator listener. `viewer.test.ts` covers login-free access to both dashboards, Host/method/path isolation, independent endpoint guards, unconditional acceptance of missing/arbitrary internal credentials, fixed upstream/redaction, absence of browser authentication challenges, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
 
 ## Preserved fixture implementation
 
@@ -151,6 +151,6 @@ npm run build
 
 The build uses Next's documented `--webpack` option after Turbopack's build-process socket was denied with `EPERM` in the sandbox. Dependency versions are unchanged. Development and production npm servers bind to loopback.
 
-The 12 original provider/download tests remain, alongside real API/proxy boundary tests. These exercise malformed/fixture responses, abort propagation, explicit idempotent replay after a lost response, targeted retries, same-origin and route restrictions, private error/header redaction, streaming size bounds, and authenticated native download responses.
+The 12 original provider/download tests remain, alongside real API/proxy boundary tests. These exercise malformed/fixture responses, abort propagation, explicit idempotent replay after a lost response, targeted retries, same-origin and route restrictions, private error/header redaction, streaming size bounds, and bounded native download responses.
 
 The original UI lane had passed desktop/laptop/narrow visual checks, with a browser download capture limitation. Phase 9 browser/live execution/download evidence and the human checkpoint are recorded separately in root validation notes. Historical fixture checks must not be presented as proof of current remote execution.

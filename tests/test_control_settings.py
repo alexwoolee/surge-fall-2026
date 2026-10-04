@@ -35,11 +35,10 @@ def test_invalid_destination_is_rejected_without_echoing_url(url):
 
 @pytest.mark.parametrize("token", ["", " space", "space ", "two words", "line\r\nbreak",
                                     "tab\there", "\x00", "\x7f", "caf\u00e9", "a" * 513, 123])
-def test_invalid_bearer_header_is_rejected_for_client_and_worker(token):
+def test_legacy_internal_tokens_are_accepted_without_header_validation(token):
     for make in (lambda: WorkerEndpoint("http://hydro.local", "hydro-worker", token),
                  lambda: WorkerSettings(worker_token=token)):
-        with pytest.raises(ValueError):
-            make()
+        assert make() is not None
 
 
 def test_tokens_are_not_exposed_in_nested_settings_repr():

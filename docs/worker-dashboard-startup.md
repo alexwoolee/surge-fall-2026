@@ -4,8 +4,10 @@ The user requested this follow-up after the accepted Phase 9 three-screen run.
 **Each worker serves its own dashboard from its own HTTP server.** Hydro's page
 is hosted on Kazi's laptop; Flood's page is hosted on Karan's laptop. A thin
 Python launcher opens that local worker's `/dashboard` once it is ready. No
-browser login is required. Worker API tokens remain required for task submission,
-status, clock and result endpoints.
+browser login is required. Worker and Control APIs now ignore internal
+credentials: missing, invalid and arbitrary tokens are accepted. API routes and
+request/result validation remain unchanged. See [current setup](../README.md)
+and [the team's developer commands](../DEVELOPER_SETUP.md).
 
 The dashboard's HTML, CSS, JavaScript and read-only state all come from that
 worker process. It does not fetch its page or progress from Ryan's Control
@@ -14,7 +16,8 @@ server. Control still dispatches real work and validates the combined results.
 ## One-time update
 
 When the existing worker is idle, stop it with Ctrl+C in its terminal. Preserve
-the existing `MESHMIND_WORKER_TOKEN`, input configuration and virtual environment.
+the existing input configuration and virtual environment. Legacy token settings
+may remain in the terminal, but are not required or checked.
 Inside the same checkout, with no uncommitted changes:
 
 ```sh
@@ -64,7 +67,7 @@ new worker activity.
 
 The optional older Control-hosted viewer at port 3001 is no longer required for
 these worker dashboards. Any device allowed to reach a worker's Tailscale address
-can read its public dashboard, while its task APIs still require authentication.
+can read its dashboard and call its task APIs without authentication.
 The public routes expose safe status and event projections only, without raw
 results, source paths, credentials or write controls. No authentication token is
 included in a browser URL.
@@ -73,7 +76,11 @@ The original Phase 9 acceptance remains valid historical evidence. This new
 startup behavior must be distinguished from the earlier manual browser-opening
 steps when reporting what was tested.
 
-## Verification — October 4, 2026
+## Historical verification — original dashboard implementation, October 4, 2026
+
+These results predate the subsequent request to accept all internal credentials.
+Their original authentication checks describe that version, not current access
+behavior. New validation is recorded in [project progress](../PROJECT_PROGRESS.md).
 
 - Full macOS Python suite: **1,452 passed** (including 40 launcher tests).
 - Frontend and standalone dashboard tests: **42 passed**; lint and TypeScript

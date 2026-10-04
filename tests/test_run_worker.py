@@ -71,17 +71,20 @@ def test_invalid_cli_never_starts_server(args, monkeypatch):
 
 
 @pytest.mark.parametrize("token", [None, "", "private token", "private\nvalue", "private-\u2603", "x" * 513])
-def test_missing_or_invalid_worker_token_cannot_start_server_or_browser(token, monkeypatch, capsys):
+def test_missing_or_invalid_worker_token_does_not_block_startup(token, monkeypatch, capsys):
     if token is None:
         monkeypatch.delenv("MESHMIND_WORKER_TOKEN", raising=False)
     else:
         monkeypatch.setenv("MESHMIND_WORKER_TOKEN", token)
-    monkeypatch.setattr(run_worker.WorkerServer, "run", lambda _: pytest.fail("Unauthenticated startup."))
-    monkeypatch.setattr(run_worker.webbrowser, "open_new_tab", lambda _: pytest.fail("Unauthenticated browser opening."))
-    with pytest.raises(SystemExit) as error:
-        run_worker.main(["hydro"])
-    assert error.value.code == 2
-    assert "Set a valid nonempty MESHMIND_WORKER_TOKEN" in capsys.readouterr().err
+    captured = []
+    def run(server):
+        captured.append(server)
+        server.started = True
+    monkeypatch.setattr(run_worker.WorkerServer, "run", run)
+    monkeypatch.setattr(run_worker.webbrowser, "open_new_tab", lambda _: pytest.fail("No actual startup occurred."))
+    assert run_worker.main(["hydro"]) == 0
+    assert captured[0].config.app == "backend.workers.hydro.main:create_app"
+    assert capsys.readouterr().err == ""
 
 
 @pytest.mark.parametrize("host,expected", [

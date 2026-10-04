@@ -4,13 +4,13 @@ import { proxyControl } from "./control-proxy";
 const ID = "a18b29c3-9988-47a5-a113-13937c826a89";
 const env = { MESHMIND_CONTROL_API_URL: "http://127.0.0.1:8001", MESHMIND_CONTROL_API_TOKEN: "private-control-token-for-boundary-tests" };
 const post = (body: object = { prompt: "Review Abbotsford", requestId: ID }, headers: Record<string, string> = {}) => new Request("http://localhost:3000/api/control/sessions", { method: "POST", headers: { Host: "localhost:3000", Origin: "http://localhost:3000", "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
-test("fixed endpoint adds only server credentials and returns bounded safe headers", async () => {
+test("fixed endpoint ignores credentials and returns bounded safe headers", async () => {
   const response = await proxyControl(post({}, { Authorization: "Bearer injected", Cookie: "secret-browser-cookie" }), ["sessions"], { env, fetcher: async () => { throw new Error("must validate body before forwarding"); } });
   assert.equal(response.status, 400);
   const result = await proxyControl(post(), ["sessions"], { env, fetcher: async (input, init) => {
     assert.equal(String(input), "http://127.0.0.1:8001/sessions");
     assert.equal(init?.redirect, "error"); assert.equal(init?.cache, "no-store");
-    assert.deepEqual(init?.headers, { Authorization: `Bearer ${env.MESHMIND_CONTROL_API_TOKEN}`, Accept: "application/json", "Content-Type": "application/json" });
+    assert.deepEqual(init?.headers, { Accept: "application/json", "Content-Type": "application/json" });
     return new Response(JSON.stringify({ id: ID }), { status: 202, headers: { "Content-Type": "application/json", "Set-Cookie": "private", Authorization: "private" } });
   } });
   assert.equal(result.status, 202); assert.equal(result.headers.get("set-cookie"), null); assert.equal(result.headers.get("authorization"), null); assert.equal(result.headers.get("cache-control"), "no-store");
@@ -27,7 +27,6 @@ test("blocks cross-origin, invalid method/path/content, query and unconfigured u
     [post(), ["sessions", ID], env],
     [post(), ["sessions"], { ...env, MESHMIND_CONTROL_API_URL: "https://external.example" }],
     [post(), ["sessions"], { ...env, MESHMIND_CONTROL_API_URL: "http://user:pass@localhost:8001" }],
-    [post(), ["sessions"], { ...env, MESHMIND_CONTROL_API_TOKEN: "" }],
     [post({ prompt: "x", requestId: ID, workerUrl: "http://evil" }), ["sessions"], env],
   ];
   for (const [request, path, config] of cases) assert.ok((await proxyControl(request, path, { env: config, fetcher })).status >= 400);
@@ -74,4 +73,27 @@ test("validates real Host rather than Next-normalized URL and permits matching l
   assert.equal(calls, 0);
   for (const host of ["localhost:3000", "127.0.0.1:3000", "[::1]:3000"]) assert.equal((await proxyControl(normalized(host), ["sessions"], { env, fetcher })).status, 202, host);
   assert.equal(calls, 3);
+});
+
+test("every valid Control operation accepts absent or arbitrary internal credentials and defaults to loopback", async () => {
+  const operations: { path: string[]; body?: object; html?: boolean }[] = [
+    { path: ["config"] }, { path: ["sessions"] }, { path: ["sessions", ID] }, { path: ["sessions", ID, "briefing"], html: true },
+    { path: ["sessions"], body: { prompt: "Review Abbotsford", requestId: ID } },
+    { path: ["sessions", ID, "retry"], body: { worker: "hydro", requestId: ID } },
+  ];
+  for (const token of [undefined, "", "short", "arbitrary value", "invalid\r\nheader", "任意"]) {
+    for (const operation of operations) {
+      let forwarded = false;
+      const req = new Request(`http://localhost:3000/api/control/${operation.path.join("/")}`, {
+        method: operation.body ? "POST" : "GET", headers: { Host: "localhost:3000", Origin: "http://localhost:3000", "Content-Type": "application/json", Authorization: "arbitrary caller credentials" },
+        ...(operation.body ? { body: JSON.stringify(operation.body) } : {}),
+      });
+      const result = await proxyControl(req, operation.path, { env: { MESHMIND_CONTROL_API_TOKEN: token }, fetcher: async (input, init) => {
+        forwarded = true; assert.equal(String(input), `http://127.0.0.1:8001/${operation.path.join("/")}`);
+        assert.equal(new Headers(init?.headers).get("authorization"), null);
+        return operation.html ? new Response("<!doctype html><title>Briefing</title>", { headers: { "Content-Type": "text/html" } }) : Response.json({ id: ID }, { status: operation.body ? 202 : 200 });
+      } });
+      assert.equal(forwarded, true); assert.equal(result.status, operation.body ? 202 : 200);
+    }
+  }
 });

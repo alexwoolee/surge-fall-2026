@@ -1,6 +1,6 @@
 """Phase 6: concurrent real-data HTTP dispatch with conservative overlap evidence.
 
-The remote gate needs three physical laptops and authenticated clock samples
+The remote gate needs three physical laptops and validated clock samples
 before and after execution. --local-check exercises the same path locally but
 cannot complete the physical-laptop checkpoint.
 """
@@ -32,6 +32,7 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
     report = {
         'phase': '6', 'validation': 'RUNNING', 'phase_gate': 'NOT_READY',
         'execution_mode': 'parallel', 'task_id': tasks[0].task_id,
+        'authentication_policy': 'credentials_ignored',
         'control_host': socket.gethostname(), 'control_source_ip': settings.local_address,
         'scope': 'local_loopback' if local_check else 'configured_remote_workers',
         'endpoints': {'hydro': settings.hydro.url, 'flood': settings.flood.url},
@@ -52,12 +53,10 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
             raise ValueError('Physical laptop confirmation is required.')
         report['authentication'] = {}
         for endpoint in (settings.hydro, settings.flood):
-            if not endpoint.token:
-                raise ValueError('Worker tokens are required.')
             passed = await _authentication_check(endpoint, settings.request_timeout, settings.local_address)
             report['authentication'][endpoint.expected_worker_id] = passed
             if not passed:
-                raise ValueError('Worker must reject unauthenticated requests.')
+                raise ValueError('Worker must accept missing and arbitrary credentials.')
         stage = 'clock_preflight'
         report['clock_before'] = await sample_clocks(settings)
         save_json(output, report)

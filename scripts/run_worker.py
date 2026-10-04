@@ -7,15 +7,12 @@ commands remain supported.
 
 import argparse
 from ipaddress import ip_address
-import os
 import re
 import sys
 from threading import Thread
 import webbrowser
 
 import uvicorn
-
-from backend.shared.settings import validate_token
 
 
 def _host(value: str) -> str:
@@ -89,13 +86,6 @@ def main(argv=None) -> int:
     parser.add_argument("--no-open-dashboard", action="store_true",
                         help="Run headless without opening this worker's dashboard in a browser.")
     args = parser.parse_args(argv)
-    try:
-        token = os.environ.get("MESHMIND_WORKER_TOKEN")
-        if not token:
-            raise ValueError
-        validate_token(token)
-    except ValueError:
-        parser.error("Set a valid nonempty MESHMIND_WORKER_TOKEN privately before starting the worker.")
     port = args.port or (8002 if args.role == "hydro" else 8003)
     url = None if args.no_open_dashboard else _dashboard_url(args.host, port)
     config = uvicorn.Config(

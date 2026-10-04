@@ -1,5 +1,12 @@
 # Phase 5 — Control dispatch and remote worker checkpoint
 
+> Historical checkpoint record. For current startup use [README](../README.md)
+> or [developer setup](../DEVELOPER_SETUP.md); project status is in
+> [project progress](../PROJECT_PROGRESS.md). MeshMind now ignores internal
+> tokens, including missing or invalid values. Authentication requirements
+> and 401 checks below record the earlier implementation. External OpenAI
+> and NASA Earthdata credentials remain subject to those services.
+
 Historical implementation branch: `codex/control-dispatch`, based on accepted
 Phase 4 checkpoint `22c17ca`.
 Control dispatches bounded HTTP tasks sequentially to Hydro and Flood. Numerical

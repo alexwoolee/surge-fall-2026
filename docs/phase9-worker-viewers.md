@@ -1,5 +1,12 @@
 # Phase 9 follow-up — three physical browser screens
 
+> Historical checkpoint record. For current startup use [README](../README.md)
+> or [developer setup](../DEVELOPER_SETUP.md); project status is in
+> [project progress](../PROJECT_PROGRESS.md). MeshMind now ignores internal
+> tokens, including missing or invalid values. Authentication requirements
+> and 401 checks below record the earlier implementation. External OpenAI
+> and NASA Earthdata credentials remain subject to those services.
+
 Current checkout: use `main` for Control, workers and the UI. Original branch
 names below are historical; their accepted commits were consolidated into
 `main` before those branch references were pruned.

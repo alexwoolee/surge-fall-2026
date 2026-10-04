@@ -230,16 +230,22 @@ def test_incomplete_execution_evidence_cannot_pass(hydro_result, flood_result, m
     assert not assess_overlap(run, before, after)["passed"]
 
 
-def test_sampler_authenticates_both_roles_and_does_not_submit_tasks():
+@pytest.mark.parametrize("token", [None, "", TOKEN, "bad\r\nvalue", "☃", 123, {"legacy": True}])
+def test_sampler_ignores_legacy_tokens_and_does_not_submit_tasks(token):
     calls = []
 
     def handler(endpoint, request):
         calls.append((endpoint.expected_worker_id, request.method, request.url.path))
-        assert request.headers["Authorization"] == f"Bearer {TOKEN}"
+        assert "Authorization" not in request.headers
         assert request.headers["Cache-Control"] == "no-cache"
         return success(endpoint, request)
 
-    observations = asyncio.run(sample_clocks(settings(), transport_factory=factory(handler)))
+    configured = settings()
+    configured = ControlSettings(
+        hydro=WorkerEndpoint(configured.hydro.url, "hydro-worker", token),
+        flood=WorkerEndpoint(configured.flood.url, "flood-worker", token),
+    )
+    observations = asyncio.run(sample_clocks(configured, transport_factory=factory(handler)))
     assert set(observations) == set(ROLES)
     assert len(calls) == 6 and all(method == "GET" and path == "/clock" for _, method, path in calls)
     assert TOKEN not in json.dumps(observations)

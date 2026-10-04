@@ -5,7 +5,6 @@ export type ViewerEnvironment = Record<string, string | undefined>;
 export type ViewerIdentity = { role: WorkerId; token: string };
 export const viewerHeaders = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" };
 export const viewerFailure = (status: number) => new Response("Worker viewer is unavailable.", { status, headers: viewerHeaders });
-const validToken = (token: string | undefined): token is string => !!token && token.length >= 32 && token.length <= 256 && /^[A-Za-z0-9_-]+$/.test(token);
 export function validViewerAuthority(authority: string): boolean {
   if (/[\s/\\@?#%,]/.test(authority)) return false;
   try {
@@ -18,23 +17,22 @@ export function validViewerAuthority(authority: string): boolean {
   } catch { return false; }
 }
 /** Browser access is provided by the explicit Tailscale/loopback listener, with
- * no dashboard login. Upstream role credentials remain server-only. */
+ * no dashboard login. Internal credentials are ignored unconditionally. */
 export function validateViewerRequest(request: Request, env: ViewerEnvironment = process.env): Response | null {
   if (env.MESHMIND_UI_MODE !== "viewer") return viewerFailure(404);
   if (request.method !== "GET") return viewerFailure(405);
   const authority = env.MESHMIND_VIEWER_HOST;
-  if (!authority || !validViewerAuthority(authority) || !validToken(env.MESHMIND_VIEWER_HYDRO_TOKEN) || !validToken(env.MESHMIND_VIEWER_FLOOD_TOKEN)
-    || env.MESHMIND_VIEWER_HYDRO_TOKEN === env.MESHMIND_VIEWER_FLOOD_TOKEN) return viewerFailure(503);
+  if (!authority || !validViewerAuthority(authority)) return viewerFailure(503);
   if (request.headers.get("host") !== authority || request.headers.get("sec-fetch-site") === "cross-site") return viewerFailure(403);
   return null;
 }
 
-/** Choose the fixed backend token by endpoint, never by browser credentials. */
+/** Preserve the role contract; internal token inputs have no effect. */
 export function authorizeViewer(request: Request, role: WorkerId, env: ViewerEnvironment = process.env): ViewerIdentity | Response {
   const denied = validateViewerRequest(request, env);
   if (denied) return denied;
   if (role !== "hydro" && role !== "flood") return viewerFailure(404);
-  return { role, token: (role === "hydro" ? env.MESHMIND_VIEWER_HYDRO_TOKEN : env.MESHMIND_VIEWER_FLOOD_TOKEN)! };
+  return { role, token: "" };
 }
 
 /** Entire viewer listener allowlist, including framework assets and RSC requests. */
