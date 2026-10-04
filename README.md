@@ -30,14 +30,14 @@ Completed so far:
 - bounded Control dispatch with task/result checks, deadlines and independent branch records
 - worker hostname/startup identity and cross-platform deployment instructions
 - automated test suite: **758 passing tests on macOS**
-- accepted Phase 5 Windows verification: **617 passed, 1 expected symlink-privilege skip**
+- Phase 6 Windows verification: **757 passed, 1 expected symlink-privilege skip**
 - real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; Phase 5 accepted**
 - concurrent Control dispatch, authenticated clock samples and conservative overlap proof
-- Phase 6 local real-data overlap and actual TCP failure checks: **PASS; remote run pending**
+- Phase 6 real-data parallel execution on Windows and Linux workers: **PASS; human checkpoint pending**
 
 Current focus:
 
-**Phase 5 is accepted. Phase 6 local real-data validation proves 0.321560 seconds of processing overlap with matching results. Update both remote workers to `codex/parallel-dispatch`, then verify remote clock bounds and physical overlap.**
+**Phase 6 remote validation passed at implementation commit `7bde416`, proving 0.227333 seconds of guaranteed execution overlap after clock uncertainty. Results match Phase 5. Await the Phase 6 human checkpoint.**
 
 ## Status Matrix
 
@@ -64,7 +64,7 @@ DISTRIBUTED SYSTEM
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
-Parallel Execution      LOCAL PASS; REMOTE LAPTOP CHECK PENDING
+Parallel Execution      REMOTE PASS; HUMAN CHECKPOINT PENDING
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
 Frontend                NOT STARTED
@@ -73,9 +73,9 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Pull `codex/parallel-dispatch` on both worker laptops, rerun tests and restart the workers with existing tokens.
-2. Run the Phase 6 clock preflight and physical-laptop parallel validator from Control.
-3. Compare numerical results and pause for the Phase 6 human checkpoint.
+1. Confirm the completed Phase 6 investigation in Kazi's and Karan's worker terminals.
+2. Review the overlap evidence and matching numerical results, then accept the Phase 6 checkpoint.
+3. Stop at Phase 6; later phases are outside the current request.
 
 Current cross-platform update commands and overlap requirements are in
 [Phase 6 validation](docs/phase6-validation.md). The accepted
@@ -1213,16 +1213,17 @@ Required:
 
 ## Phase 6 — Real Parallel Execution
 
-**Implementation and local real-data checks PASS; physical remote overlap and
-human acceptance pending.**
+**Implementation, local tests and physical remote overlap PASS; human acceptance pending.**
 
 The `codex/parallel-dispatch` branch launches both bounded HTTP clients
 concurrently. Expected branch failures/timeouts retain the other result. Workers
 expose authenticated clock samples, and the validator conservatively accounts
-for clock uncertainty before asserting actual processing overlap. The local
-real-data run proved 0.321560 seconds of overlap; its complete results match
-accepted Phase 5 except for the fresh task ID. Local servers do not pass the
-physical-laptop gate. Follow [Phase 6 validation](docs/phase6-validation.md).
+for clock uncertainty before asserting actual execution overlap. The physical
+run proved 0.227333 seconds of guaranteed overlap on `Boni` and `ARE`. Both
+complete results and requests match accepted Phase 5 except for the fresh task
+ID. Hydro completed first and remained intact while Flood continued. All clock,
+authentication, identity, duplicate and topology checks passed. See the
+[Phase 6 evidence](docs/phase6-validation.md#physical-laptop-validation--pending-human-acceptance).
 
 Required:
 
@@ -1820,18 +1821,21 @@ The Phase 5 physical-laptop validator returned **PASS / PENDING_USER** for task
 Kazi's final Windows rerun at `070db04` passed: 617 tests and 1 expected
 symlink-privilege skip. The user supplied Karan's matching poll/result logs, and
 Kazi confirmed completion on his Windows laptop and accepted the Hydro portion.
-Kazi also reported resyncing his clock; post-resync agreement has not yet been
-measured. The user's conditional approval to proceed once all Phase 5 tests pass
+Kazi also reported resyncing his clock; the later Phase 6 run measured stable
+clock bounds successfully. The user's conditional approval to proceed once all Phase 5 tests pass
 has been satisfied: the physical run, numerical comparisons, local TCP
 failure/timeout tests, automated suites and worker confirmations all passed.
 Phase 5 is accepted; clock agreement and overlap belong to Phase 6.
 
 ## PENDING PHASE 6 CHECKPOINT
 
-Local real-data overlap, independent-result preservation, clock-bound failure
-checks and all automated tests pass. Both remote workers still need the Phase 6
-branch and a restart to expose `/clock`. A successful three-laptop run and human
-acceptance are required before Phase 6 is complete. No later phase has started.
+The physical-laptop validator returned **PASS / PENDING_USER** for investigation
+`f1f4cc63-1b2c-4a29-a924-f3c7490b554f`. Guaranteed execution overlap was 0.227333
+seconds. A live status snapshot captured Hydro complete while Flood was still
+processing; both results exactly match Phase 5. Kazi reported 757 Windows tests
+passed plus one expected skip, and Karan reported his Linux tests passed.
+Both owners must confirm this investigation's terminal activity and the user must
+accept the checkpoint before Phase 6 is complete. No later phase has started.
 
 ## NEXT
 

@@ -1,8 +1,9 @@
 # Phase 6 — Real parallel execution
 
 Phase 5 is accepted. Phase 6 runs on `codex/parallel-dispatch`, based on that
-accepted checkpoint. Its physical-laptop and human gates remain pending until
-the new validator proves actual overlapping processing on the remote workers.
+accepted checkpoint. **Physical-laptop validation passed; human acceptance is
+pending.** The validator proved 0.227333 seconds of guaranteed execution overlap
+on the remote workers at implementation commit `7bde416`.
 
 ## What changed
 
@@ -153,8 +154,8 @@ On 2026-10-03 America/Vancouver (2026-10-04 UTC):
 Local evidence: `outputs/debug/parallel-workers/local-real/result.json`, its
 `reference-comparison.json`, `outputs/debug/parallel-failures/result.json`, and
 `outputs/debug/phase6-pytest.log`. These reports remain ignored local artifacts.
-Windows/Linux reruns on the Phase 6 branch and physical-laptop overlap remain
-pending. No Phase 6 completion is claimed from these local results.
+At that local checkpoint, Windows/Linux reruns and physical-laptop overlap were
+still pending. The later remote verification is recorded below.
 
 Kazi's Windows rerun at `633306f` reported **756 passed, 1 failed, 1 expected
 symlink-privilege skip**. The failing concurrency unit test received equal host
@@ -162,7 +163,68 @@ wall-clock timestamps and passed when rerun alone. Its observation clock is now
 deterministic, while the shared asynchronous barrier, strict interval assertion,
 serialization check and rejection of sequential classification remain intact.
 Production clocks, real deadlines and physical overlap validation are unchanged.
-Another full Windows rerun is required; Karan's update confirmation remains pending.
+Kazi's subsequent full Windows rerun at `7bde416` passed: **757 passed, 1 expected
+symlink-privilege skip, 0 failures**. The user also confirmed Karan pulled the
+update, passed his Linux tests and restarted Flood; an exact Linux test count
+was not supplied.
+
+## Physical-laptop validation — pending human acceptance
+
+Recorded on **2026-10-03 America/Vancouver** (2026-10-04 UTC), using implementation
+commit `7bde416c701d88072f8ae8801c1d35ebb91c8ea0` on Control and operator-confirmed
+matching worker updates and restarts. Later documentation commits record this
+evidence without changing the implementation tested here.
+
+The validator returned **`PASS / PENDING_USER`** for task
+`f1f4cc63-1b2c-4a29-a924-f3c7490b554f`. Authenticated `/status` and `/clock` checks
+confirmed both remote workers idle before dispatch; unauthenticated requests to
+both routes returned 401.
+
+| Worker | Host | Raw worker start (UTC) | Raw worker completion (UTC) | Duration |
+|---|---|---|---|---:|
+| Hydro / Windows | `Boni` | 06:06:17.173756 | 06:06:17.411409 | 0.237653 s |
+| Flood / Linux | `ARE` | 06:06:17.202820 | 06:07:48.722587 | 91.519767 s |
+
+After calibrating both clocks to Control and conservatively accounting for
+uncertainty, the guaranteed common execution interval was
+**06:06:17.207706–06:06:17.435039 UTC: 0.227333 seconds**.
+
+| Clock bound (worker UTC minus Control UTC) | Lower | Upper | Uncertainty |
+|---|---:|---:|---:|
+| Hydro | −0.033950 s | −0.023630 s | 0.010320 s |
+| Flood | 0.000127 s | 0.009031 s | 0.008904 s |
+
+All pre/post sample, process identity, Control-window feasibility and clock
+continuity checks passed. These measured bounds account for the remaining skew;
+the clocks are not claimed to be identical. A live snapshot at approximately
+06:07:36–06:07:37 UTC observed Hydro `complete` while Flood remained `processing`.
+Control collected Hydro first and Flood 91.181057 seconds later. Hydro's complete
+result remained preserved.
+
+Both complete result payloads and both bounded requests exactly match accepted
+Phase 5 except for the new task IDs. Rainfall remains 6.650416513284047 mm; surface
+and root-zone moisture remain 0.4084949195384979 / 0.3924146294593811 m³/m³;
+candidate-water area remains 88.0997 km² with 97.6354% valid SAR coverage. Sources,
+AOI, threshold and the rest of the numerical evidence match as well.
+
+Authentication, duplicate submission and all physical-topology checks passed.
+The existing controlled local TCP failure checkpoint also passed, including
+preserving Hydro after Flood's connection fails. This successful remote run
+does not claim remote fault injection; its overlap evidence concerns the workers'
+reported task-execution intervals. Stable-clock
+and worker-reported evidence limitations above still apply.
+
+Evidence in `outputs/debug/parallel-workers/physical-7bde416/`:
+
+- `preflight.json`: authentication/readiness and operator update/test reports;
+- `result.json`: full dispatch, clock bounds, overlap, results and phase gates;
+- `progress-snapshot.json`: Hydro complete while Flood continued processing;
+- `reference-comparison.json`: complete request/result comparison with Phase 5.
+
+**Human checkpoint:** Kazi and Karan should confirm this task's matching activity
+and result retrieval in their worker terminals. Review the measured overlap and
+matching results, then explicitly accept Phase 6. No HTML review is necessary.
+Do not merge the Phase 6 implementation or start a later phase before acceptance.
 
 After the physical run passes, compare numerical results, obtain human acceptance
 and stop at the Phase 6 checkpoint. No HTML review is needed. Later phases are
