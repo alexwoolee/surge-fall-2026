@@ -50,6 +50,8 @@ export function viewerChildEnvironment(args, tokens, inherited = process.env) {
 }
 function main() {
   const args = parseViewerArgs(process.argv.slice(2));
+  // These role tokens authenticate only server-to-server API reads. The
+  // Tailscale/loopback dashboard listener does not ask browsers to log in.
   const tokens = parseViewerEnv(readFileSync(resolve(args["env-file"]), "utf8"));
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const next = createRequire(import.meta.url).resolve("next/dist/bin/next");

@@ -86,15 +86,19 @@ The server route accepts only the fixed route/method allowlist and loopback Cont
 
 `BriefingViewModel.executionNotice` distinguishes retained evidence from current execution. The visible briefing renders all measurements and sections. Source and processing provenance are safe projections supplied by Python. Original request text is explicitly user context, not a finding.
 
-## Read-only worker listeners
+## Worker-owned static dashboards
 
-`src/proxy.ts` applies the viewer-mode authentication/path boundary to every request. `viewer-auth.ts` validates the exact configured Host authority and HTTP Basic role, permits only that role's viewer page/read endpoint and required assets, and rejects methods other than GET. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck role authentication.
+The primary worker display is served directly by each Python worker at `/dashboard`. Its fixed local assets live under `backend/shared/dashboard_assets/` and need no Next.js runtime or build. The browser reads only same-origin `/dashboard/state`, follows accepted tasks automatically, retains true lifecycle events after fast processing, and shows recorded duration in milliseconds. It never calls Control or submits/retries tasks. Completed worker processing does not imply completed Control fusion review. The launcher opens the local page by default; `--no-open-dashboard` opts out.
 
-`viewer-proxy.ts` sends only the selected role's bearer token to a fixed loopback `/viewer/{role}` endpoint. Its schema parser excludes unexpected fields and foreign worker identities, bounds the event history, and validates observation timestamps. Responses have no shared cache, backend cookies, untrusted redirects, or private error text.
+## Optional Control-hosted legacy viewers
+
+`src/proxy.ts` applies the viewer-mode Host/method/path boundary to every request. `viewer-auth.ts` validates the exact configured Tailscale or loopback Host authority, permits both worker dashboard pages/read endpoints and required assets, and rejects methods other than GET. Dashboard requests need no browser login or credentials. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck the listener boundary. Python API authentication is unchanged.
+
+`viewer-proxy.ts` selects the server-only role token from the requested endpoint and sends it as bearer authentication to a fixed loopback `/viewer/{role}` endpoint. Incoming browser credentials and cookies are ignored and never forwarded; no authentication challenge reaches the browser. Its schema parser excludes unexpected fields and foreign worker identities, bounds the event history, and validates observation timestamps. Responses have no shared cache, backend cookies, untrusted redirects, or private error text.
 
 `worker-follower.tsx` is a focused screen without operator navigation or actions. `viewer-polling.ts` follows the server's latest execution snapshot every second, without overlapping requests, including after completion. It preserves observed event history instead of inventing animation time for fast work; a failed read labels prior data as stale. New execution IDs replace the complete view.
 
-The portable `scripts/start-viewers.mjs` reads a literal private token file, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. It uses the same production build as the local operator listener. `viewer.test.ts` covers role/Host/method/path isolation, independent endpoint guards, fixed upstream/redaction, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
+The portable `scripts/start-viewers.mjs` reads a literal private token file, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. It uses the same production build as the local operator listener. `viewer.test.ts` covers login-free access to both dashboards, Host/method/path isolation, independent endpoint guards, server-only role-token selection, fixed upstream/redaction, absence of browser authentication challenges, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
 
 ## Preserved fixture implementation
 

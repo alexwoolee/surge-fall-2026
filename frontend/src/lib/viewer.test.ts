@@ -9,25 +9,31 @@ import { parseViewerArgs, parseViewerEnv, viewerChildEnvironment } from "../../s
 import type { WorkerViewerSnapshot } from "./types";
 const ID = "a18b29c3-9988-47a5-a113-13937c826a89";
 const env = { MESHMIND_UI_MODE: "viewer", MESHMIND_VIEWER_HOST: "100.100.3.5:3001", MESHMIND_VIEWER_API_URL: "http://127.0.0.1:8001", MESHMIND_VIEWER_HYDRO_TOKEN: "hydro_viewer_token_abcdefghijklmnopqrstuvwxyz", MESHMIND_VIEWER_FLOOD_TOKEN: "flood_viewer_token_abcdefghijklmnopqrstuvwxyz", MESHMIND_CONTROL_API_TOKEN: "operator_secret_must_never_be_forwarded" };
-const auth = (role = "hydro", token = role === "hydro" ? env.MESHMIND_VIEWER_HYDRO_TOKEN : env.MESHMIND_VIEWER_FLOOD_TOKEN) => `Basic ${Buffer.from(`${role}:${token}`).toString("base64")}`;
-const request = (path = "/viewer/hydro", role = "hydro", headers = {}, method = "GET") => new Request(`http://127.0.0.1:3001${path}`, { method, headers: { Host: env.MESHMIND_VIEWER_HOST, Authorization: auth(role), ...headers } });
+const request = (path = "/viewer/hydro", headers = {}, method = "GET") => new Request(`http://127.0.0.1:3001${path}`, { method, headers: { Host: env.MESHMIND_VIEWER_HOST, ...headers } });
 const waiting: WorkerViewerSnapshot = { session: null, worker: null, observedAt: null, events: [] };
 const done: WorkerViewerSnapshot = { session: { id: ID, title: "Abbotsford", createdAt: "2026-10-05T00:00:00Z", executionNotice: "Historical inputs; current execution.", status: "partial" }, worker: { id: "hydro", name: "Hydro", location: "Laptop 2", status: "complete", steps: [{ id: "processing", label: "Processing", state: "complete" }], summary: "Evidence returned", resources: ["GPM"], returned: true, validated: true }, observedAt: "2026-10-05T00:00:01Z", events: [{ id: "1", observedAt: "2026-10-05T00:00:00Z", label: "Task accepted" }, { id: "2", observedAt: "2026-10-05T00:00:01Z", label: "Evidence returned" }] };
 
-test("viewer Basic identity is role scoped, exact host scoped and independent of operator credentials", () => {
-  assert.deepEqual(authorizeViewer(request(), "hydro", env), { role: "hydro", token: env.MESHMIND_VIEWER_HYDRO_TOKEN });
-  for (const [req, expected] of [[request("/viewer/hydro", "flood"), 403], [request(undefined, "hydro", { Authorization: "" }), 401], [request(undefined, "hydro", { Authorization: auth("hydro", "incorrect") }), 401], [request(undefined, "hydro", { Host: "evil.example:3001" }), 403], [request(undefined, "hydro", { Host: "100.100.3.5:3002" }), 403], [request(undefined, "hydro", { "Sec-Fetch-Site": "cross-site" }), 403], [request(undefined, "hydro", {}, "POST"), 405]] as const) {
-    const result = authorizeViewer(req, "hydro", env); assert.ok(result instanceof Response); assert.equal(result.status, expected);
+test("viewer requires no browser credentials and selects server credentials by requested role", () => {
+  for (const role of ["hydro", "flood"] as const) {
+    const req = request(`/viewer/${role}`);
+    assert.equal(req.headers.get("authorization"), null);
+    assert.deepEqual(authorizeViewer(req, role, env), { role, token: role === "hydro" ? env.MESHMIND_VIEWER_HYDRO_TOKEN : env.MESHMIND_VIEWER_FLOOD_TOKEN });
+    // Old cached browser credentials neither grant privileges nor block access.
+    assert.deepEqual(authorizeViewer(request(`/viewer/${role}`, { Authorization: "Basic invalid-cached-value" }), role, env), authorizeViewer(req, role, env));
   }
-  const noAuth = authorizeViewer(request(undefined, "hydro", { Authorization: "" }), "hydro", env) as Response;
-  assert.match(noAuth.headers.get("www-authenticate")!, /^Basic /);
+  for (const [req, expected] of [[request(undefined, { Host: "evil.example:3001" }), 403], [request(undefined, { Host: "100.100.3.5:3002" }), 403], [request(undefined, { "Sec-Fetch-Site": "cross-site" }), 403], [request(undefined, {}, "POST"), 405]] as const) {
+    const result = authorizeViewer(req, "hydro", env); assert.ok(result instanceof Response); assert.equal(result.status, expected); assert.equal(result.headers.get("www-authenticate"), null);
+  }
   assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_UI_MODE: "operator" }) as Response).status, 404);
   assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_FLOOD_TOKEN: env.MESHMIND_VIEWER_HYDRO_TOKEN }) as Response).status, 503);
+  assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_HYDRO_TOKEN: "" }) as Response).status, 503);
 });
-test("viewer listener permits own read-only surface and assets while blocking all operator and other-role surfaces", () => {
-  for (const path of ["/viewer/hydro", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/_next/static/chunks/app-123.js", "/icon.svg"]) assert.equal(guardViewerSurface(request(path), env), null, path);
-  for (const path of ["/", "/history", `/session/${ID}`, "/worker/hydro", "/viewer/flood", "/api/viewer/flood", "/api/control/config", "/api/control/sessions", "/_next/data/build/index.json", "/_next/image?url=http://evil", "/viewer/hydro?session=anything", "/api/viewer/hydro?target=evil", "/api/viewer/hydro/retry", "/viewer/hydro/extra"]) assert.equal(guardViewerSurface(request(path), env)?.status, 403, path);
-  for (const method of ["POST", "PUT", "DELETE", "HEAD", "OPTIONS"]) assert.equal(guardViewerSurface(request("/api/viewer/hydro", "hydro", {}, method), env)?.status, 405, method);
+test("viewer listener opens both read-only dashboards and assets without login while blocking operator surfaces", () => {
+  for (const path of ["/viewer/hydro", "/viewer/flood", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/api/viewer/flood", "/_next/static/chunks/app-123.js", "/icon.svg"]) assert.equal(guardViewerSurface(request(path), env), null, path);
+  for (const path of ["/", "/history", `/session/${ID}`, "/worker/hydro", "/viewer/unknown", "/api/viewer/unknown", "/api/control/config", "/api/control/sessions", "/_next/data/build/index.json", "/_next/image?url=http://evil", "/viewer/hydro?session=anything", "/api/viewer/hydro?target=evil", "/api/viewer/hydro/retry", "/viewer/hydro/extra"]) {
+    const denied = guardViewerSurface(request(path), env); assert.equal(denied?.status, 403, path); assert.equal(denied?.headers.get("www-authenticate"), null);
+  }
+  for (const method of ["POST", "PUT", "DELETE", "HEAD", "OPTIONS"]) assert.equal(guardViewerSurface(request("/api/viewer/hydro", {}, method), env)?.status, 405, method);
   assert.equal(guardViewerSurface(request("/"), { ...env, MESHMIND_UI_MODE: "operator" }), null);
 });
 test("viewer serves actual dynamic-route bundles while rejecting other encoded asset characters", () => {
@@ -38,28 +44,35 @@ test("viewer serves actual dynamic-route bundles while rejecting other encoded a
     assert.equal(guardViewerSurface(request(`/_next/static/chunks/app/viewer/${segment}/page.js`), env)?.status, 403);
   }
   assert.equal(guardViewerSurface(request("/api/control/%5Bpath%5D"), env)?.status, 403);
-  assert.equal(guardViewerSurface(request("/_next/static/chunks/app/viewer/%5Brole%5D/page.js", "hydro", {}, "POST"), env)?.status, 405);
+  assert.equal(guardViewerSurface(request("/_next/static/chunks/app/viewer/%5Brole%5D/page.js", {}, "POST"), env)?.status, 405);
 });
 test("operator proxy independently denies viewer-mode requests even with an operator token present", async () => {
   let calls = 0;
   const response = await proxyControl(request("/api/control/sessions"), ["sessions"], { env, fetcher: async () => { calls++; return Response.json({}); } });
   assert.equal(response.status, 403); assert.equal(calls, 0);
 });
-test("viewer API sends only own role token to fixed loopback endpoint and redacts backend errors", async () => {
-  const result = await proxyWorkerViewer(request("/api/viewer/hydro", "hydro", { Cookie: "private-browser-cookie" }), "hydro", { env, fetcher: async (input, init) => {
-    assert.equal(String(input), "http://127.0.0.1:8001/viewer/hydro"); assert.equal(init?.method, "GET"); assert.equal(init?.redirect, "error");
-    assert.deepEqual(init?.headers, { Authorization: `Bearer ${env.MESHMIND_VIEWER_HYDRO_TOKEN}`, Accept: "application/json" });
-    return Response.json(done, { headers: { "Set-Cookie": "backend-private", "X-Secret": "private" } });
-  } });
-  assert.equal(result.status, 200); assert.deepEqual(await result.json(), done); assert.equal(result.headers.get("set-cookie"), null);
-  for (const upstream of [new Response("secret token", { status: 403 }), new Response("secret token", { status: 500 }), new Response("secret token", { status: 302, headers: { Location: "http://evil" } }), Response.json({ ...waiting, token: "secret" }), new Response("x".repeat(512 * 1024 + 1), { headers: { "Content-Type": "application/json" } })]) {
+test("viewer APIs need no browser login and use only the requested server-side role token upstream", async () => {
+  for (const role of ["hydro", "flood"] as const) {
+    const snapshot = { ...done, worker: { ...done.worker!, id: role } };
+    const result = await proxyWorkerViewer(request(`/api/viewer/${role}`, { Cookie: "private-browser-cookie", Authorization: "Bearer caller-secret-must-not-be-forwarded" }), role, { env, fetcher: async (input, init) => {
+      assert.equal(String(input), `http://127.0.0.1:8001/viewer/${role}`); assert.equal(init?.method, "GET"); assert.equal(init?.redirect, "error");
+      assert.deepEqual(init?.headers, { Authorization: `Bearer ${role === "hydro" ? env.MESHMIND_VIEWER_HYDRO_TOKEN : env.MESHMIND_VIEWER_FLOOD_TOKEN}`, Accept: "application/json" });
+      return Response.json(snapshot, { headers: { "Set-Cookie": "backend-private", "X-Secret": "private", "WWW-Authenticate": "Basic unwanted" } });
+    } });
+    assert.equal(result.status, 200); assert.deepEqual(await result.json(), snapshot); assert.equal(result.headers.get("set-cookie"), null); assert.equal(result.headers.get("www-authenticate"), null);
+    const publicResult = await proxyWorkerViewer(request(`/api/viewer/${role}`), role, { env, fetcher: async () => Response.json(snapshot) });
+    assert.equal(publicResult.status, 200); assert.equal(publicResult.headers.get("www-authenticate"), null);
+  }
+  for (const upstream of [new Response("secret token", { status: 401, headers: { "WWW-Authenticate": "Bearer" } }), new Response("secret token", { status: 403 }), new Response("secret token", { status: 500 }), new Response("secret token", { status: 302, headers: { Location: "http://evil" } }), Response.json({ ...waiting, token: "secret" }), new Response("x".repeat(512 * 1024 + 1), { headers: { "Content-Type": "application/json" } })]) {
     const response = await proxyWorkerViewer(request("/api/viewer/hydro"), "hydro", { env, fetcher: async () => upstream });
-    assert.ok(response.status >= 400); assert.doesNotMatch(await response.text(), /secret/);
+    assert.ok(response.status >= 400); assert.doesNotMatch(await response.text(), /secret/); assert.equal(response.headers.get("www-authenticate"), null);
   }
 });
-test("viewer API rechecks role, host and upstream without relying on global proxy", async () => {
+test("viewer API rechecks host, method, queries and upstream without relying on global proxy", async () => {
   let calls = 0; const fetcher = async () => { calls++; return Response.json(waiting); };
-  assert.equal((await proxyWorkerViewer(request("/api/viewer/flood"), "flood", { env, fetcher })).status, 403);
+  assert.equal((await proxyWorkerViewer(request("/api/viewer/hydro", { Host: "evil.example:3001" }), "hydro", { env, fetcher })).status, 403);
+  assert.equal((await proxyWorkerViewer(request("/api/viewer/hydro", {}, "POST"), "hydro", { env, fetcher })).status, 405);
+  assert.equal((await proxyWorkerViewer(request("/api/viewer/hydro?target=evil"), "hydro", { env, fetcher })).status, 403);
   for (const origin of ["https://evil.example", "http://127.0.0.1:8001/operator", "http://user:pass@127.0.0.1:8001", "http://127.0.0.1:8001?token=secret"]) assert.equal((await proxyWorkerViewer(request(), "hydro", { env: { ...env, MESHMIND_VIEWER_API_URL: origin }, fetcher })).status, 503);
   assert.equal(calls, 0);
 });

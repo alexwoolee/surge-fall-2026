@@ -4,6 +4,12 @@ Current checkout: use `main` for Control, workers and the UI. Original branch
 names below are historical; their accepted commits were consolidated into
 `main` before those branch references were pruned.
 
+After that acceptance, the user requested each worker host its own dashboard,
+open it on startup and require no browser login. Use
+[automatic worker startup](worker-dashboard-startup.md) for that current setup.
+The Control-hosted viewer described below remains optional; it is not required
+for the worker-owned pages. Its original authenticated validation is historical.
+
 The Mac-only human checklist passed, and that implementation was merged at
 `fb14c2a`. The user then clarified that the demo must also show Hydro on Kazi's
 Windows laptop and Flood on Karan's Linux laptop during the same investigation.
@@ -19,14 +25,16 @@ observed Hydro complete while Flood was processing, and both results matched
 the reference. Browser rendering on those two worker laptops was not verified.
 Phase 6 remains the recorded calibrated execution-overlap proof.
 
-## Viewer boundary
+## Optional Control-hosted viewer boundary
 
 Control's operator UI remains on `127.0.0.1:3000`, and Python remains on
 `127.0.0.1:8001`. A separate viewer-only frontend listens on the Mac's explicit
-Tailscale address, `100.100.3.5:3001`. It accepts a different read-only credential
-for each worker role and denies operator pages and actions at the server.
-Python also restricts each viewer token to its own GET endpoint. Do not expose
-the operator UI or share the operator, worker-service or OpenAI credentials.
+Tailscale address, `100.100.3.5:3001`. The two read-only dashboard pages open
+without a browser login. Any device allowed to reach this Tailscale listener can
+read either role's projected dashboard. Operator pages and actions remain denied.
+The frontend still uses separate server-side role credentials when reading
+Python; each token grants only its own GET endpoint. Keep those credentials and
+the operator, worker-service and OpenAI credentials on their configured hosts.
 
 The worker pages follow the latest execution session automatically, including
 when opened before a new request. They keep polling after completion to pick up
@@ -37,7 +45,7 @@ unobserved processing stages or extend the active animation. Hydro can complete
 in less than one screen-refresh interval. A fast completion with real recorded
 events is a valid result, even if nobody catches its active frame.
 
-## Ryan's setup
+## Optional Control-hosted viewer setup
 
 Keep the existing Hydro and Flood worker processes running. No worker checkout
 update, additional Node/Python installation, or new OpenAI key is needed on their
@@ -47,13 +55,14 @@ Create private `.env.phase9-viewers.local` in the Control checkout with separate
 random tokens of at least 32 characters:
 
 ```dotenv
-MESHMIND_VIEWER_HYDRO_TOKEN=<private-hydro-viewer-password>
-MESHMIND_VIEWER_FLOOD_TOKEN=<different-private-flood-viewer-password>
+MESHMIND_VIEWER_HYDRO_TOKEN=<private-hydro-upstream-token>
+MESHMIND_VIEWER_FLOOD_TOKEN=<different-private-flood-upstream-token>
 ```
 
-The file is ignored by Git. Share only Hydro's value privately with Kazi and
-only Flood's with Karan. These are distinct from their existing worker-service
-tokens. Never put them in a URL, source file, screenshot or chat transcript.
+The file is ignored by Git and stays on Control. The two values authenticate
+the viewer server to Python; owners do not enter them in their browsers.
+Existing values can be reused. Never put them in a URL, source file, screenshot
+or chat transcript.
 
 Add this option to the existing `backend.control.serve` command from
 [Phase 9 startup](phase9-validation.md#local-startup):
@@ -83,8 +92,7 @@ In PowerShell, open the Hydro screen:
 Start-Process "http://100.100.3.5:3001/viewer/hydro"
 ```
 
-When the browser asks for authentication, enter username **hydro** and the
-Hydro viewer password Ryan shared privately. Leave the page open. It should
+No browser login is required. Leave the page open. It should
 identify Hydrometeorology and show a previous completed investigation or a
 waiting state. Report **Hydro browser ready** to Ryan before the new submission.
 
@@ -96,9 +104,8 @@ In a terminal, open the Flood screen:
 xdg-open "http://100.100.3.5:3001/viewer/flood"
 ```
 
-Alternatively paste that exact URL into an existing browser. When asked for
-credentials, enter username **flood** and the Flood viewer password Ryan shared
-privately. Leave the page open. It should identify Surface Water and Terrain
+Alternatively paste that exact URL into an existing browser. No login is
+required. Leave the page open. It should identify Surface Water and Terrain
 and show a previous completed investigation or a waiting state. Report
 **Flood browser ready** to Ryan before the new submission.
 
@@ -108,8 +115,9 @@ If a page cannot connect, first confirm Tailscale is connected and run:
 tailscale ping 100.100.3.5
 ```
 
-A login failure requires the viewer password, not the worker-service token.
-Do not work around errors by removing authentication or exposing the operator UI.
+If a browser still asks for a dashboard password, confirm Control is running the
+current frontend build. Worker HTTP APIs still require their existing tokens;
+only the read-only dashboard browser login was removed.
 
 ## Coordinated manual test — PASS
 

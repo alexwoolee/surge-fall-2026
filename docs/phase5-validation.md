@@ -134,6 +134,11 @@ Internet access during processing. Nondefault data folders can be set with
 
 ## 4. Start one worker on each remote laptop
 
+The direct Uvicorn commands below remain suitable for headless workers. To open
+the dashboard automatically during startup, use the current
+[worker launcher commands](worker-dashboard-startup.md) instead; the same worker
+API token and inputs are retained.
+
 Create a separate random token for each worker, for example with Python's
 `secrets.token_urlsafe(32)`, and share it privately with Control. Replace
 `YOUR_HYDRO_TOKEN`, `YOUR_FLOOD_TOKEN` and the IP labels before running these

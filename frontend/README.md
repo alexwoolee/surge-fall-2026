@@ -52,22 +52,33 @@ Downloads use a native same-origin link through the authenticated server route. 
 
 A worker page without a selected session does not invent an active investigation. Sidebar worker links use the most recent known session.
 
-## Three-screen worker viewers
+## Worker-owned dashboards
 
-A separate viewer-only Next process can serve Kazi and Karan over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control with its separate viewer-token file, as described in the root README, then run from `frontend/`:
+The primary worker screens are served by each worker's Python API, with no Node installation or frontend build on that laptop:
+
+- Kazi's Hydro dashboard: `http://100.100.3.2:8002/dashboard`.
+- Karan's Flood dashboard: `http://100.100.3.4:8003/dashboard`.
+
+The worker launcher opens its own dashboard automatically; `--no-open-dashboard` disables that convenience. The page reads only its own `/dashboard/state` endpoint and follows the latest accepted task. Processing duration is displayed in milliseconds, including fast Hydro work. Worker completion is distinct from Control's later evidence checks and combined briefing. Existing worker task APIs remain authenticated.
+
+The self-contained HTML, CSS, and JavaScript live in `backend/shared/dashboard_assets/`. They reuse the approved worker-screen visual design, use no external assets or Control requests, and render dynamic text without HTML injection. Tests in `src/lib/worker-dashboard.test.ts` exercise their validation, polling, truthful stages, and browser restoration behavior.
+
+## Optional Control-hosted legacy viewers
+
+The earlier Control-hosted viewer is optional; it is not the worker-owned dashboard described above. A separate viewer-only Next process can display Control-observed activity over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control with its separate viewer-token file, as described in the root README, then run from `frontend/`:
 
 ```bash
 npm run start:viewers -- --env-file ../.env.phase9-viewers.local --host 100.100.3.5 --port 3001 --upstream http://127.0.0.1:8001
 ```
 
-The private file contains only two different URL-safe tokens (32–256 characters): `MESHMIND_VIEWER_HYDRO_TOKEN` and `MESHMIND_VIEWER_FLOOD_TOKEN`. Share each token privately only with its worker owner. Never embed credentials in a URL.
+The private file contains only two different URL-safe tokens (32–256 characters): `MESHMIND_VIEWER_HYDRO_TOKEN` and `MESHMIND_VIEWER_FLOOD_TOKEN`. They stay on the Control machine and authenticate server-to-server reads of the Python viewer APIs. Browsers do not need either token, and the dashboards do not show a login prompt.
 
-- Kazi opens `http://100.100.3.5:3001/viewer/hydro`, enters username `hydro`, and uses the Hydro viewer token as the browser authentication password.
-- Karan opens `http://100.100.3.5:3001/viewer/flood`, enters username `flood`, and uses the Flood viewer token as the password.
+- Kazi opens `http://100.100.3.5:3001/viewer/hydro`.
+- Karan opens `http://100.100.3.5:3001/viewer/flood`.
 
 These are read-only views of the same current execution session. Open both before Ryan submits the request. They automatically follow each new execution, show a shared session ID and UTC request time, and retain actual observed events when a worker completes between polls. Completed earlier work is labeled while waiting for another investigation; it is never replayed as current processing. Missing updates show a stale-state warning and stop active animations.
 
-The launcher binds only to explicit loopback or Tailscale addresses, forces viewer mode, and clears operator, worker, and OpenAI credentials from the child process. Viewer mode rejects all mutations, operator pages, operator APIs, and the other role's viewer. Its server-side role token can read only that role's backend projection. Only the required authenticated page, read endpoint, and static assets are allowed. Browser code never receives a bearer token. Keep the browser view on its owner's laptop; use a separate browser profile when testing both roles on one computer because HTTP Basic credentials may be cached by origin.
+The launcher binds only to explicit loopback or Tailscale addresses, forces viewer mode, and clears operator, worker, and OpenAI credentials from the child process. Viewer mode rejects all mutations, operator pages, and operator APIs. Both read-only worker dashboards are available to anyone who can reach the configured Tailscale or loopback listener. Only the two dashboard pages, their read endpoints, and required static assets are allowed. Each read endpoint selects its own server-side token, which can read only the matching Python backend projection. Browser code never receives a bearer token. Python Control and the physical workers keep their existing API authentication.
 
 ## Explicit fixture demo
 

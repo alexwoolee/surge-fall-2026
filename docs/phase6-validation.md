@@ -60,17 +60,20 @@ failures need investigation.
 
 After passing tests, restart in the same terminal with the existing
 `MESHMIND_WORKER_TOKEN`. If opening a new terminal, set that same token privately.
+The current launcher also opens the role's read-only dashboard after the worker
+is ready; see [dashboard startup](worker-dashboard-startup.md). Add
+`--no-open-dashboard` for a headless worker.
 
 Kazi:
 
 ```powershell
-.\.venv\Scripts\python.exe -m uvicorn backend.workers.hydro.main:create_app --factory --workers 1 --host 100.100.3.2 --port 8002
+.\.venv\Scripts\python.exe -m scripts.run_worker hydro --host 100.100.3.2 --port 8002
 ```
 
 Karan:
 
 ```sh
-.venv/bin/python -m uvicorn backend.workers.flood.main:create_app --factory --workers 1 --host 100.100.3.4 --port 8003
+.venv/bin/python -m scripts.run_worker flood --host 100.100.3.4 --port 8003
 ```
 
 Keep both laptops awake and terminals open. Hydro keeps its existing NASA files;

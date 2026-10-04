@@ -10,7 +10,8 @@ import asyncio
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from copy import deepcopy
 from datetime import datetime, timezone
 import hmac
 import json
@@ -30,6 +31,10 @@ from backend.shared.contracts import (
 )
 from backend.shared.status import TaskState
 from backend.shared.settings import validate_token
+from backend.shared.worker_dashboard import (
+    DASHBOARD_ASSETS, MAX_DASHBOARD_EVENTS, PUBLIC_GET_PATHS, dashboard_asset,
+    dashboard_event, dashboard_headers, dashboard_snapshot,
+)
 
 
 MAX_REQUEST_BYTES = 64 * 1024
@@ -73,12 +78,16 @@ def _finite_json(value):
 class _RequestGuard:
     """Authenticate before reading bounded JSON; never echo untrusted inputs."""
 
-    def __init__(self, app, *, token: str | None):
+    def __init__(self, app, *, token: str | None, public_get_paths=()):
         self.app = app
         self.token = token.encode("utf-8") if token is not None else None
+        self.public_get_paths = frozenset(public_get_paths)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+        if (scope["method"] == "GET" and scope["path"] in self.public_get_paths
+                and scope.get("raw_path", scope["path"].encode("ascii")) == scope["path"].encode("ascii")):
             return await self.app(scope, receive, send)
         headers = {key.lower(): value for key, value in scope["headers"]}
         if self.token is not None:
@@ -144,6 +153,7 @@ class _Record:
     task: AnalysisTask
     status: TaskStatus
     result: HydroResult | FloodResult | None = None
+    events: list[dict] = field(default_factory=list)
 
 
 def create_worker_app(
@@ -175,6 +185,13 @@ def create_worker_app(
     execution_host: str | None = None
     process_instance_id: str | None = None
 
+    def record_event(record, state, observed_at):
+        # Called only while holding the lifecycle lock. Legal progress is
+        # monotonic, so a task has at most seven distinct genuine states.
+        if not record.events or record.events[-1]["state"] != state:
+            record.events.append(dashboard_event(state, observed_at))
+            del record.events[:-MAX_DASHBOARD_EVENTS]
+
     def run_task(record: _Record):
         nonlocal active_task_id
         with lock:
@@ -189,6 +206,7 @@ def create_worker_app(
                 if current not in _PROGRESS_ORDER or _PROGRESS_ORDER[state] < _PROGRESS_ORDER[current]:
                     raise ValueError("Processing progress cannot move backwards.")
                 record.status = record.status.model_copy(update={"state": TaskState(state)})
+                record_event(record, state, _now())
 
         try:
             raw = runner(record.task.model_copy(deep=True), progress)
@@ -213,15 +231,19 @@ def create_worker_app(
             json.dumps(result.model_dump(mode="json"), allow_nan=False)
             with lock:
                 record.result = result
+                completed_at = _now()
                 record.status = record.status.model_copy(update={
-                    "state": TaskState(result.status), "completed_at": _now(),
+                    "state": TaskState(result.status), "completed_at": completed_at,
                 })
+                record_event(record, result.status, completed_at)
                 active_task_id = None
         except Exception:
             with lock:
+                completed_at = _now()
                 record.status = record.status.model_copy(update={
-                    "state": TaskState("failed"), "completed_at": _now(), "error": _FAILURE_MESSAGE,
+                    "state": TaskState("failed"), "completed_at": completed_at, "error": _FAILURE_MESSAGE,
                 })
+                record_event(record, "failed", completed_at)
                 active_task_id = None
 
     @asynccontextmanager
@@ -247,7 +269,28 @@ def create_worker_app(
                 executor = None
 
     app = FastAPI(title=f"MeshMind {worker_id}", version="1.0", lifespan=lifespan)
-    app.add_middleware(_RequestGuard, token=token)
+    app.add_middleware(_RequestGuard, token=token, public_get_paths=PUBLIC_GET_PATHS)
+
+    def require_dashboard_query(request):
+        if request.url.query:
+            raise HTTPException(status_code=400, detail="Dashboard query selectors are not supported.",
+                                headers=dashboard_headers())
+
+    async def dashboard_static(request: Request):
+        require_dashboard_query(request)
+        return dashboard_asset(request.url.path)
+
+    for path in DASHBOARD_ASSETS:
+        app.add_api_route(path, dashboard_static, methods=["GET"], include_in_schema=False)
+
+    @app.get("/dashboard/state", include_in_schema=False)
+    async def dashboard_state(request: Request):
+        require_dashboard_query(request)
+        with lock:
+            latest = records[next(reversed(records))] if records else None
+            status = latest.status.model_copy(deep=True) if latest else None
+            events = deepcopy(latest.events) if latest else []
+        return JSONResponse(dashboard_snapshot(worker_id, status, events), headers=dashboard_headers())
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, error: RequestValidationError):
@@ -282,6 +325,7 @@ def create_worker_app(
                 execution_host=execution_host, process_instance_id=process_instance_id,
             )
             record = _Record(fingerprint, task.model_copy(deep=True), status)
+            record_event(record, "task_received", status.received_at)
             records[task.task_id] = record
             active_task_id = task.task_id
             try:

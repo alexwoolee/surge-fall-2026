@@ -28,6 +28,15 @@ their history was included. The abandoned local Phase 2 experiment is retained
 under `archive/phase2-validation-2026-10-04`, without changing accepted processing.
 See [branch cleanup and laptop update steps](docs/branch-consolidation.md).
 
+**Worker dashboard startup:** each worker hosts its own read-only `/dashboard`
+on its existing port: Hydro on `100.100.3.2:8002`, Flood on `100.100.3.4:8003`.
+Use [the worker launcher](docs/worker-dashboard-startup.md) to open its own page
+automatically when the worker starts. No dashboard login or Node installation
+is needed on the workers. Task APIs retain their existing authentication.
+The dashboard reads its own worker's state, without depending on Control to host
+the page. This requested startup improvement does not start Phase 10 or change the
+accepted environmental measurements.
+
 **Handoff updated October 4, 2026 (America/Vancouver).** Kazi Boni Amin is moving
 development to a friend's laptop/Codex session. This README is the continuation
 brief; inspect the actual code and applicable `AGENTS.md` files before editing.

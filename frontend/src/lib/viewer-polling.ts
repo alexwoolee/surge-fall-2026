@@ -21,7 +21,7 @@ export function followWorker(role: WorkerId, options: ViewerPollingOptions): () 
       options.onSnapshot(snapshot);
     } catch {
       if (controller.signal.aborted) return;
-      options.onError("Updates are unavailable. Any evidence below is the last received state. Reconnect or reload to authenticate again.");
+      options.onError("Updates are unavailable. Any evidence below is the last received state. Reconnect or reload the dashboard.");
       delay = 3000;
     }
     if (!controller.signal.aborted) cancelTimer = schedule(() => { void read(); }, delay);
