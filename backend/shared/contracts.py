@@ -30,6 +30,8 @@ PositiveInt = Annotated[int, Field(strict=True, gt=0)]
 Count = Annotated[int, Field(strict=True, ge=0)]
 Threshold = Annotated[Finite, Field(ge=-40, le=0)]
 Nonempty = Annotated[str, Field(strict=True, min_length=1)]
+ExecutionHost = Annotated[str, Field(strict=True, pattern=r"^[A-Za-z0-9_.-]{1,253}$")]
+ProcessInstance = Annotated[str, Field(strict=True, pattern=r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$")]
 ResourceID = Annotated[str, Field(strict=True, min_length=1, max_length=200, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")]
 
 
@@ -358,6 +360,8 @@ class FloodResult(Contract):
 
 
 class TaskStatus(Contract):
+    execution_host: ExecutionHost | None = None
+    process_instance_id: ProcessInstance | None = None
     task_id: TaskID
     worker_id: WorkerID
     analysis_type: AnalysisType
@@ -390,6 +394,8 @@ class TaskStatus(Contract):
 
 
 class WorkerStatus(Contract):
+    execution_host: ExecutionHost | None = None
+    process_instance_id: ProcessInstance | None = None
     worker_id: WorkerID
     analysis_type: AnalysisType
     status: Literal["idle", "busy"]

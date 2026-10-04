@@ -106,7 +106,7 @@ def _server(kind, settings, token, folder):
     log_path = folder/f'{kind}-server.log'
     with log_path.open('w') as log:
         process = subprocess.Popen([sys.executable, '-m', 'uvicorn', f'backend.workers.{kind}.main:create_app',
-                                    '--factory', '--host', '127.0.0.1', '--port', str(port),
+                                    '--factory', '--workers', '1', '--host', '127.0.0.1', '--port', str(port),
                                     '--no-access-log', '--log-level', 'warning'], cwd=ROOT, env=env,
                                    stdout=log, stderr=log)
         try:

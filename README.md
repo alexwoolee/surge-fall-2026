@@ -27,11 +27,13 @@ Completed so far:
 - combined deterministic Flood worker and terminal validation checkpoint
 - shared Pydantic task/result/status contracts
 - Hydro and Flood HTTP APIs validated with real data on loopback
-- automated test suite: **390 passing tests**
+- bounded Control dispatch with task/result checks, deadlines and independent branch records
+- worker hostname/startup identity and cross-platform deployment instructions
+- automated test suite: **535 passing tests**
 
 Current focus:
 
-**Implement Control dispatch and validate execution on two remote worker laptops.**
+**Control dispatch passes local real-data checks; prepare private connectivity and validate two remote worker laptops.**
 
 ## Status Matrix
 
@@ -57,7 +59,7 @@ DISTRIBUTED SYSTEM
 
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
-Remote Dispatch         IN PROGRESS
+Remote Dispatch         LOCAL PASS; REMOTE LAPTOP CHECK PENDING
 Parallel Execution      NOT STARTED
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
@@ -67,12 +69,13 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Implement bounded Control-to-worker dispatch and failure/timeout handling.
-2. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
+1. Set up connectivity to the Windows/macOS/Linux worker laptops (Tailscale is an option for the isolated network).
+2. Follow the Phase 5 setup commands and prove real remote execution from Control.
 3. Pause for the Phase 5 checkpoint before testing real parallel execution.
 
-Current validation commands and limits are recorded in
-[Phase 4 validation](docs/phase4-validation.md). The earlier
+Current cross-platform setup commands, network requirements and phase gate are in
+[Phase 5 validation](docs/phase5-validation.md). The accepted
+[Phase 4 validation](docs/phase4-validation.md) remains available. The earlier
 [combined Flood](docs/phase3c-validation.md),
 [terrain](docs/manual-test-checklist.md) and
 [Sentinel-1](docs/phase3b-validation.md) reviews remain available.
@@ -995,7 +998,8 @@ CombinedAnalysis
 
 Implemented worker settings: GPM/SMAP data folders, task retention capacity, and
 an optional Bearer token, read from exported `MESHMIND_*` variables.
-Control/remote-worker URL configuration follows in Phase 5.
+Control now requires explicit Hydro/Flood HTTP origins, separate optional tokens,
+and bounded request/task/poll timeouts. No localhost destination is chosen silently.
 
 ### `backend/shared/status.py`
 
@@ -1181,6 +1185,14 @@ Required:
 - contract tests
 
 ## Phase 5 — Remote Worker Communication
+
+**Control implementation and local real-data HTTP checks PASS; physical remote deployment pending.**
+
+The campus network isolates devices. Use reachable private worker addresses;
+[the setup guide](docs/phase5-validation.md) includes Tailscale and commands for
+Windows, macOS and Linux. Two local worker processes do not satisfy this phase.
+Control currently dispatches sequentially and preserves completed evidence on
+other-branch failure. Timeouts stop waiting without cancelling remote work.
 
 Required:
 
@@ -1753,7 +1765,8 @@ The cloud AI layer and physical worker execution must not be confused.
 - real-data Flood integration and repeatability
 - shared task/result/status contracts
 - both worker HTTP APIs with local real-data validation
-- 390 automated tests
+- Control HTTP dispatch, bounded timeouts, host/process continuity and independent failure records
+- 535 automated tests
 
 ## TESTED
 
@@ -1775,10 +1788,15 @@ The cloud AI layer and physical worker execution must not be confused.
 - combined Flood worker JSON, provenance and component-failure handling
 - local real-data Hydro/Flood HTTP task, status and result endpoints
 - request bounds, authentication, duplicate handling and capacity limits
+- Control dispatch over local HTTP using real NASA and public raster evidence
+- strict remote-response validation, ambiguous submissions, deadlines and branch preservation
 
 ## BLOCKED
 
-Nothing currently.
+The Phase 5 physical-laptop checkpoint needs private connectivity to both workers.
+The current network prevents direct device-to-device access; Tailscale is a
+proposed option. Worker addresses and actual remote execution are still pending.
+No Phase 5 completion or Phase 6 overlap is claimed.
 
 ## NEXT
 

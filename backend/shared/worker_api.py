@@ -15,8 +15,11 @@ from datetime import datetime, timezone
 import hmac
 import json
 import math
+import re
+import socket
 from threading import Lock
 from typing import Any
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -26,6 +29,7 @@ from backend.shared.contracts import (
     AnalysisTask, FloodResult, HydroResult, TaskStatus, WorkerStatus,
 )
 from backend.shared.status import TaskState
+from backend.shared.settings import validate_token
 
 
 MAX_REQUEST_BYTES = 64 * 1024
@@ -161,16 +165,15 @@ def create_worker_app(
         raise ValueError("A supported worker, analysis type and callable runner are required.")
     if isinstance(capacity, bool) or not isinstance(capacity, int) or not 1 <= capacity <= 1024:
         raise ValueError("Task capacity must be an integer from 1 to 1024.")
-    if token is not None and (
-        not isinstance(token, str) or not token or token != token.strip() or len(token) > 512
-    ):
-        raise ValueError("Worker token must be a nonempty string without surrounding whitespace.")
+    validate_token(token)
     result_type = HydroResult if worker_id == "hydro-worker" else FloodResult
     lock = Lock()
     records: dict[str, _Record] = {}
     executor: ThreadPoolExecutor | None = None
     active_task_id: str | None = None
     accepting = False
+    execution_host: str | None = None
+    process_instance_id: str | None = None
 
     def run_task(record: _Record):
         nonlocal active_task_id
@@ -223,8 +226,13 @@ def create_worker_app(
 
     @asynccontextmanager
     async def lifespan(app):
-        nonlocal executor, accepting
+        nonlocal executor, accepting, execution_host, process_instance_id
         with lock:
+            # Identity is observed at startup, never supplied by an HTTP request
+            # or an environment override. Hostnames alone are not proof of
+            # separate physical machines.
+            execution_host = re.sub(r"[^A-Za-z0-9_.-]", "_", socket.gethostname())[:253] or None
+            process_instance_id = str(uuid4())
             executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix=worker_id)
             accepting = True
         try:
@@ -271,6 +279,7 @@ def create_worker_app(
             status = TaskStatus(
                 task_id=task.task_id, worker_id=worker_id, analysis_type=analysis_type,
                 state=TaskState("task_received"), received_at=_now(),
+                execution_host=execution_host, process_instance_id=process_instance_id,
             )
             record = _Record(fingerprint, task.model_copy(deep=True), status)
             records[task.task_id] = record
@@ -290,6 +299,7 @@ def create_worker_app(
                 worker_id=worker_id, analysis_type=analysis_type,
                 status="busy" if active_task_id is not None else "idle",
                 active_task_id=active_task_id, retained_tasks=len(records), capacity=capacity,
+                execution_host=execution_host, process_instance_id=process_instance_id,
             )
 
     @app.get("/tasks/{task_id}", response_model=TaskStatus)
