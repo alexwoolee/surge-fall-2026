@@ -114,3 +114,7 @@ access paths; both were rerun successfully. Production calculations stay in
 Phase 3B implementation and numerical validation are recorded in
 [phase3b-validation.md](phase3b-validation.md). Its Sentinel-1 visual/manual gate
 was approved by the user before the combined Phase 3C Flood worker.
+
+Phase 3C combines these accepted measurements. Its
+[terminal checkpoint](phase3c-validation.md) contains commands and recorded
+results; no additional HTML review is needed for the integration.

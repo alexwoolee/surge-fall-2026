@@ -12,7 +12,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 3A — Terrain Processing**
+**Phase 3C — Combined Flood Worker**
 
 Completed so far:
 
@@ -22,11 +22,14 @@ Completed so far:
 - deterministic SMAP L4 processing
 - combined Laptop 2 hydrometeorology worker
 - real GPM + SMAP integration test
-- automated test suite: **17 passing tests**
+- multi-tile DEM and HAND processing with approved real-data review
+- calibrated Sentinel-1 RTC candidate-water processing with approved visual review
+- combined deterministic Flood worker and terminal validation checkpoint
+- automated test suite: **249 passing tests**
 
 Current focus:
 
-**Laptop 3 — deterministic terrain and surface-water processing**
+**Phase 3C terminal checkpoint before shared contracts and worker APIs**
 
 ## Status Matrix
 
@@ -44,9 +47,9 @@ DETERMINISTIC PROCESSING
 GPM             PASS
 SMAP            PASS
 Hydro Worker    PASS
-DEM / HAND      IN PROGRESS
-Sentinel-1      NOT STARTED
-Flood Worker    NOT STARTED
+DEM / HAND      PASS
+Sentinel-1      PASS
+Flood Worker    PASS (terminal validation; phase checkpoint pending)
 
 DISTRIBUTED SYSTEM
 
@@ -62,14 +65,15 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Implement multi-tile Copernicus DEM AOI processing.
-2. Implement multi-tile HAND AOI processing.
-3. Add deterministic terrain statistics and tests.
-4. Implement Sentinel-1 candidate surface-water processing.
-5. Build the deterministic Laptop 3 Flood worker.
-6. Define shared contracts and worker APIs.
-7. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
-8. Prove both workers execute at the same time.
+1. Review the Phase 3C terminal checkpoint and approve advancing.
+2. Define shared Pydantic contracts and worker APIs.
+3. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
+4. Prove both workers execute at the same time.
+
+Current validation commands and limits are recorded in
+[Phase 3C validation](docs/phase3c-validation.md). The earlier
+[terrain](docs/manual-test-checklist.md) and
+[Sentinel-1](docs/phase3b-validation.md) reviews remain available.
 
 ---
 
@@ -213,7 +217,7 @@ Current Soil State
 
 ## Laptop 3 — Surface Water and Terrain Worker
 
-**Status: data access validated; deterministic processing in progress**
+**Status: deterministic core and real-data terminal validation complete**
 
 Approved resources:
 
@@ -343,7 +347,11 @@ SMAP soil moisture is treated as a state observation. It is not accumulated over
 
 Collection:
 
-`sentinel-1-grd`
+`sentinel-1-rtc`
+
+Phase 3B migrated production and its smoke test from raw `sentinel-1-grd`
+to the calibrated, radiometrically terrain-corrected VV product. Raw GRD digital
+numbers are not thresholded as calibrated backscatter.
 
 Purpose:
 
@@ -550,13 +558,30 @@ The worker also returns:
 - full deterministic evidence
 - structured limitations
 
+## Flood Worker Integration
+
+The real-data Phase 3C run combines one calibrated Sentinel-1 RTC VV scene,
+four DEM tiles and four HAND tiles over the configured Abbotsford AOI.
+
+- candidate surface-water area: **88.0997 km²** at −17 dB
+- Sentinel-1 valid AOI coverage: **97.6354%**; missing cells remain excluded
+- DEM mean: **254.308864 m**, with 100% valid AOI coverage
+- HAND mean: **45.452025 m**, with 100% valid AOI coverage
+- strict JSON serialization and repeated processing: **PASS**
+
+Processing completion does not mean complete SAR coverage. The selected scene
+has a southern missing-data strip. Terrain statistics cover the whole AOI;
+they are not terrain measurements restricted to candidate-water pixels.
+The worker performs no common-grid overlay, water-depth calculation, flood
+confirmation or severity classification. See the [terminal checkpoint](docs/phase3c-validation.md).
+
 ---
 
 # Automated Tests
 
 Current full test suite:
 
-**17 tests passing**
+**249 tests passing**
 
 Run:
 
@@ -591,6 +616,15 @@ python -m pytest -v
 - wrapped GPM processor failure
 - wrapped SMAP processor failure
 - generated task IDs
+
+## Terrain, Sentinel-1, and Flood Worker Tests
+
+- multi-tile clipping, masking, overlap handling and provenance
+- calibrated VV power conversion, deterministic scene selection and candidate area
+- partial valid coverage, threshold sensitivity and artifact consistency
+- combined worker summaries, source traceability and strict JSON serialization
+- component failure isolation with successful evidence retained
+- terminal validation, repeatability, failure reports and stale-PASS protection
 
 Existing passing tests are protected behavior. New work must not silently break them.
 
@@ -847,7 +881,7 @@ Future FastAPI entry point for Laptop 2.
 
 ### `backend/workers/flood/terrain.py`
 
-**Current implementation target**
+**Implemented**
 
 Responsibilities:
 
@@ -860,7 +894,7 @@ Responsibilities:
 
 ### `backend/workers/flood/hand.py`
 
-**Current implementation target**
+**Implemented**
 
 Responsibilities:
 
@@ -874,7 +908,7 @@ Responsibilities:
 
 ### `backend/workers/flood/sentinel1.py`
 
-**Upcoming implementation target**
+**Implemented**
 
 Responsibilities:
 
@@ -888,9 +922,9 @@ Responsibilities:
 
 ### `backend/workers/flood/service.py`
 
-**Not implemented yet**
+**Implemented**
 
-Will combine:
+Combines:
 
 ```text
 Sentinel-1
@@ -900,6 +934,12 @@ DEM / HAND
     v
 FloodResult
 ```
+
+The service returns a structured dictionary containing task/worker identity,
+processing status, compact summaries, full component evidence, separate coverage,
+safe provenance, limitations and component errors. Successful components are
+retained if another fails. Formal Pydantic `FloodResult` contracts follow in
+Phase 4; no HTTP endpoint or distributed execution is claimed yet.
 
 ### `backend/workers/flood/main.py`
 
@@ -1058,9 +1098,11 @@ HAND            PASS
 
 ## Phase 3 — Flood / Terrain Processing
 
-**IN PROGRESS**
+**Technical validation PASS; awaiting the Phase 3C checkpoint before Phase 4.**
 
 ### 3A — Terrain Processor
+
+**PASS — user review approved.**
 
 Required:
 
@@ -1074,6 +1116,8 @@ Required:
 
 ### 3B — Sentinel-1 Processor
 
+**PASS — user review approved; 97.6354% valid scene coverage is explicit.**
+
 Required:
 
 - deterministic scene selection
@@ -1085,6 +1129,8 @@ Required:
 - automated tests
 
 ### 3C — Flood Worker
+
+**Terminal real-data and automated validation PASS; user checkpoint pending.**
 
 Required:
 
@@ -1674,7 +1720,11 @@ The cloud AI layer and physical worker execution must not be confused.
 - deterministic SMAP processor
 - deterministic Hydro worker
 - real-data Hydro integration
-- 17 automated tests
+- multi-tile DEM and HAND processors
+- calibrated Sentinel-1 candidate-water processor
+- combined deterministic Flood worker
+- real-data Flood integration and repeatability
+- 249 automated tests
 
 ## TESTED
 
@@ -1691,6 +1741,9 @@ The cloud AI layer and physical worker execution must not be confused.
 - real Sentinel-1 SAR access
 - real Copernicus DEM raster access
 - real HAND raster access
+- terrain multi-tile clipping and statistics
+- Sentinel-1 candidate-water visual review
+- combined Flood worker JSON, provenance and component-failure handling
 
 ## BLOCKED
 
@@ -1698,19 +1751,13 @@ Nothing currently.
 
 ## NEXT
 
-**Phase 3A — Terrain Processing**
+**Phase 3C checkpoint acknowledgment**, then:
 
-Then:
+**Phase 4 — Shared Contracts and Worker APIs**
 
-**Phase 3B — Sentinel-1 Candidate Surface Water**
+**Phase 5 — Remote Worker Communication**
 
-Then:
-
-**Phase 3C — Flood Worker**
-
-Then:
-
-**Phases 4–6 — Contracts, Remote Workers, Real Parallelism**
+**Phase 6 — Real Parallel Execution**
 
 ## CUT FOR NOW
 
