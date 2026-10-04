@@ -86,6 +86,16 @@ The server route accepts only the fixed route/method allowlist and loopback Cont
 
 `BriefingViewModel.executionNotice` distinguishes retained evidence from current execution. The visible briefing renders all measurements and sections. Source and processing provenance are safe projections supplied by Python. Original request text is explicitly user context, not a finding.
 
+## Read-only worker listeners
+
+`src/proxy.ts` applies the viewer-mode authentication/path boundary to every request. `viewer-auth.ts` validates the exact configured Host authority and HTTP Basic role, permits only that role's viewer page/read endpoint and required assets, and rejects methods other than GET. The operator proxy independently rejects viewer mode; the viewer page and API independently recheck role authentication.
+
+`viewer-proxy.ts` sends only the selected role's bearer token to a fixed loopback `/viewer/{role}` endpoint. Its schema parser excludes unexpected fields and foreign worker identities, bounds the event history, and validates observation timestamps. Responses have no shared cache, backend cookies, untrusted redirects, or private error text.
+
+`worker-follower.tsx` is a focused screen without operator navigation or actions. `viewer-polling.ts` follows the server's latest execution snapshot every second, without overlapping requests, including after completion. It preserves observed event history instead of inventing animation time for fast work; a failed read labels prior data as stale. New execution IDs replace the complete view.
+
+The portable `scripts/start-viewers.mjs` reads a literal private token file, validates loopback/Tailscale bind addresses and a loopback upstream, forces runtime viewer mode, clears privileged inherited credentials, and starts Next without a shell. It uses the same production build as the local operator listener. `viewer.test.ts` covers role/Host/method/path isolation, independent endpoint guards, fixed upstream/redaction, malformed projections, terminal-to-new-run following, abort/nonoverlap behavior, and safe launcher parsing.
+
 ## Preserved fixture implementation
 
 The following simulation semantics apply only when explicitly enabled in demo mode. They never describe the real Control provider.

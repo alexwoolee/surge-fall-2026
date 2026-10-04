@@ -26,6 +26,8 @@ async function boundedBytes(body: ReadableStream<Uint8Array> | null, limit: numb
 }
 export async function proxyControl(request: Request, path: string[], options: { env?: Record<string, string | undefined>; fetcher?: typeof fetch } = {}): Promise<Response> {
   const env = options.env ?? process.env;
+  // Independent of the global viewer guard: a viewer process never gains operator access.
+  if (env.MESHMIND_UI_MODE === "viewer") return fail(403);
   const fetcher = options.fetcher ?? fetch;
   const deadline = AbortSignal.any([request.signal, AbortSignal.timeout(12000)]);
   const route = path.join("/"); const isPost = request.method === "POST";

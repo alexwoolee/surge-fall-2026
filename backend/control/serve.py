@@ -19,6 +19,7 @@ from backend.shared.settings import ControlSettings, ROOT, WorkerEndpoint
 
 
 _CONTROL_KEYS = {"MESHMIND_CONTROL_API_TOKEN", "MESHMIND_CONTROL_API_URL"}
+_VIEWER_KEYS = {"MESHMIND_VIEWER_HYDRO_TOKEN", "MESHMIND_VIEWER_FLOOD_TOKEN"}
 _WORKER_KEYS = {"HYDRO_WORKER_URL", "HYDRO_WORKER_TOKEN", "FLOOD_WORKER_URL", "FLOOD_WORKER_TOKEN",
                 "MESHMIND_CONTROL_SOURCE_IP", "MESHMIND_REQUEST_TIMEOUT_SECONDS",
                 "MESHMIND_TASK_TIMEOUT_SECONDS", "MESHMIND_POLL_INTERVAL_SECONDS"}
@@ -68,6 +69,16 @@ def worker_settings(path=None):
         raise ValueError("Worker settings do not satisfy their bounded configuration contract.") from None
 
 
+def viewer_tokens(path=None):
+    """Load optional role-scoped read-only credentials without changing the environment."""
+    if path is None:
+        return None
+    values = read_private_assignments(path, _VIEWER_KEYS)
+    if set(values) != _VIEWER_KEYS:
+        raise ValueError("The viewer file requires a separate token for each worker role.")
+    return {role: values[f"MESHMIND_VIEWER_{role.upper()}_TOKEN"] for role in ("hydro", "flood")}
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -76,6 +87,7 @@ def main(argv=None):
     parser.add_argument("--config", type=Path, default=ROOT / "config/test_case.example.json")
     parser.add_argument("--rules", type=Path, required=True)
     parser.add_argument("--control-env-file", type=Path, help="Private MESHMIND_CONTROL_API_TOKEN (also used by the Next.js proxy).")
+    parser.add_argument("--viewer-env-file", type=Path, help="Optional private read-only Hydro and Flood viewer tokens; never enables remote operator access.")
     parser.add_argument("--openai-env-file", type=Path, help="Private OPENAI_API_KEY and OPENAI_MODEL file.")
     parser.add_argument("--worker-env-file", type=Path, help="Private worker URLs, tokens and bounded Control settings; execute mode only.")
     parser.add_argument("--gpm-resources", nargs="+")
@@ -108,7 +120,7 @@ def main(argv=None):
         client = ResponsesClient(load_openai_settings(args.openai_env_file))
         service = ControlService(case, policy, client, mode="execute" if args.execute else "review",
                                  evidence=evidence, control_settings=control, history_dir=args.history_dir)
-        app = create_app(service=service, token=token)
+        app = create_app(service=service, token=token, viewer_tokens=viewer_tokens(args.viewer_env_file))
     except (AgentAPIError, ValueError, TypeError, KeyError, OSError):
         print("Control configuration failed. Check the explicit case, evidence, policy and private settings; no request was sent.")
         return 2

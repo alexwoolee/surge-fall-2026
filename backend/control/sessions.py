@@ -26,6 +26,10 @@ from backend.shared.settings import ControlSettings, ROOT
 _ROLES = ("hydro", "flood")
 _RETRYABLE = {"transport_error", "timed_out", "rejected"}
 _STAGES = {"preflight", "submission", "polling", "result", "finished"}
+MAX_OBSERVED_EVENTS = 32
+_TASK_STATES = {"task_received", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"}
+_OUTCOMES = {"complete", "partial", "worker_failed", "transport_error", "protocol_error", "rejected", "timed_out"}
+_EVENT_FIELDS = {"id", "observed_at", "stage", "task_state", "outcome"}
 
 
 def _now():
@@ -36,6 +40,33 @@ def canonical_id(value):
     if not isinstance(value, str) or len(value) != 36:
         raise ValueError("A UUID request identifier is required.")
     return str(UUID(value))
+
+
+def validate_observed_events(value):
+    """Check optional saved viewer evidence without migrating old history."""
+    if not isinstance(value, dict) or not set(value).issubset(_ROLES):
+        raise ValueError("Invalid observed worker events.")
+    identifiers = set()
+    for entries in value.values():
+        if not isinstance(entries, list) or len(entries) > MAX_OBSERVED_EVENTS:
+            raise ValueError("Invalid observed worker events.")
+        for item in entries:
+            if not isinstance(item, dict) or set(item) != _EVENT_FIELDS:
+                raise ValueError("Invalid observed worker events.")
+            identifier = canonical_id(item["id"])
+            if identifier != item["id"] or identifier in identifiers:
+                raise ValueError("Invalid observed worker events.")
+            identifiers.add(identifier)
+            stamp = item["observed_at"]
+            if not isinstance(stamp, str) or not 1 <= len(stamp) <= 64:
+                raise ValueError("Invalid observed worker events.")
+            parsed = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+            if parsed.tzinfo is None or parsed.utcoffset() != timezone.utc.utcoffset(parsed):
+                raise ValueError("Invalid observed worker events.")
+            if (item["stage"] not in _STAGES or item["task_state"] not in _TASK_STATES | {None}
+                    or item["outcome"] not in _OUTCOMES | {None}
+                    or (item["stage"] == "finished") != (item["outcome"] is not None)):
+                raise ValueError("Invalid observed worker events.")
 
 
 class SessionError(Exception):
@@ -114,6 +145,8 @@ class ControlService:
                     raise ValueError
                 if not isinstance(value["progress"], dict) or not isinstance(value["retry_requests"], list):
                     raise ValueError
+                if "observed_events" in value:
+                    validate_observed_events(value["observed_events"])
                 if len(value["retry_requests"]) > 1:
                     raise ValueError
                 for request in value["retry_requests"]:
@@ -173,11 +206,27 @@ class ControlService:
         for item in (status, record):
             if item is not None and (item.worker_id != role + "-worker" or item.task_id != expected_task):
                 raise RuntimeError("Progress does not match the configured investigation.")
-        session["progress"][role] = {
+        if (event["stage"] == "finished") != (record is not None):
+            raise RuntimeError("A finished event requires a validated dispatch record.")
+        updated = deepcopy(session)
+        signature = (event["stage"], status.state.value if status else None, record.outcome if record else None)
+        events = updated.setdefault("observed_events", {}).setdefault(role, [])
+        previous = events[-1] if events else None
+        if previous is None or signature != (previous["stage"], previous["task_state"], previous["outcome"]):
+            events.append({"id": str(uuid4()), "observed_at": _now(),
+                           "stage": signature[0], "task_state": signature[1], "outcome": signature[2]})
+            while len(events) > MAX_OBSERVED_EVENTS:
+                # Keep terminal observations even when older nonterminal events
+                # must leave this bounded timeline. Never invent unseen stages.
+                index = next((i for i, entry in enumerate(events) if entry["stage"] != "finished"), 0)
+                events.pop(index)
+        updated["progress"][role] = {
             "stage": event["stage"], "status": None if status is None else status.model_dump(mode="json"),
             "record": None if record is None else record.model_dump(mode="json"),
         }
-        self._save(session)  # In particular, a submission event is durable before POST.
+        self._save(updated)  # In particular, a submission event is durable before POST.
+        session.clear()
+        session.update(updated)  # Viewer state becomes visible only after durable persistence.
 
     async def submit(self, prompt, request_id):
         request_id = canonical_id(request_id)
