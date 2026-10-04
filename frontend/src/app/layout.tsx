@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono, Inter, Inter_Tight } from "next/font/google";
+import { SpaceBackground } from "@/components/meshmind/space-background";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -12,5 +13,5 @@ export const metadata: Metadata = {
   description: "A focused workspace for environmental investigations, specialist evidence, and grounded briefings.",
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return <html lang="en" className={`dark ${inter.variable} ${display.variable} ${mono.variable}`}><body>{children}</body></html>;
+  return <html lang="en" className={`dark ${inter.variable} ${display.variable} ${mono.variable}`}><body><SpaceBackground />{children}</body></html>;
 }

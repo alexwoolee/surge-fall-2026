@@ -43,14 +43,12 @@ Downloads use a native same-origin link through the authenticated server route. 
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Configured request composer and recent investigations |
+| `/` | New investigation: configured request composer |
 | `/history` | Searchable server-backed history |
 | `/session/[id]` | Independent worker activity and result |
 | `/session/[id]/briefing` | Full or partial grounded briefing |
-| `/worker/hydro?session=[id]` | Hydrometeorology activity for the selected session |
-| `/worker/flood?session=[id]` | Surface Water & Terrain activity for the selected session |
 
-A worker page without a selected session does not invent an active investigation. Sidebar worker links use the most recent known session.
+The operator workspace has no worker dashboard routes: the lead sees each agent's reported activity in the session transcript only. Worker owners use the read-only viewers below.
 
 ## Three-screen worker viewers
 

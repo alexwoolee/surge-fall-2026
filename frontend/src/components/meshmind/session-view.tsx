@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { ArrowDown, ArrowLeft, ArrowClockwise, Check, Copy } from "@phosphor-icons/react/ssr";
+import { ArrowDown, ArrowLeft, Check, Copy } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { ControlApiError } from "@/lib/api-provider";
@@ -13,10 +13,10 @@ import { AgentStatus } from "./agent-status";
 import { ActivityCard } from "./activity-card";
 import { BriefingCard } from "./briefing-card";
 import { PartialResultCard } from "./partial-result-card";
-import { ValidationFailureCard } from "./validation-failure-card";
+import { FailedCard, ValidationFailureCard } from "./validation-failure-card";
 import { Composer } from "./composer";
 import { Reveal } from "./reveal";
-import { SessionBadge } from "./session-badge";
+import { sessionLabels } from "./session-badge";
 
 /** Distance from the bottom (px) within which the transcript keeps following new activity. */
 const STICK_THRESHOLD = 96;
@@ -79,18 +79,16 @@ export function SessionView({ id }: { id: string }) {
     }
   }
 
-  if (loading) return <div className="view-empty-state" role="status">Opening investigation…</div>;
-  if (!analysis) return <div className="view-empty-state"><h1>{error ? "Unable to open this investigation" : "Investigation not found"}</h1><p>{error || "This investigation is not available in the current Control history."}</p><Button asChild variant="outline"><Link href="/">New session</Link></Button></div>;
+  if (loading) return <div className="view-empty-state" role="status"><span className="shimmer">Opening investigation…</span></div>;
+  if (!analysis) return <div className="view-empty-state"><h1>{error ? "Unable to open this investigation" : "Investigation not found"}</h1><p>{error || "This investigation is not available in the current Control history."}</p><Button asChild variant="outline"><Link href="/">New investigation</Link></Button></div>;
 
   const phaseLabel = analysis.status === "briefing-ready" ? "Briefing ready" : analysis.status === "partial" ? "Partial result" : analysis.status === "checks-failed" ? "Checks failed" : analysis.status === "failed" ? "Investigation failed" : !analysis.isDemo ? analysis.description : analysis.phase === "validating" ? "Control is validating returned evidence" : analysis.phase === "reviewing" ? "Control is evaluating review conditions" : "Specialist investigations in progress";
-  const modeLabel = analysis.isDemo ? null : analysis.executionMode === "review" ? "Retained evidence review" : "Worker investigation";
 
   return (
     <div className="session-layout">
       <header className="view-topbar session-topbar">
         <div className="session-heading">
-          <div className="session-title-row"><h1>{analysis.title}</h1><SessionBadge status={analysis.status} /></div>
-          <p className="session-subtitle">{modeLabel && <>{modeLabel} · </>}Started <time dateTime={analysis.createdAt} title={fullDate(analysis.createdAt)}>{sentAt(analysis.createdAt)}</time></p>
+          <div className="session-title-row"><span className={`status-dot status-dot--${analysis.status}`} title={sessionLabels[analysis.status]} aria-hidden="true" /><h1 className={analysis.status === "running" ? "shimmer" : undefined}>{analysis.title}</h1><span className="sr-only">, {sessionLabels[analysis.status]}</span></div>
         </div>
         <div className="agent-status-row">
           <AgentStatus name="Control" location="Laptop 1" status={analysis.control} />
@@ -111,18 +109,15 @@ export function SessionView({ id }: { id: string }) {
           </div>
           <div className="context-pills"><span className="context-pill">{analysis.studyArea}</span><span className="context-pill">{analysis.requestedWindow}</span></div>
           <div className="session-activity" aria-label="Observable system activity">
-            {analysis.activities.map((activity) => {
-              const worker = Object.values(analysis.workers).find((candidate) => candidate.name === activity.name && candidate.location === activity.location);
-              return <Reveal key={activity.id}><ActivityCard activity={activity} workerHref={worker ? `/worker/${worker.id}?session=${encodeURIComponent(id)}` : undefined} /></Reveal>;
-            })}
+            {analysis.activities.map((activity) => <Reveal key={activity.id}><ActivityCard activity={activity} /></Reveal>)}
           </div>
-          {analysis.status === "running" && <div className="session-run-note"><span className="run-note-dot" aria-hidden="true" /><span>{phaseLabel}</span><span className="muted">Workers update independently</span></div>}
+          {analysis.status === "running" && <div className="session-run-note"><span className="run-note-dot" aria-hidden="true" /><span className="shimmer">{phaseLabel}</span><span className="muted">Workers update independently</span></div>}
           {analysis.status === "briefing-ready" && <Reveal><BriefingCard analysis={analysis} /></Reveal>}
           {analysis.status === "partial" && <Reveal><PartialResultCard analysis={analysis} onRetry={retryWorker} retrying={retrying || analysis.retrying} /></Reveal>}
           {analysis.status !== "partial" && !analysis.retrying && analysis.retryableWorkers?.map((worker) => <Button key={worker} variant="outline" onClick={() => void retryWorker(worker)} disabled={retrying}>Retry {analysis.workers[worker].name}</Button>)}
           {retryError && <p className="inline-error" role="alert">{retryError}</p>}
-          {analysis.status === "checks-failed" && <ValidationFailureCard failures={analysis.validationFailures} />}
-          {analysis.status === "failed" && <section className="result-card result-card--red"><header className="result-header"><span className="outcome-badge badge-red">Failed</span></header><div className="result-body"><h2>This investigation could not be completed.</h2><p>No validated combined briefing is available for this run. The activity above records where execution stopped.</p><Button asChild variant="outline"><Link href="/"><ArrowClockwise size={15} aria-hidden="true" />Start another investigation</Link></Button></div></section>}
+          {analysis.status === "checks-failed" && <Reveal><ValidationFailureCard failures={analysis.validationFailures} /></Reveal>}
+          {analysis.status === "failed" && <Reveal><FailedCard /></Reveal>}
           <Link className="text-action session-history-link" href="/history"><ArrowLeft size={14} aria-hidden="true" />All investigations</Link>
         </div>
       </div>

@@ -28,7 +28,7 @@ test("workers advance independently before validation, review, and a ready brief
   setElapsed(DEMO_TIMING.hydroComplete);
   state = await provider.getAnalysis(id);
   assert.ok(state);
-  assert.equal(state.workers.hydro.status, "ready");
+  assert.equal(state.workers.hydro.status, "complete");
   assert.equal(state.workers.hydro.returned, true);
   assert.equal(state.workers.flood.status, "active");
   assert.equal(state.workers.flood.returned, false);
@@ -96,7 +96,7 @@ test("retry dispatches only flood and preserves the validated hydro result throu
   const retry = await provider.getAnalysis(id);
   assert.ok(retry);
   assert.equal(retry.retrying, true);
-  assert.equal(retry.workers.hydro.status, "ready");
+  assert.equal(retry.workers.hydro.status, "complete");
   assert.equal(retry.workers.hydro.validated, true);
   assert.equal(retry.workers.flood.status, "active");
   assert.ok(retry.workers.hydro.steps.every((step) => step.state === "complete"));

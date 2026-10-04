@@ -1,6 +1,6 @@
 import type { AgentAvailability } from "@/lib/types";
 
-export const availabilityLabels: Record<AgentAvailability, string> = { ready: "Ready", active: "Active", down: "Down", failed: "Failed", unknown: "Not observed", complete: "Complete" };
+export const availabilityLabels: Record<AgentAvailability, string> = { ready: "Idle", active: "Active", down: "Down", failed: "Failed", unknown: "Not observed", complete: "Complete" };
 
 /** Small status dot by default; the large orb is reserved for the focused worker page. */
 export function StatusOrb({ status, size = "sm" }: { status: AgentAvailability; size?: "sm" | "lg" }) {
@@ -9,7 +9,7 @@ export function StatusOrb({ status, size = "sm" }: { status: AgentAvailability; 
 }
 
 export function AgentStatus({ name, location, status }: { name: string; location?: string; status: AgentAvailability }) {
-  return <span className={`agent-status agent-status--${status}`} title={location ? `${name} · ${location}` : undefined}><StatusOrb status={status} /><span>{name}</span>{location && <span className="agent-location">{location}</span>}<strong className={`status-${status}`}>{availabilityLabels[status]}</strong></span>;
+  return <span className={`agent-status agent-status--${status}`} title={location ? `${name} · ${location}` : undefined}><StatusOrb status={status} /><span>{name}</span>{location && <span className="agent-location">{location}</span>}<strong className={`status-${status} ${status === "active" ? "shimmer" : ""}`}>{availabilityLabels[status]}</strong></span>;
 }
 
 /** Quiet inline roster for the new-session page: dot, name, and machine; status lives in the dot and tooltip. */

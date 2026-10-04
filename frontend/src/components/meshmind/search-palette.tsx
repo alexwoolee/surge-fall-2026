@@ -45,7 +45,7 @@ function Highlight({ text, ranges }: { text: string; ranges: [number, number][] 
 }
 
 const ACTIONS = [
-  { id: "new", label: "New session", href: "/", icon: NotePencil },
+  { id: "new", label: "New investigation", href: "/", icon: NotePencil },
   { id: "history", label: "View all history", href: "/history", icon: ClockCounterClockwise },
 ];
 
@@ -95,7 +95,7 @@ export function SearchPalette({ open, onOpenChange, sessions }: { open: boolean;
     return <div key={`${item.kind}-${item.id}`} id={`palette-option-${index}`} role="option" aria-selected={index === activeIndex} data-index={index}
       className={`palette-item ${index === activeIndex ? "palette-item--active" : ""}`} onMouseMove={() => setActive(index)} onClick={() => choose(item)}>
       {Icon ? <Icon size={16} className="palette-icon" /> : <span className={`status-dot status-dot--${item.kind === "session" ? item.session.status : ""}`} title={item.kind === "session" ? sessionLabels[item.session.status] : undefined} />}
-      <span className="palette-label"><Highlight text={item.label} ranges={item.ranges} /></span>
+      <span className={`palette-label ${item.kind === "session" && item.session.status === "running" ? "shimmer" : ""}`}><Highlight text={item.label} ranges={item.ranges} /></span>
       {item.kind === "session" && <time className="palette-meta" dateTime={item.session.createdAt}>{ago(item.session.createdAt, now)}</time>}
     </div>;
   };

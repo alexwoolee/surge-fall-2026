@@ -12,7 +12,7 @@ export function BriefingView({ id }: { id: string }) {
   const { analysis, loading, error } = useAnalysis(id);
   const briefing = analysis?.briefing;
 
-  if (loading) return <div className="view-empty-state" role="status">Opening briefing…</div>;
+  if (loading) return <div className="view-empty-state" role="status"><span className="shimmer">Opening briefing…</span></div>;
   if (!briefing) return <div className="view-empty-state"><h1>{error ? "Unable to open briefing" : "No briefing available yet"}</h1><p>{error || "A briefing becomes available after Control has validated the returned evidence."}</p><Button asChild variant="outline"><Link href={`/session/${id}`}><ArrowLeft size={15} aria-hidden="true" />Back to investigation</Link></Button></div>;
 
   const triggered = briefing.reviewConditions.filter((condition) => condition.status === "triggered").length;

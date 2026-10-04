@@ -1,6 +1,6 @@
 "use client";
 // Adapted from Aceternity UI "Stars Background" (https://ui.aceternity.com/components/shooting-stars-and-stars-background).
-// Changes: device-pixel-ratio aware canvas, configurable star size, resize observer cleanup.
+// Changes: device-pixel-ratio aware canvas, configurable star size, optional seed for a stable sky, resize observer cleanup.
 import { cn } from "@/lib/utils";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
@@ -20,7 +20,21 @@ interface StarBackgroundProps {
   maxTwinkleSpeed?: number;
   minRadius?: number;
   maxRadius?: number;
+  /** Same seed and viewport always produce the same sky. */
+  seed?: number;
   className?: string;
+}
+
+/** Small deterministic PRNG (mulberry32). */
+function seededRandom(seed: number) {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let t = state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 export const StarsBackground: React.FC<StarBackgroundProps> = ({
@@ -31,6 +45,7 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
   maxTwinkleSpeed = 1,
   minRadius = 0.5,
   maxRadius = 0.55,
+  seed,
   className,
 }) => {
   const [stars, setStars] = useState<StarProps[]>([]);
@@ -39,18 +54,19 @@ export const StarsBackground: React.FC<StarBackgroundProps> = ({
   const generateStars = useCallback(
     (width: number, height: number): StarProps[] => {
       const numStars = Math.floor(width * height * starDensity);
+      const random = seed === undefined ? Math.random : seededRandom(seed);
       return Array.from({ length: numStars }, () => {
-        const shouldTwinkle = allStarsTwinkle || Math.random() < twinkleProbability;
+        const shouldTwinkle = allStarsTwinkle || random() < twinkleProbability;
         return {
-          x: Math.random() * width,
-          y: Math.random() * height,
-          radius: minRadius + Math.random() * (maxRadius - minRadius),
-          opacity: Math.random() * 0.5 + 0.5,
-          twinkleSpeed: shouldTwinkle ? minTwinkleSpeed + Math.random() * (maxTwinkleSpeed - minTwinkleSpeed) : null,
+          x: random() * width,
+          y: random() * height,
+          radius: minRadius + random() * (maxRadius - minRadius),
+          opacity: random() * 0.5 + 0.5,
+          twinkleSpeed: shouldTwinkle ? minTwinkleSpeed + random() * (maxTwinkleSpeed - minTwinkleSpeed) : null,
         };
       });
     },
-    [starDensity, allStarsTwinkle, twinkleProbability, minTwinkleSpeed, maxTwinkleSpeed, minRadius, maxRadius],
+    [starDensity, allStarsTwinkle, twinkleProbability, minTwinkleSpeed, maxTwinkleSpeed, minRadius, maxRadius, seed],
   );
 
   useEffect(() => {
