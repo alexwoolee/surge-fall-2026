@@ -82,7 +82,7 @@ python -m scripts.run_worker flood --host 100.100.3.3 --port 8003
 
 ```sh
 # set env, can point to local data
-env MESHMIND_DAM_DATA_DIR="$PWD/private_data/toddbrook_runtime/data"
+export MESHMIND_DAM_DATA_DIR="$PWD/private_data/toddbrook_runtime/data"
 python -m scripts.run_worker dam
 # example with specified ip and ports
 python -m scripts.run_worker dam --host 100.100.3.4 --port 8004
