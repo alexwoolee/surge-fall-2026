@@ -5,6 +5,7 @@ import type { AnalysisState, WorkerId } from "@/lib/types";
 import { StatusOrb } from "./agent-status";
 import { DownloadBriefingButton } from "./download-briefing-button";
 import { AnalystReviewBanner } from "./analyst-review-banner";
+import { BriefingCard } from "./briefing-card";
 
 export function PartialResultCard({ analysis, onRetry, retrying }: { analysis: AnalysisState; onRetry: (worker: WorkerId) => void; retrying: boolean }) {
   const briefing = analysis.briefing;
@@ -12,8 +13,10 @@ export function PartialResultCard({ analysis, onRetry, retrying }: { analysis: A
   const missing = Object.values(analysis.workers).filter((worker) => !worker.returned || !worker.validated);
   const retryable = analysis.retryableWorkers ?? (analysis.isDemo ? ["flood" as const] : []);
   const notAssessable = analysis.reviewConditions.filter((condition) => condition.status === "not-assessable");
+  const screening = Boolean(briefing?.risk || analysis.risk);
+  if (screening && missing.length === 0) return <BriefingCard analysis={analysis} />;
   return <section className="result-card result-card--amber" aria-labelledby="partial-heading">
-    <header className="result-header"><span className="outcome-badge badge-amber">Partial result</span><span>{kept.length} of {Object.keys(analysis.workers).length} investigations validated</span></header>
+    <header className="result-header"><span className="outcome-badge badge-amber">{screening ? "Worker needs attention" : "Partial result"}</span><span>{kept.length} of {Object.keys(analysis.workers).length} investigations validated</span></header>
     <div className="result-body"><h2 id="partial-heading">Available evidence is retained. The gaps remain visible.</h2>
       <p>{kept.map((worker) => worker.name).join(" and ")} evidence passed validation. {missing.length ? `${missing.map((worker) => worker.name).join(" and ")} evidence is unavailable or did not pass validation and contributes no measurements.` : "The supplied observations do not provide complete coverage of the requested area or time window."}</p>
       <div className="evidence-grid"><section className="evidence-panel"><h3><StatusOrb status="complete"/>Kept — validated evidence</h3><dl className="evidence-list">{briefing?.metrics.map((metric) => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl></section>
@@ -22,7 +25,7 @@ export function PartialResultCard({ analysis, onRetry, retrying }: { analysis: A
       {notAssessable.length > 0 && <p className="unassessed-note"><strong>{notAssessable.map((condition) => condition.id).join(", ")} — Not assessable.</strong> These conditions need missing evidence and have not been treated as passing.</p>}
       <div className="result-actions">{briefing && <DownloadBriefingButton briefing={briefing} sessionId={analysis.id}/>}
         {retryable.map((worker) => analysis.workers[worker] && <Button key={worker} variant="outline" onClick={() => onRetry(worker)} disabled={retrying}><RefreshCw size={15} aria-hidden="true"/>{retrying ? "Requesting retry…" : `Retry ${analysis.workers[worker]?.name}`}</Button>)}
-        {briefing && <Link className="text-action" href={`/session/${analysis.id}/briefing`}>Open partial briefing <ArrowUpRight size={14} aria-hidden="true"/></Link>}
+        {briefing && <Link className="text-action" href={`/session/${analysis.id}/briefing`}>{screening ? "Open screening briefing" : "Open partial briefing"} <ArrowUpRight size={14} aria-hidden="true"/></Link>}
       </div>
     </div>
   </section>;

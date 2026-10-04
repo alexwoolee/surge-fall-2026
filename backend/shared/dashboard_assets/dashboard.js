@@ -1,8 +1,8 @@
 /* Self-contained worker dashboard: no Control requests or browser credentials. */
-const TASK_STATES = ["task_received", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"];
+const TASK_STATES = ["task_received", "acquiring_data", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"];
 const TERMINAL = ["complete", "partial", "failed"];
-const STATUS_LABELS = { idle: "Idle", active: "Active", complete: "Processing complete", partial: "Partial result", failed: "Processing failed" };
-const STAGE_LABELS = { task_received: "Task accepted", dataset_located: "Input data located", processing: "Processing data", preparing_result: "Preparing result", complete: "Result ready", partial: "Partial result ready", failed: "Processing failed" };
+const STATUS_LABELS = { idle: "Idle", active: "Active", complete: "Complete", partial: "Complete", failed: "Processing failed" };
+const STAGE_LABELS = { task_received: "Task accepted", acquiring_data: "Finding and downloading input data", dataset_located: "Input data located", processing: "Processing data", preparing_result: "Preparing result", complete: "Result ready", partial: "Result ready", failed: "Processing failed" };
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isString = (value, limit = 4096) => typeof value === "string" && value.length <= limit;
 const isDate = (value) => isString(value, 64) && Number.isFinite(Date.parse(value));
@@ -46,15 +46,20 @@ export function formatDuration(seconds) {
   return `${ms} ms${seconds >= 1 ? ` (${new Intl.NumberFormat("en-CA", { maximumFractionDigits: 3 }).format(seconds)} s)` : ""}`;
 }
 
+/** Completion describes the worker's execution, independent of data coverage. */
+export function dashboardStatusLabel(snapshot) {
+  return STATUS_LABELS[snapshot.status];
+}
+
 /** Only recorded stages count as observed; no clock-based progress is inferred. */
 export function observedStages(snapshot) {
   if (!snapshot.task) return [];
   const observed = new Set(snapshot.events.map((event) => event.state));
   const current = snapshot.task.state;
   observed.add(current);
-  return [...TASK_STATES.slice(0, 4), TERMINAL.includes(current) ? current : "complete"].map((state) => ({
+  return [...TASK_STATES.filter((state) => !TERMINAL.includes(state)), TERMINAL.includes(current) ? current : "complete"].map((state) => ({
     state, label: STAGE_LABELS[state],
-    progress: state === current ? (TERMINAL.includes(current) ? current : "active") : observed.has(state) ? "complete" : "pending",
+    progress: state === current ? (current === "partial" ? "complete" : TERMINAL.includes(current) ? current : "active") : observed.has(state) ? "complete" : "pending",
   }));
 }
 
@@ -120,13 +125,13 @@ export function attachDashboardLifecycle(target, start, onSuspend) {
 function renderDashboard(document, snapshot) {
   const setText = (id, text) => { document.getElementById(id).textContent = text; };
   const root = document.getElementById("dashboard");
-  root.dataset.status = snapshot.status; root.dataset.stale = "false";
+  root.dataset.status = snapshot.status === "partial" ? "complete" : snapshot.status; root.dataset.stale = "false";
   document.getElementById("connection-warning").hidden = true;
   document.title = `MeshMind · ${snapshot.name}`;
   setText("role-label", snapshot.role === "hydro" ? "Hydrometeorology" : snapshot.role === "dam" ? "Reservoir Risk" : "Surface Water & Terrain");
   setText("worker-name", snapshot.name);
   setText("worker-subtitle", snapshot.status === "active" ? "Executing on this laptop" : "Hosted on this laptop");
-  setText("worker-status", STATUS_LABELS[snapshot.status]);
+  setText("worker-status", dashboardStatusLabel(snapshot));
   setText("worker-notice", snapshot.notice);
   const riskCard = document.getElementById("risk-card");
   if (riskCard) {
@@ -149,7 +154,7 @@ function renderDashboard(document, snapshot) {
   setText("task-id", task.id);
   setText("task-received", time(task.receivedAt));
   setText("task-duration", formatDuration(task.durationSeconds));
-  setText("task-summary", task.state === "complete" ? "The worker has prepared its result. Control's evidence checks and combined review are separate." : task.state === "partial" ? "The worker returned partial evidence. Missing observations remain unavailable." : task.state === "failed" ? "Processing failed. This dashboard does not turn missing observations into successful results." : STAGE_LABELS[task.state] + ".");
+  setText("task-summary", ["complete", "partial"].includes(task.state) ? "The worker has prepared its result. See the report for the available observations and findings." : task.state === "failed" ? "Processing failed. This dashboard does not turn missing observations into successful results." : STAGE_LABELS[task.state] + ".");
   const timeline = document.getElementById("task-timeline");
   const stepLabels = { complete: "Observed", active: "Current stage", partial: "Partial evidence", failed: "Failed", pending: "Not observed" };
   timeline.replaceChildren(...observedStages(snapshot).map((step) => {

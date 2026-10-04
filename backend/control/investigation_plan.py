@@ -17,8 +17,8 @@ from backend.shared.dam_contracts import DamTask, window_for_date
 TODDBROOK_BBOX = (-2.10, 53.25, -1.85, 53.40)
 TODDBROOK_NAME = 'Toddbrook Reservoir, Whaley Bridge, Derbyshire, England'
 EXAMPLES = [
-    f'Assess flood risk at {TODDBROOK_NAME} as of 2007-12-09. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps.',
-    f'Assess flood risk at {TODDBROOK_NAME} as of 2019-08-01. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps.',
+    f'Assess flood risk at {TODDBROOK_NAME} as of 2007-12-09. Explain in plain language whether the combined rainfall, ground conditions and dam condition indicate routine maintenance, a concerning combination, or a severe independent concern. Put technical evidence after the summary.',
+    f'Assess flood risk at {TODDBROOK_NAME} as of 2019-08-01. Explain in plain language whether the combined rainfall, ground conditions and dam condition indicate routine maintenance, a concerning combination, or a severe independent concern. Put technical evidence after the summary.',
 ]
 _DATE = re.compile(r'(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)')
 _BOX = re.compile(r'\bbbox\s*[:=]\s*\[([^\]]+)\]', re.I)

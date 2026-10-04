@@ -279,7 +279,7 @@ def test_high_private_concern_is_retained_with_partial_public_evidence_and_groun
     with TestClient(create_reservoir_app(ReservoirService(settings(), history_dir=tmp_path, client_factory=factory))) as client:
         identifier = submit(client)
         view = wait_finished(client, identifier)
-        assert view['status'] == 'partial'
+        assert view['status'] == 'briefing-ready'
         assert view['risk']['level'] == 'critical' and view['risk']['alert']
         assert view['risk']['score'] == 90
         assert view['risk']['confidenceScore'] == .36  # .60 times the fixture's .60 evidence score.
@@ -301,7 +301,7 @@ def test_one_missing_worker_never_discards_other_validated_evidence(tmp_path, fa
     with TestClient(create_reservoir_app(service)) as client:
         identifier = submit(client)
         view = wait_finished(client, identifier)
-        assert view['status'] == 'partial'
+        assert view['status'] == 'briefing-ready'
         assert view['workers'][failure]['status'] == 'down'
         assert {role for role, _ in accepted} == {'hydro','flood','dam'} - {failure}
         records = service.sessions[identifier]['records']

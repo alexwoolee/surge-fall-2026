@@ -70,34 +70,36 @@ def test_expected_2007_gaps_produce_a_normal_assessable_briefing_without_changin
     'invalid_result', 'source_unavailable', 'missing_local_data',
     'resource_limit', 'download_limit',
 ])
-def test_operational_component_problems_remain_partial_and_visible(tmp_path, reason):
+def test_source_errors_remain_in_technical_notes_without_partial_screen_labels(tmp_path, reason):
     view, html, _ = review(tmp_path, reasons={**EXPECTED, 'gpm': reason})
     briefing = view['briefing']
-    assert view['status'] == 'partial' and briefing['partial'] is True
-    assert any(row == {'label': DATASETS['gpm'], 'value': 'Unavailable. ' + REASONS[reason]}
-               for row in briefing['metrics'])
-    assert REASONS[reason] in briefing['actualCoverage'] and REASONS[reason] in html
+    assert view['status'] == 'briefing-ready' and briefing['partial'] is True
+    assert not any(row['label'] == DATASETS['gpm'] for row in briefing['metrics'])
+    assert REASONS[reason] not in briefing['actualCoverage']
+    assert any(row['dataset'] == DATASETS['gpm'] and row['coverage'] == REASONS[reason]
+               for row in briefing['sourceProvenance'])
+    assert REASONS[reason] in html
     assert view['risk']['level'] == 'critical' and view['risk']['confidenceScore'] == .36
-    assert 'Some evidence needs attention' in html
+    assert 'Screening briefing prepared from the available evidence.' in html
 
 
 @pytest.mark.parametrize('role', ['hydro', 'flood', 'dam'])
 def test_missing_workers_are_not_relabelled_as_expected_source_absence(tmp_path, role):
     view, html, _ = review(tmp_path, fail={role})
-    assert view['status'] == 'partial' and view['briefing']['partial'] is True
+    assert view['status'] == 'briefing-ready' and view['briefing']['partial'] is True
     assert view['workers'][role]['status'] == 'down'
     assert view['workers'][role]['returned'] is False
-    assert 'Some evidence needs attention' in html
+    assert 'Screening briefing prepared from the available evidence.' in html
 
 
 def test_an_unassessable_risk_is_never_presented_as_a_normal_classified_result(tmp_path):
     view, html, _ = review(tmp_path, prompt=OTHER)
-    assert view['status'] == 'partial'
+    assert view['status'] == 'briefing-ready'
     assert view['risk']['level'] == 'unknown' and view['risk']['score'] is None
     assert view['risk']['confidenceScore'] == 0 and view['risk']['alert'] is False
     assert all(row['status'] == 'not-assessable' for row in view['reviewConditions'])
     assert len(view['briefing']['sourceProvenance']) == 5
-    assert 'screening risk is not assessable' in html
+    assert view['risk']['summary'] in html
 
 
 def test_expected_terrain_absence_does_not_mask_incomplete_measured_coverage(tmp_path):
@@ -114,7 +116,7 @@ def test_expected_terrain_absence_does_not_mask_incomplete_measured_coverage(tmp
     assert briefing['reviewConditions'][0]['status'] == 'not-assessable'
     assert any(row['label'].endswith('Valid grid coverage') and row['value'] == '50.0%'
                for row in briefing['metrics'])
-    assert 'Some evidence needs attention' in render_briefing_html(briefing)
+    assert 'Screening briefing prepared from the available evidence.' in render_briefing_html(briefing)
 
 
 @pytest.mark.parametrize('component,boundary', [
@@ -146,13 +148,12 @@ def test_malformed_expected_reason_is_not_normalized_or_repeated_as_a_false_fact
                for key in DATASETS} if as_of.startswith('2019') else EXPECTED
     view, html, session = review(tmp_path, reasons={**reasons, component: reason},
                                 prompt=f'Assess flood risk at Toddbrook Reservoir as of {as_of}.')
-    assert view['status'] == 'partial' and view['briefing']['partial'] is True
+    assert view['status'] == 'briefing-ready' and view['briefing']['partial'] is True
     diagnostic = 'The returned coverage reason does not match this product and requested period.'
-    assert any(row == {'label': DATASETS[component], 'value': 'Unavailable. ' + diagnostic}
-               for row in view['briefing']['metrics'])
+    assert not any(row['label'] == DATASETS[component] for row in view['briefing']['metrics'])
     assert any(row['dataset'] == DATASETS[component] and row['coverage'] == diagnostic
                for row in view['briefing']['sourceProvenance'])
-    assert diagnostic in view['actualCoverage'] and diagnostic in html
+    assert diagnostic not in view['actualCoverage'] and diagnostic in html
     assert view['risk']['level'] == 'critical' and view['risk']['confidenceScore'] == .36
     result = session['records']['hydro' if component in {'gpm', 'smap'} else 'flood']['result']
     assert next(item['reason'] for item in result['components'] if item['component'] == component) == reason

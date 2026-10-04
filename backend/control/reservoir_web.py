@@ -17,7 +17,9 @@ from backend.control.briefing import render_briefing_html
 from backend.control.context_dispatch import ContextClient, stamp
 from backend.control.investigation_plan import EXAMPLES, PlanningError, resolve_prompt
 from backend.control.reporting import read_evidence, write_review_report
-from backend.control.reservoir_review import NAMES, build_reservoir_review, checked_results
+from backend.control.reservoir_review import NAMES, build_reservoir_review, checked_results, synthesis_input
+from backend.control.openai_client import AgentAPIError
+from backend.control.risk_synthesis import synthesize_risk
 from backend.control.sessions import SessionError, canonical_id
 from backend.control.web import SessionRequest, RetryRequest
 from backend.shared.settings import ROOT, ControlSettings, WorkerEndpoint
@@ -27,6 +29,7 @@ from backend.shared.worker_api import _RequestGuard
 _SESSION_ERRORS = (
     'Some worker activity could not be retained; remaining validated evidence is preserved.',
     'Control could not assemble a validated review; retained evidence remains available.',
+    'AI synthesis is unavailable; the independent screening result and checked measurements are retained.',
 )
 _SESSION_FIELDS = {'schema_version', 'id', 'request_id', 'prompt', 'plan', 'created_at',
                    'state', 'records', 'risk', 'briefing', 'error'}
@@ -34,7 +37,7 @@ _SESSION_FIELDS = {'schema_version', 'id', 'request_id', 'prompt', 'plan', 'crea
 
 def _validate_session_metadata(value):
     """Only bounded timestamps and fixed operational errors reach presentation."""
-    if set(value) != _SESSION_FIELDS or value['error'] not in (None, *_SESSION_ERRORS):
+    if set(value) - {'synthesis'} != _SESSION_FIELDS or value['error'] not in (None, *_SESSION_ERRORS):
         raise ValueError('Invalid retained investigation metadata.')
     stamp = value['created_at']
     if not isinstance(stamp, str) or len(stamp) > 64:
@@ -71,10 +74,11 @@ def load_settings(path=None):
 
 class ReservoirService:
     def __init__(self, settings, *, history_dir=ROOT / 'outputs/debug/reservoir/history',
-                 max_sessions=100, client_factory=ContextClient):
+                 max_sessions=100, client_factory=ContextClient, synthesis_client=None):
         if not isinstance(settings, ReservoirSettings) or type(max_sessions) is not int or not 1 <= max_sessions <= 1000:
             raise ValueError('Use explicit bounded worker settings.')
         self.settings, self.history_dir = settings, Path(history_dir)
+        self.synthesis_client = synthesis_client
         self.max_sessions, self.client_factory = max_sessions, client_factory
         self.sessions, self.job, self.lock, self.started = {}, None, asyncio.Lock(), False
 
@@ -109,7 +113,8 @@ class ReservoirService:
                     self.save(value)
                 # Cached presentation is never authority. Rebuild from checked aggregates.
                 if value['state'] == 'finished' and value['records']:
-                    value['risk'], value['briefing'] = build_reservoir_review(plan, value['records'], identifier, value['prompt'])
+                    value['risk'], value['briefing'] = build_reservoir_review(plan, value['records'], identifier, value['prompt'],
+                                                                           synthesis=value.get('synthesis'))
                 else:
                     value['risk'], value['briefing'] = None, None
                 identifiers.add(request)
@@ -159,7 +164,7 @@ class ReservoirService:
             identifier = str(uuid4())
             session = {'schema_version': 'reservoir-v1', 'id': identifier, 'request_id': request_id,
                        'prompt': prompt, 'plan': plan.public(), 'created_at': stamp(), 'state': 'queued',
-                       'records': {}, 'risk': None, 'briefing': None, 'error': None}
+                       'records': {}, 'risk': None, 'briefing': None, 'error': None, 'synthesis': None}
             self.save(session)
             self.sessions[identifier] = session
             self.job = asyncio.create_task(self.run(session, plan), name='environmental-investigation')
@@ -187,7 +192,14 @@ class ReservoirService:
             outcomes = await asyncio.gather(*(dispatch(role, task) for role, task in tasks.items()), return_exceptions=True)
             if any(isinstance(item, BaseException) for item in outcomes):
                 session['error'] = _SESSION_ERRORS[0]
-            session['risk'], session['briefing'] = build_reservoir_review(plan, session['records'], session['id'], session['prompt'])
+            if self.synthesis_client is not None:
+                try:
+                    catalog = synthesis_input(plan, session['records'], session['id'])
+                    session['synthesis'] = await synthesize_risk(self.synthesis_client, catalog)
+                except (AgentAPIError, ValueError, TypeError, KeyError):
+                    session['error'] = session['error'] or _SESSION_ERRORS[2]
+            session['risk'], session['briefing'] = build_reservoir_review(plan, session['records'], session['id'], session['prompt'],
+                                                                       synthesis=session.get('synthesis'))
             session['state'] = 'finished'
             self.save(session)
         except asyncio.CancelledError:
@@ -209,20 +221,43 @@ class ReservoirService:
             outcome = record.get('outcome')
             state = ('complete' if returned else 'down' if outcome in {'transport_error', 'timed_out'} else
                      'failed' if outcome else 'active' if record and running else 'unknown')
-            detail = ('Checked evidence returned; source coverage is recorded in the briefing.' if returned else
-                      'Worker evidence is unavailable.' if outcome else 'No activity observed yet.' if not record else 'Worker is processing the resolved investigation.')
-            steps = [{'id': label, 'label': label.title(), 'state': 'complete' if returned else 'pending'}
-                     for label in ('accepted', 'processing', 'returned', 'validated')]
+            current = status.get('state')
+            active_detail = {
+                'task_received': 'Task accepted; waiting to begin.',
+                'acquiring_data': 'Finding and downloading input data for the requested location and dates.',
+                'dataset_located': 'Input data located; preparing analysis.',
+                'processing': 'Analyzing the acquired data.',
+                'preparing_result': 'Preparing the checked result.',
+            }.get(current, 'Dispatching the resolved investigation.')
+            detail = ('Checked evidence returned.' if returned else
+                      'Worker evidence is unavailable.' if outcome else 'No activity observed yet.' if not record else active_detail)
+            labels = [('accepted', 'Task accepted')]
+            observed = {event.get('state') for event in record.get('events', [])} | {current}
+            if role == 'hydro' and observed & {'acquiring_data', 'dataset_located'}:
+                labels.append(('acquisition', 'Finding and downloading data'))
+            labels.extend([('processing', 'Analyzing data'), ('returned', 'Result returned'), ('validated', 'Result checked')])
+            steps = [{'id': key, 'label': label, 'state': 'complete' if returned else 'pending'} for key, label in labels]
             if not returned and status:
                 steps[0]['state'] = 'complete'
-                steps[1]['state'] = 'failed' if outcome else 'active' if running else 'pending'
+            if not returned and status and current != 'task_received':
+                active = ('acquisition' if role == 'hydro' and current == 'acquiring_data'
+                          else 'returned' if current == 'preparing_result' else 'processing')
+                active_index = next(index for index, step in enumerate(steps) if step['id'] == active)
+                for index in range(1, active_index):
+                    steps[index]['state'] = 'complete'
+                steps[active_index]['state'] = 'failed' if outcome else 'active' if running and current != 'task_received' else 'pending'
             workers[role] = {'id': role, 'name': NAMES[role], 'location': 'Independent ' + role.title() + ' worker',
                              'status': state, 'steps': steps, 'summary': detail,
                              'resources': {'hydro': ['GPM rainfall', 'SMAP soil moisture'], 'flood': ['Sentinel-1', 'DEM', 'HAND'], 'dam': ['Site-specific owner records']}[role],
                              'returned': returned, 'validated': returned}
         briefing = session.get('briefing')
-        status = 'running' if running else 'partial' if briefing and briefing['partial'] else 'briefing-ready' if briefing else 'failed'
-        description = ('Independent workers are processing the same location and historical cutoff.' if running else
+        # Completion describes report readiness, not how many datasets exist.
+        # Original component availability and execution errors remain retained.
+        status = 'running' if running else 'briefing-ready' if briefing else 'failed'
+        reviewing = running and len(session['records']) == len(plan.tasks(session['id'])) and all(
+            record.get('outcome') is not None for record in session['records'].values())
+        description = ('Control is synthesizing the combined worker evidence.' if reviewing else
+                       'Independent workers are processing the same location and historical cutoff.' if running else
                        'Combined evidence, screening concern and confidence are available.' if briefing else
                        session.get('error') or 'Investigation was interrupted; no completed review is claimed.')
         control = 'active' if running else 'complete' if briefing else 'failed'

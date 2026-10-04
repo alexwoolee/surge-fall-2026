@@ -27,9 +27,10 @@ registered site. Later incident accounts do not enter its historical risk rules.
 | Ryan | macOS | Control + web interface | API `127.0.0.1:8001`; UI `http://127.0.0.1:3000` |
 
 Keep the services on the private Tailscale network. Internal tokens are ignored;
-NASA still requires its own Earthdata login. Generic prompt resolution and risk
-screening are deterministic and do not require an OpenAI key or a paid model call.
-No Node installation is required on worker laptops.
+NASA still requires its own Earthdata login. Location/date resolution and worker
+measurements remain checked by code; Control uses AI to interpret the combined
+environmental and site context. Only Ryan's Control needs an OpenAI key. No Node
+installation or model key is required on worker laptops.
 
 The prepared date bundle is included at `private_data/toddbrook_runtime/as_of.zip`.
 **Pull the code and start the services; no dataset installer, extraction or
@@ -103,7 +104,8 @@ Enter the NASA username/password in the terminal prompt, not in chat or a comman
 argument. Saved credentials remain local. Ensure this laptop can reach NASA's
 services over the Internet. Hydro queries matching GPM/SMAP resources at runtime
 for each resolved date/window and area, then downloads or reuses matching cached
-files. **Do not supply the old fixed Hydro input ZIP as the generic input.** It is
+files. Up to four file downloads run concurrently; the full selected set is
+processed without skipping samples. **Do not supply the old fixed Hydro input ZIP as the generic input.** It is
 not coverage for arbitrary historical requests. Products unavailable for a date
 stay explicitly unavailable.
 
@@ -308,10 +310,20 @@ The source-IP line is optional; when set, it must belong to Ryan's Mac. The thre
 worker URLs must be different origins. Do not add private-data paths, NASA
 credentials or internal tokens. Keep existing legacy `.env` files intact.
 
-Start Control in one terminal:
+Ryan can reuse the existing private `env.phase8.download` file, which contains
+`OPENAI_API_KEY` and `OPENAI_MODEL=gpt-5.4-mini`. Keep that file and its values out
+of Git and chat. For a new setup, create ignored `.env.phase8.local` containing
+only these two assignments with your own key:
+
+```dotenv
+OPENAI_API_KEY=your_api_key
+OPENAI_MODEL=gpt-5.4-mini
+```
+
+Start Control in one terminal, using Ryan's existing file:
 
 ```sh
-.venv/bin/python -m backend.control.serve --generic --worker-env-file .env.reservoir.local --history-dir outputs/debug/reservoir-cutoff/history
+.venv/bin/python -m backend.control.serve --generic --worker-env-file .env.reservoir.local --openai-env-file env.phase8.download --history-dir outputs/debug/reservoir-cutoff/history
 ```
 
 Start the interface in another terminal after stopping any old UI listener:
@@ -325,8 +337,17 @@ npm run start
 
 The UI defaults to Control at `http://127.0.0.1:8001`. Reuse an existing matching
 UI process only if its production build contains this branch's changes. Leave
-Control's own listener on loopback. This generic command needs neither a fixed
-GPM/SMAP file list nor OpenAI configuration. Although Git supplies the prepared
+Control's own listener on loopback. This command needs no fixed GPM/SMAP file list.
+On another setup, replace `env.phase8.download` with `.env.phase8.local`. At most
+one bounded Responses API request runs after each new investigation's checked
+results arrive; the provider bills that request. Opening saved history reuses the
+retained interpretation and does not call the model again. The flag can be omitted
+when using `OPENAI_API_KEY` and `OPENAI_MODEL` from the environment. If neither a
+file nor the environment supplies credentials, AI interpretation is explicitly
+unavailable and the checked evidence remains in the report. An API failure or invalid response
+also produces a labeled AI-unavailable fallback rather than an invented assessment.
+
+Although Git supplies the prepared
 bundle to this checkout, Control must not read it during investigations; Karan's
 worker performs that analysis and returns bounded aggregates.
 Use this new history directory for the cutoff-aware runs. Preserve earlier
@@ -347,9 +368,9 @@ date; missed data remains a coverage limitation rather than zero rainfall.
 
 Run these two requested assessments separately:
 
-> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2019-08-01. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps. Use observations through the end of that UTC day only.
+> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2019-08-01. Start with a plain-language explanation of how rainfall, soil moisture and dam condition combine. Distinguish routine maintenance from a concerning combination or a severe independent concern, then show supporting technical evidence. Use observations through the end of that UTC day only.
 
-> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2007-12-09. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps. Use observations through the end of that UTC day only.
+> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2007-12-09. Start with a plain-language explanation of how rainfall, soil moisture and dam condition combine. Distinguish routine maintenance from a concerning combination or a severe independent concern, then show supporting technical evidence. Use observations through the end of that UTC day only.
 
 December 9, 2007 has live GPM coverage and a moderate Dam-only screening result;
 its checked daily rainfall is low, so it is not a heavy-rainfall example. No later
@@ -364,6 +385,15 @@ reprocessed estimates of historical environmental observations are allowed; this
 is not a recreation of the public products available on that date. Observations
 after the cutoff must not enter the results. Undated DEM/HAND remain unavailable
 with `observation_date_unverified` in this generic flow.
+
+Control's AI should explain how the available measurements and records fit
+together. For example, it may consider whether rainfall increases concern where
+spillway deterioration is recorded, or how wet soil affects the interpretation of
+rainfall and surface water. These are examples for contextual inference, not
+mandatory interaction rules or fixed combined-risk thresholds. The opening
+summary comes before technical details. Expected product absences stay in source
+notes and do not add a "partial" label to the screen; genuine worker/provider
+failures remain visible. The AI must not invent measurements or later observations.
 
 Dam uses its prepared snapshot containing only records both observed and available
 by the cutoff, without future maintenance closures. Recurring operational
@@ -392,8 +422,8 @@ an official or independently verified reservoir/catchment boundary):
 
 Only Hydro and Flood should appear in that session. Karan's Dam dashboard must
 retain its previous task with no new accepted task for this request. The Control
-briefing must not use Toddbrook private evidence. Missing product evidence is
-still a valid explicitly partial outcome; it is not a reason to call the Dam worker.
+briefing must not use Toddbrook private evidence. Missing products remain source
+notes in a normal report; they are not a reason to call the Dam worker.
 Keep the branch unmerged until the user reviews the joint results and approves.
 
 Date-coverage check:
@@ -421,4 +451,4 @@ not a forecast for dates that have not occurred.
 
 **Ryan — Control**
 
-> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker without merging or pushing. Preserve other work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, start backend.control.serve with --generic and --history-dir outputs/debug/reservoir-cutoff/history, and build/start the UI on loopback. Preserve earlier history separately. This deterministic mode needs no OpenAI key or paid call. The prepared demo bundle is shared through Git, but only Dam may consume it during investigations; Control, Hydro and Flood must not read it as input. Wait for matching commits and readiness, including Karan's pulled bundle, before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Validate aggregate evidence, no observations after the cutoff, conditional Dam routing, honest coverage/age, risk/confidence wording and the standalone download. Keep the branch unmerged until I explicitly approve.
+> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker without merging or pushing. Preserve work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, then start backend.control.serve with --generic --worker-env-file .env.reservoir.local --openai-env-file env.phase8.download --history-dir outputs/debug/reservoir-cutoff/history. Reuse the existing private OpenAI file without printing its key; another setup can use .env.phase8.local with OPENAI_API_KEY and OPENAI_MODEL=gpt-5.4-mini. Build/start the UI on loopback. Each new job permits at most one bounded AI request over checked aggregates; history reopening must not call it again. AI should infer the contextual combined risk, not apply mandatory interaction thresholds, and lead with a plain-language explanation. If AI is unavailable, label the fallback and retain the evidence. The prepared bundle is shared through Git, but only Dam may consume it during investigations. Wait for matching commits and readiness before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Check cutoff compliance, conditional Dam routing, source notes, visible operational errors and the download. Preserve prior history and keep the branch unmerged until I explicitly approve.

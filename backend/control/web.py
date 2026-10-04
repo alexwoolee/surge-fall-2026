@@ -32,7 +32,8 @@ _OUTCOMES = {
     "worker_failed": "The worker reported a processing failure.",
 }
 _TASK_STATES = {
-    "task_received": "The worker accepted the task.", "dataset_located": "The worker located input data.",
+    "task_received": "The worker accepted the task.", "acquiring_data": "The worker is finding and downloading input data.",
+    "dataset_located": "The worker located input data.",
     "processing": "The worker is processing the configured data.",
     "preparing_result": "The worker is preparing its result.",
     "complete": "The worker reports completion; Control is checking the result.",
@@ -131,7 +132,7 @@ def _worker_state(service, session, role, briefing):
         steps[3]["state"] = "complete"
     elif observed is not None:
         steps[0]["state"] = "complete"
-        if observed.state.value in {"dataset_located", "processing"}:
+        if observed.state.value in {"acquiring_data", "dataset_located", "processing"}:
             steps[1]["state"] = "active"
         elif observed.state.value in {"preparing_result", "complete", "partial"}:
             steps[1]["state"] = "complete"
@@ -246,6 +247,7 @@ viewer never falls back to a retained-evidence review or invents a heartbeat.
         else:
             label = {
                 "task_received": "Control observed that the worker accepted the task.",
+                "acquiring_data": "Control observed the worker finding and downloading input data.",
                 "dataset_located": "Control observed that input data was located.",
                 "processing": "Control observed the worker processing data.",
                 "preparing_result": "Control observed the worker preparing its result.",

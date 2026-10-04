@@ -153,6 +153,8 @@ def run_hydro_context(task: ContextTask, progress, *, settings: WorkerSettings) 
     provider = NASAContextProvider()
     try:
         acquired = {}
+        if task.end_time > GPM_START:
+            progress(TaskState.ACQUIRING_DATA)
         for component, coverage_start, folder in (("gpm", GPM_START, settings.gpm_dir),
                                                   ("smap", SMAP_START, settings.smap_dir)):
             acquired[component] = (([], "before_product_coverage") if task.end_time <= coverage_start

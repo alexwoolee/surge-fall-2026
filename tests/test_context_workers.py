@@ -70,7 +70,7 @@ def test_local_hydro_uses_matching_dates_and_actual_processors_without_extrapola
     settings = prepare_hydro(tmp_path)
     seen = []
     result = run_hydro_task(task(), seen.append, settings=settings)
-    assert seen == [TaskState.DATASET_LOCATED, TaskState.PROCESSING, TaskState.PREPARING_RESULT]
+    assert seen == [TaskState.ACQUIRING_DATA, TaskState.DATASET_LOCATED, TaskState.PROCESSING, TaskState.PREPARING_RESULT]
     measured = components(result)
     assert result["status"] == "partial"
     rain = measured["gpm"]

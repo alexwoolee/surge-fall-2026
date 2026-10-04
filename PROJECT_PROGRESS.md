@@ -239,6 +239,51 @@ tests**, lint, TypeScript, the production build, dependency consistency and
 and history; both services, the UI proxy and retained report returned HTTP 200.
 All three remote workers returned HTTP 200 and idle in the final read-only check.
 
+## AI synthesis, active acquisition and report presentation — October 4, 2026
+
+The user requested contextual AI interpretation of all returned factors, rather
+than new hard-coded interaction thresholds. Control now sends an anonymous,
+cutoff-bound catalog of checked aggregates to its configured OpenAI Responses
+model once per new investigation. The model supplies the concern classification,
+plain-language summary and reasons with evidence references. Rainfall/soil/dam
+relationships are reasoning examples, not a new interaction rule table. Raw Dam
+records, record references, location identity, the user's free-form prompt and
+credentials are excluded from the model input. Independent high/critical Dam
+alerts cannot be silently downgraded. Measurements and the evidence-confidence
+calculation stay in Python; AI does not change either.
+
+Strict output validation checks schema, cited fields, copied numerical values,
+input digest and the protected Dam concern. It cannot prove that every free-form
+interpretation is scientifically correct. Invalid or failed responses retain
+the measurements and explicitly label the independent screening fallback.
+Saved interpretations are revalidated against their aggregates on reload without
+new model calls. Opening summaries lead the screen and HTML report; technical
+indices, method, conditions and source notes follow. Missing products do not
+produce a "partial" screen label or unavailable measurement rows. Original
+coverage states remain in evidence, and actual worker/API failures remain visible.
+
+Hydro now emits `acquiring_data` before NASA discovery/download, so its local
+dashboard and Control describe the long network phase truthfully. Acquisition
+uses at most four independent download sessions, retains every selected sample,
+preserves result order, and shares byte/deadline bounds. No thinning, imputation,
+synthetic delay or live performance benchmark was introduced. Tests exercise
+concurrency, cleanup, cancellation, cache reuse and observed-stage presentation.
+
+Validation: **1,935 Python tests** and **71 frontend tests** passed. Lint,
+TypeScript, production build, dependency consistency and diff checks passed.
+Mocked AI tests cover one-call execution, idempotency, replay, privacy, fallback,
+citations and distinct routine/combined/independent-concern presentations.
+Those scenario fixtures test integration; they do not establish model accuracy
+or promise those outcomes for particular historical dates.
+
+The user specifically approved sending the displayed private-Dam-derived
+aggregate payload and enabling AI synthesis. The first live model response failed
+validation; the runtime fallback is covered by integration tests. Offline review
+fixed false rejections of the Sentinel-1 product name and narrowly negated claims.
+Diagnostic repair calls require the user's separate approval; no live download benchmark was run. Evidence and the exact
+payload preview are in `outputs/debug/ai-synthesis-validation/`. The feature
+remains separate from main.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control

@@ -19,7 +19,7 @@ export function BriefingCard({ analysis }: { analysis: AnalysisState }) {
       <div className="result-body">
         <p className="eyebrow">Environmental analysis</p>
         <h2 id="briefing-result-heading">{briefing.title}</h2>
-        <p>{combined?.paragraphs[0] || "The specialist investigations have returned. Control has validated the evidence and prepared a combined briefing."}</p>
+        <p>{briefing.risk?.summary || combined?.paragraphs[0] || "The specialist investigations have returned. Control has validated the evidence and prepared a combined briefing."}</p>
         <dl className="briefing-metrics">{briefing.metrics.slice(0, 4).map((metric) => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl>
         <AnalystReviewBanner conditions={analysis.reviewConditions} />
         <div className="result-actions">

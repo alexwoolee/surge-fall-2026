@@ -6,8 +6,10 @@ task fields, results, URLs in reports, or interactive prompts.
 
 import os
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import tempfile
+from threading import Event, Lock
 import time
 from urllib.parse import unquote, urljoin, urlsplit
 
@@ -19,6 +21,7 @@ MAX_DISCOVERY_BYTES = 16 * 1024 * 1024
 MAX_FILE_BYTES = 1024 * 1024 * 1024
 MAX_DOWNLOAD_BYTES = 4 * 1024 * 1024 * 1024
 MAX_PROVIDER_SECONDS = 300
+MAX_DOWNLOAD_WORKERS = 4
 # NASA's GES DISC and NSIDC HTTPS data services currently issue signed redirects
 # to these distributions. CDN links are accepted only after provider discovery;
 # they are not permitted as initial catalog links.
@@ -100,6 +103,7 @@ class NASAContextProvider:
         self.downloaded_bytes = 0
         self.auth = None
         self.download_session = None
+        self._bytes_lock = Lock()
 
     def check_deadline(self):
         if time.monotonic() >= self.deadline:
@@ -171,10 +175,14 @@ class NASAContextProvider:
         return response
 
     def obtain(self, selected, folder):
-        """Return paths only for currently discovered exact product identities."""
+        """Acquire all selected observations with at most four download streams.
+
+        Authentication is established before threads start. Each download batch
+        owns a separate session, while byte/deadline limits cover the whole task.
+        """
         folder = Path(folder).resolve()
         folder.mkdir(parents=True, exist_ok=True)
-        paths = []
+        paths, missing = [], []
         for item, name, _ in selected:
             self.check_deadline()
             target = folder / name
@@ -183,48 +191,89 @@ class NASAContextProvider:
             if target.is_file():
                 if not 0 < target.stat().st_size <= MAX_FILE_BYTES:
                     raise SourceUnavailable("download_limit")
-                paths.append(target)
-                continue
-            self._login()
-            links = item.data_links(access="external")
-            if not links or len(links) > 16:
-                raise SourceUnavailable("invalid_result")
-            url = _allowed_url(links[0])
-            if unquote(urlsplit(url).path).rsplit("/", 1)[-1] != name:
-                raise SourceUnavailable("invalid_result")
-            temporary = None
+            else:
+                missing.append((item, name, target))
+            paths.append(target)
+        if len(set(paths)) != len(paths):
+            raise SourceUnavailable("invalid_result")
+        if not missing:
+            return paths
+        self._login()
+        stop = Event()
+        if len(missing) == 1:
+            self._download_one(*missing[0], self.download_session, stop)
+            return paths
+        sessions, errors = [], []
+        error_lock = Lock()
+        workers = min(MAX_DOWNLOAD_WORKERS, len(missing))
+        def batch(index):
             try:
-                with self.download_session.get(url, stream=True, allow_redirects=True,
-                                               timeout=(10, 30), hooks={"response": [
-                                                   *getattr(self.download_session, "hooks", {}).get("response", []),
-                                                   self._redirect_guard,
-                                               ]}) as response:
-                    response.raise_for_status()
-                    declared = response.headers.get("Content-Length")
-                    declared = int(declared) if declared is not None else None
+                for entry in missing[index::workers]:
+                    if stop.is_set():
+                        return
+                    self._download_one(*entry, sessions[index], stop)
+            except Exception as error:
+                with error_lock:
+                    errors.append(error)
+                    stop.set()
+        try:
+            for _ in range(workers):
+                session = self.auth.get_session()
+                session.max_redirects = 6
+                sessions.append(session)
+            with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="nasa-download") as executor:
+                list(executor.map(batch, range(workers)))
+            if errors:
+                raise errors[0]
+        finally:
+            for session in sessions:
+                session.close()
+        return paths
+
+    def _download_one(self, item, name, target, session, stop):
+        self.check_deadline()
+        links = item.data_links(access="external")
+        if not links or len(links) > 16:
+            raise SourceUnavailable("invalid_result")
+        url = _allowed_url(links[0])
+        if unquote(urlsplit(url).path).rsplit("/", 1)[-1] != name:
+            raise SourceUnavailable("invalid_result")
+        temporary = None
+        try:
+            with session.get(url, stream=True, allow_redirects=True,
+                             timeout=(10, 30), hooks={"response": [
+                                 *getattr(session, "hooks", {}).get("response", []), self._redirect_guard,
+                             ]}) as response:
+                response.raise_for_status()
+                declared = response.headers.get("Content-Length")
+                declared = int(declared) if declared is not None else None
+                with self._bytes_lock:
                     if declared is not None and (declared < 1 or declared > MAX_FILE_BYTES or self.downloaded_bytes + declared > MAX_DOWNLOAD_BYTES):
                         raise SourceUnavailable("download_limit")
-                    size = 0
-                    with tempfile.NamedTemporaryFile(dir=folder, prefix=".context-", suffix=".part", delete=False) as output:
-                        temporary = Path(output.name)
-                        for chunk in response.iter_content(1024 * 1024):
-                            self.check_deadline()
-                            size += len(chunk)
+                size = 0
+                with tempfile.NamedTemporaryFile(dir=target.parent, prefix=".context-", suffix=".part", delete=False) as output:
+                    temporary = Path(output.name)
+                    for chunk in response.iter_content(1024 * 1024):
+                        self.check_deadline()
+                        if stop.is_set():
+                            raise SourceUnavailable("source_unavailable")
+                        size += len(chunk)
+                        with self._bytes_lock:
                             self.downloaded_bytes += len(chunk)
                             if size > MAX_FILE_BYTES or self.downloaded_bytes > MAX_DOWNLOAD_BYTES:
                                 raise SourceUnavailable("download_limit")
-                            output.write(chunk)
-                    if size < 1 or declared is not None and size != declared:
-                        raise SourceUnavailable("source_unavailable")
-                if target.exists():
-                    raise SourceUnavailable("invalid_result")
-                temporary.replace(target)
-                temporary = None
-            finally:
-                if temporary is not None:
-                    temporary.unlink(missing_ok=True)
-            paths.append(target)
-        return paths
+                        output.write(chunk)
+                if size < 1 or declared is not None and size != declared:
+                    raise SourceUnavailable("source_unavailable")
+            if stop.is_set():
+                raise SourceUnavailable("source_unavailable")
+            if target.exists():
+                raise SourceUnavailable("invalid_result")
+            temporary.replace(target)
+            temporary = None
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def close(self):
         if self.download_session is not None:

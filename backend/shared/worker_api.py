@@ -39,7 +39,7 @@ from backend.shared.worker_dashboard import (
 
 MAX_REQUEST_BYTES = 64 * 1024
 _FAILURE_MESSAGE = "Worker processing failed; no validated result is available."
-_PROGRESS_ORDER = {"task_received": 0, "dataset_located": 1, "processing": 2, "preparing_result": 3}
+_PROGRESS_ORDER = {"task_received": 0, "acquiring_data": 1, "dataset_located": 2, "processing": 3, "preparing_result": 4}
 _PAIRS = {"hydro-worker": "hydrometeorology", "flood-worker": "surface_water_and_terrain", "dam-worker": "dam_risk"}
 _SAFE_LOCATIONS = {
     "body", "query", "path", "task_id", "analysis_type", "bbox", "west", "south", "east", "north",
@@ -176,7 +176,7 @@ def create_worker_app(
 
     def record_event(record, state, observed_at):
         # Called only while holding the lifecycle lock. Legal progress is
-        # monotonic, so a task has at most seven distinct genuine states.
+        # monotonic, so each genuine lifecycle state is recorded at most once.
         if not record.events or record.events[-1]["state"] != state:
             record.events.append(dashboard_event(state, observed_at))
             del record.events[:-MAX_DASHBOARD_EVENTS]

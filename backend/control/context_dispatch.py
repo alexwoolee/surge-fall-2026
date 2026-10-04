@@ -14,8 +14,8 @@ from backend.shared.context_contracts import ContextResult, ContextTask
 from backend.shared.dam_contracts import DamResult, DamTask
 from backend.shared.status import TERMINAL_STATES
 
-_ORDER = {'task_received': 0, 'dataset_located': 1, 'processing': 2, 'preparing_result': 3,
-          'complete': 4, 'partial': 4, 'failed': 4}
+_ORDER = {'task_received': 0, 'acquiring_data': 1, 'dataset_located': 2, 'processing': 3, 'preparing_result': 4,
+          'complete': 5, 'partial': 5, 'failed': 5}
 
 
 def stamp():

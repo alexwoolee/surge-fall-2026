@@ -387,7 +387,7 @@ class TaskStatus(Contract):
                 raise ValueError("Terminal status requires a completion time after receipt/start.")
         elif self.completed_at is not None:
             raise ValueError("Active status cannot have a completion time.")
-        if self.state in {TaskState.PROCESSING, TaskState.PREPARING_RESULT, TaskState.COMPLETE, TaskState.PARTIAL} and self.started_at is None:
+        if self.state in {TaskState.ACQUIRING_DATA, TaskState.PROCESSING, TaskState.PREPARING_RESULT, TaskState.COMPLETE, TaskState.PARTIAL} and self.started_at is None:
             raise ValueError("Processing status requires a start time.")
         if self.error is not None and self.state != TaskState.FAILED:
             raise ValueError("Task-level errors require failed status.")

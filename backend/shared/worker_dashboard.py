@@ -25,11 +25,12 @@ _CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; connect-src 's
 _NAMES = {"hydro-worker": "Hydrometeorology Agent", "flood-worker": "Surface Water and Terrain Agent", "dam-worker": "Reservoir Risk Agent"}
 _LABELS = {
     "task_received": "Worker accepted the task.",
+    "acquiring_data": "Worker began finding and downloading input data.",
     "dataset_located": "Worker located the input data.",
     "processing": "Worker began processing the data.",
     "preparing_result": "Worker began preparing its result.",
     "complete": "Worker checked and completed its result.",
-    "partial": "Worker checked a partial result; some evidence is unavailable.",
+    "partial": "Worker checked and completed its result.",
     "failed": "Worker processing failed; no completed result is claimed.",
 }
 _NOTICE = ("This page shows the latest task accepted by this worker process. Events and task history "

@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from backend.control.alerts import DEMO_NOTICE
 from backend.control.fusion import DISCLAIMER
 from backend.control.context_dispatch import validate_record
+from backend.control.risk_synthesis import build_synthesis_input, validate_synthesis
 from backend.shared.risk_contracts import RiskView
 from backend.shared.context_contracts import ContextResult, ContextTask
 from backend.shared.dam_contracts import DamResult, DamTask
@@ -172,7 +173,16 @@ def checked_results(plan, records, task_id):
     return results
 
 
-def build_reservoir_review(plan, records, task_id, prompt):
+def synthesis_input(plan, records, task_id):
+    """Send only checked, dated aggregates to the reasoning model."""
+    results = checked_results(plan, records, task_id)
+    components = {item.component: item for role in ('hydro', 'flood') if role in results
+                  for item in results[role].components}
+    return build_synthesis_input(components, results.get('dam'), start_time=plan.start,
+                                 end_time=plan.end, as_of=plan.as_of)
+
+
+def build_reservoir_review(plan, records, task_id, prompt, *, synthesis=None):
     results = checked_results(plan, records, task_id)
     components = {item.component: item for role in ('hydro', 'flood') if role in results
                   for item in results[role].components}
@@ -192,7 +202,7 @@ def build_reservoir_review(plan, records, task_id, prompt):
         sources.append({'dataset': DATASETS[name], 'access': 'Assigned environmental worker',
                         'resources': 'Validated aggregate from the named product.' if available else 'Unavailable.',
                         'coverage': coverage})
-        if not expected_absence:
+        if available:
             coverage_summary.append(f'{DATASETS[name]}: {coverage}')
         if available:
             for key, value in metrics.items():
@@ -205,7 +215,6 @@ def build_reservoir_review(plan, records, task_id, prompt):
             qualities.append(0.0)
             if not expected_absence:
                 incomplete = True
-                measurements.append({'label': DATASETS[name], 'value': 'Unavailable. ' + reason})
     rain, soil = components.get('gpm'), components.get('smap')
     rain_ok = (rain is not None and rain.availability == 'available'
                and rain.metrics.requested_hours == 24 and rain.metrics.temporal_coverage_fraction == 1
@@ -259,6 +268,18 @@ def build_reservoir_review(plan, records, task_id, prompt):
                         else 'This historical evidence meets the configured ' + level + '-concern screening criteria.'),
             'basis': basis, 'limitations': list(dict.fromkeys(limitations))}
     risk = RiskView.model_validate(risk).model_dump(mode='json')
+    if synthesis is not None:
+        synthesis = validate_synthesis(synthesis, synthesis_input(plan, records, task_id))
+        level = synthesis['level']
+        risk.update(level=level, score={'unknown': None, 'low': 10, 'moderate': 35, 'high': 70, 'critical': 90}[level],
+                    alert=level in {'high', 'critical'}, title=synthesis['title'],
+                    summary=synthesis['summary'], basis=synthesis['basis'])
+        if level == 'unknown':
+            confidence = min(confidence, .4)
+            risk.update(confidenceScore=confidence, confidenceLevel='low')
+        risk = RiskView.model_validate(risk).model_dump(mode='json')
+    else:
+        risk['basis'] = 'AI synthesis is unavailable for this report. The independent screening result and checked measurements are retained.'
     for role, task in plan.tasks(task_id).items():
         record = records.get(role) or {}
         status = record.get('status') or {}
@@ -270,9 +291,13 @@ def build_reservoir_review(plan, records, task_id, prompt):
         processing.append({'investigation': NAMES[role], 'location': 'Independent ' + role + ' worker',
                            'method': 'Deterministic historical screening aggregates.' if role == 'dam' else 'Existing deterministic geospatial processors over the resolved area and interval.',
                            'duration': duration})
+    processing.append({'investigation': 'Combined evidence synthesis', 'location': 'Control',
+                       'method': ('AI interpretation of checked aggregate evidence, with validated evidence references.'
+                                  if synthesis is not None else 'AI synthesis unavailable; independent screening fallback.'),
+                       'duration': 'Included in Control review.'})
     partial = set(results) != set(plan.tasks(task_id)) or level == 'unknown' or incomplete
-    if any(expected_source_absence(item, plan.end) for item in components.values()):
-        coverage_summary.append('Source notes describe product availability for this date.')
+    if not coverage_summary:
+        coverage_summary.append('No numerical measurements were returned for this investigation.')
     context = (f'WGS84 bounds: {plan.bbox.as_tuple()}. All environmental tasks use these exact bounds. '
                'The area is an analysis window, not a delineated catchment or an inundation footprint.')
     briefing = {
@@ -285,10 +310,13 @@ def build_reservoir_review(plan, records, task_id, prompt):
         'sections': [
             {'id': 'risk', 'title': risk['title'], 'paragraphs': [risk['summary'], risk['basis'],
               f'Evidence confidence: {risk["confidenceLevel"]} (coverage index {confidence:.3f} on 0–1). This is not flood probability.']},
+            *([{'id': 'synthesis', 'title': 'Why these factors matter together',
+                'paragraphs': [reason['text'] + ' Evidence: ' + ', '.join(reason['field_refs']) + '.'
+                               for reason in synthesis['reasons']]}] if synthesis is not None else []),
             {'id': 'method', 'title': 'How Control combines the evidence', 'paragraphs': [
                 'Hydro and Flood always run. Only the exact Toddbrook site also calls its dam-records worker. Results are checked against the same task, location, area and historical cutoff.',
-                'The highest assessable concern is retained; missing components cannot lower a returned high or critical concern. Candidate water and static terrain are context, not evidence of new flooding or a breach.',
-                'Public screening requires complete 24-hour rainfall with at least 80% valid area and usable soil moisture. At least 50 mm plus surface moisture at least 0.40 m3/m3 is high concern; heavy rainfall alone is moderate. These are configured review thresholds, not calibrated safety limits.',
+                'When available, AI evaluates interacting rainfall, soil moisture, recent dam condition and hydraulic loading. An existing high or critical Dam concern cannot be downgraded. Candidate water and static terrain are context, not evidence of new flooding or a breach.',
+                'AI considers how the measured factors reinforce or counterbalance one another in context. Rainfall with wetter soil, or rainfall pressure alongside dam deterioration, are examples to consider rather than fixed interaction thresholds. Source measurements remain unchanged.',
                 'Confidence combines evidence availability and spatial/temporal coverage. With dam evidence: 60% dam evidence score plus 40% mean public-component coverage; without it: 80% of mean public coverage. Unknown risk is capped at 0.40. The score is not a statistical confidence interval.',
                 'Displayed measurements are rounded for readability. Screening rules and confidence calculations use the full-precision checked values.',
             ]},

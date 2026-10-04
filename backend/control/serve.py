@@ -105,14 +105,23 @@ def main(argv=None):
             history = args.history_dir
             if history == ROOT / 'outputs/debug/control-web':
                 history = ROOT / 'outputs/debug/reservoir/history'
-            app = create_reservoir_app(ReservoirService(settings, history_dir=history))
-        except (ValueError, TypeError, OSError):
+            try:
+                synthesis_client = ResponsesClient(load_openai_settings(args.openai_env_file))
+            except AgentAPIError:
+                if args.openai_env_file is not None:
+                    raise
+                synthesis_client = None
+            app = create_reservoir_app(ReservoirService(settings, history_dir=history,
+                                                      synthesis_client=synthesis_client))
+        except (AgentAPIError, ValueError, TypeError, OSError):
             print('Control worker configuration failed. No requests were sent.')
             return 2
         if args.check_config:
             print('Prompt-routed Control configuration: PASS. No API or worker requests sent.')
             return 0
         print('Control API: prompt locations and historical dates; independent Hydro, Flood and applicable dam workers.', flush=True)
+        print('AI evidence synthesis: ' + ('enabled; one bounded model request per investigation.' if synthesis_client is not None
+                                         else 'unavailable; independent screening fallback.'), flush=True)
         uvicorn.run(app, host=args.host, port=args.port, workers=1, reload=False, access_log=False)
         return 0
     if args.rules is None:
