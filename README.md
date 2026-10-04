@@ -2,7 +2,7 @@
 
 MeshMind is a multi-agent, multi-workstation environmental intelligence system.
 
-MeshMind runs bounded environmental investigations on separate workstations and returns structured results to Control for deterministic validation and review. The remaining product goal is to connect natural-language requests and the existing frontend to those real results, then produce a downloadable combined briefing.
+MeshMind runs bounded environmental investigations on separate workstations and returns structured results to Control for deterministic validation and review. Phase 9 connects natural-language requests and the existing frontend to those results and produces a downloadable combined briefing. Its implementation, automated checks, live browser validation and six manual checks passed. Phase 9 is accepted and merged into `codex/parallel-dispatch`.
 
 > MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response, evacuation, or disaster-detection system.
 
@@ -22,6 +22,9 @@ review and requested the identified completeness fixes. Those fixes and the
 offline evidence review now pass, satisfying that condition and accepting
 Phase 8. This records the current user's conditional authorization, not a new
 worker-owner confirmation, physical-laptop run or API test.
+On October 4 the user reported **“all passed”** for all six Phase 9 manual checks,
+accepting the integrated UI and downloaded briefing. That acceptance is recorded
+separately from the original raw reports, whose historical statuses are unchanged.
 
 ## Exact checkpoint and branches
 
@@ -30,10 +33,10 @@ worker-owner confirmation, physical-laptop run or API test.
 | Phases 1–6 backend | Implemented, real-data validated, human accepted | `origin/codex/parallel-dispatch` at `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
 | Phase 7 implementation | Implemented, validated and human accepted October 4 | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
 | Phase 7 pull request | **Merged** into `codex/parallel-dispatch` at `0aa918f`; historical draft metadata remains | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
-| Existing frontend | Next.js/TypeScript/Tailwind demonstration implemented; integration pending | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d` |
+| Existing frontend | Original design and history preserved in the Phase 9 integration | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d`, merged at `5770c49` |
 | `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
 | Phase 8 | Accepted after the requested explanation fixes and completeness review; merged into `codex/parallel-dispatch` | Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` on `codex/agent-integration`; [Phase 8 checkpoint](docs/phase8-validation.md) |
-| Phase 9 | Ready to begin; live frontend/report integration not implemented | `codex/briefing-integration` from the accepted Phase 8 merge; fetch and reuse it if already created |
+| Phase 9 | All technical and six manual checks PASS; human accepted October 4 and merged into `codex/parallel-dispatch` | Tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb` on `codex/briefing-integration`; [Phase 9 checkpoint](docs/phase9-validation.md) |
 | Phase 10 | Not implemented | Reliability, final demo and submission work remains |
 
 Fetch and verify this snapshot against the remote before acting; another owner
@@ -72,10 +75,10 @@ evidence that the locally run tests failed.
   partial and failed outcomes, bounded demo retry and an HTML briefing demo are
   implemented. Its activity/timing/measurements are explicitly labeled fixtures;
   browser-local storage is not live distributed state. Existing frontend checks
-  recorded 12 tests, lint and production build passing. Actual browser download
-  capture remains unverified and must be completed in Phase 9.
+  historically recorded 12 tests, lint and production build passing. Phase 9
+  now preserves that design with real Control integration and a verified download.
 
-**Current Phase 8 verification:** macOS Python 3.12.14, **1,239 passed**, zero
+**Historical Phase 8 verification:** macOS Python 3.12.14, **1,239 passed**, zero
 failures/skips; dependency and diff checks pass. All nine offline completeness
 checks pass against retained real evidence. Controlled API-failure replay keeps
 the same measurements and review outcomes. The earlier live `gpt-5.4-mini` check
@@ -83,7 +86,20 @@ passed (three requests, estimated $0.0037 USD); the model catalog and API bounda
 are unchanged, and the rendering fixes required no new API requests or worker
 dispatches. Phase 8 is accepted under the user's conditional authorization; see
 [Phase 8 validation](docs/phase8-validation.md). The downloadable standalone
-HTML briefing and browser download verification remain Phase 9 work.
+HTML briefing and actual browser download now pass the Phase 9 checks below.
+
+**Current Phase 9 verification:** Mac Control Python 3.12.14, **1,327 passed**;
+frontend **25 passed**, lint and production build passed. Both physical workers
+passed authenticated checks and completed browser-submitted investigation
+`ad711f78-ae40-4c31-b5ee-1c5a68551f51`. All eight measurements and all five review
+outcomes match the accepted reference. The UI observed independent worker
+completion, kept source-coverage limits visible, and downloaded the standalone
+briefing successfully. Saved history and identical briefing bytes survived a
+Control restart. All 16 comparison/export/restart checks passed. See
+[Phase 9 evidence and human review steps](docs/phase9-validation.md).
+**Phase 9 accepted October 4:** the user reported “all passed” for all six manual
+checks, including the downloaded HTML visual review. The accepted implementation
+is merged into `codex/parallel-dispatch`; Phase 10 has not started.
 
 **Historical Phase 7 verification:** Windows Python 3.12, **906 passed and 1 expected
 symlink-privilege skip**; `pip check` and `git diff --check` passed. Independent
@@ -92,7 +108,7 @@ Phase 7 Windows result, not a claim that Phase 7 was tested on every OS. The
 accepted Phase 6 baseline was 758 passing tests on macOS and 757 plus the expected
 skip on Windows; Karan reported the Linux suite passed at that phase.
 
-**Latest real evidence:** new local execution of the accepted processors returned
+**Historical Phase 7 real evidence:** local execution of the accepted processors returned
 complete typed Hydro/Flood results for task
 `b0e3a0d4-3152-434e-8159-61f6b805e10a`. All 15 reference checks matched. The demo
 policy produced **4 triggered, 1 not triggered, 0 not assessable**. Four controlled
@@ -111,29 +127,30 @@ these commands succeed.
 Fresh checkout (macOS/Linux shell or PowerShell):
 
 ```sh
-git clone --branch codex/parallel-dispatch https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase9
-cd surge-fall-2026-phase9
+git clone --branch codex/parallel-dispatch https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase10
+cd surge-fall-2026-phase10
 git status --short --branch
 git log -3 --oneline
-git merge-base --is-ancestor 25e48d57eabc942184892cbdb5fb009bd6da487f HEAD
+git merge-base --is-ancestor ccd0de8932e2f26351cf939d714173797b9bbeeb HEAD
 ```
 
 For an existing **separate development checkout**, inspect `git status` first,
 then fetch, switch to `codex/parallel-dispatch`, and pull with `--ff-only`. Preserve
 local edits and investigate any refusal instead of using a reset or force push.
-The ancestor check above verifies that the tested Phase 8 implementation is
-included in the accepted base. Fetch and reuse `codex/briefing-integration` if
-another session has already created it; otherwise create that fresh branch from
-the accepted base. Preserve any existing work on that branch. Selecting `main`
+The ancestor check above verifies that the tested Phase 9 implementation is
+included in the accepted base. When Phase 10 is authorized, create a separate
+`codex/*` branch from that accepted base and preserve existing work. Selecting `main`
 on GitHub shows older documentation.
 
 Read this README, `requirements.txt`, `.env.example`, and the linked
 [Phase 4](docs/phase4-validation.md), [Phase 5](docs/phase5-validation.md),
 [Phase 6](docs/phase6-validation.md) and [Phase 7](docs/phase7-validation.md)
 records. Inspect `backend/control/`, `backend/shared/`, the two worker services,
-`scripts/validate/` and their tests before designing changes. Control currently
-has a **terminal CLI, not a web API**. Shared contracts and processors already
-work; extend them rather than restarting the project.
+`scripts/validate/` and their tests before designing changes. Control has both
+the terminal CLI and a local authenticated web API in `backend/control/web.py`,
+with durable sessions in `sessions.py` and explicit startup in `serve.py`.
+Shared contracts and processors already work; extend them rather than restarting
+the project. Read [Phase 9 startup and validation](docs/phase9-validation.md).
 
 Create a fresh Python 3.12 environment; do not copy one from another OS.
 
@@ -231,7 +248,7 @@ The worker needs its own data folders/settings and existing NASA authentication;
 Control needs connectivity to both workers for a real distributed run. Workers
 must use one Uvicorn process, without reload. Registry state is lost on restart.
 Do not stop, update or restart a deployed worker just to review accepted evidence
-or prepare Phase 9; coordinate any later required deployment with its owner. The exact
+or continue development; coordinate any later required deployment with its owner. The exact
 startup, authentication and clock-calibration commands remain in the Phase 5/6
 documents. Do not repeat their accepted physical checkpoints merely because the
 development checkout moved laptops.
@@ -258,21 +275,23 @@ development checkout moved laptops.
    **`25e48d57eabc942184892cbdb5fb009bd6da487f`** is merged into
    **`codex/parallel-dispatch`**, the accepted Phase 9 base. See
    [Phase 8 validation](docs/phase8-validation.md).
-3. **Phase 9 — Ready to connect the existing UI and final briefing.** Start
-   `codex/briefing-integration` from the accepted Phase 8 merge. Inspect
-   `origin/kazi/frontend-ui` before integration, including `frontend/AGENTS.md`,
+3. **Phase 9 — Accepted October 4; merged into `codex/parallel-dispatch`.**
+   Tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb` is preserved
+   on `codex/briefing-integration`. It starts from the accepted
+   Phase 8 merge and preserves the frontend's original history. Inspect
+   the preserved frontend instructions, including `frontend/AGENTS.md`,
    `frontend/README.md` and `frontend/IMPLEMENTATION.md`. Preserve that work and
    the approved design. The existing provider boundary is
-   `frontend/src/lib/data-provider.ts`; `api-provider.ts` is a placeholder and
-   does not define backend endpoints. Design the real Control/UI API, state,
-   history and bounded retry boundary from the implemented CLI/contracts. Replace
-   or isolate fixture providers; never present simulated timers, demo measurements
+   `frontend/src/lib/data-provider.ts`; `api-provider.ts` now uses the real local
+   Control API. Sessions, history and bounded retry are owned by Python. Fixtures
+   require explicit demo mode; never present simulated timers, demo measurements
    or browser-local state as live execution. Preserve independent worker cards,
-   partial results and unavailable review conditions. Produce a real downloadable
-   standalone HTML briefing with actual observations, provenance and limitations;
-   verify the browser download. PDF is optional. Run `npm ci`, `npm run test`,
+   partial results and unavailable review conditions. The standalone HTML briefing
+   and actual browser download have passed validation, with real observations,
+   provenance and limitations. PDF is optional. Run `npm ci`, `npm run test`,
    `npm run lint` and `npm run build` inside `frontend/`, plus backend checks for
-   backend changes, then stop for Phase 9 acceptance.
+   backend changes. The user reported “all passed” for the six manual checks,
+   including the standalone HTML visual review. Preserve this accepted checkpoint.
 4. **Phase 10 — Reliability and submission.** Finish failure/recovery checks,
    portable startup/reset instructions, deployment guidance, final README,
    demo preparation and submission materials. Ask for the actual event deadline,
@@ -311,17 +330,17 @@ appropriate to new implementation changes before advancing their phase.
 Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the latest
 README on codex/parallel-dispatch, starting with "Continue on Another Laptop".
 Preserve existing checkouts, private environment files, data and running workers.
-Phases 1–8 are accepted and merged into codex/parallel-dispatch. Verify that
-tested Phase 8 implementation 25e48d57eabc942184892cbdb5fb009bd6da487f is an
+Phases 1–9 are accepted and merged into codex/parallel-dispatch. Verify that
+tested Phase 9 implementation ccd0de8932e2f26351cf939d714173797b9bbeeb is an
 ancestor of your continuation branch.
 Phase 8 uses bounded Responses API interpretation and Python-rendered grounded
 explanations. Check docs/phase8-validation.md for current checks, historical live
 API evidence and scientific limitations. The separate Agents API/SDK are not used.
-Start Phase 9 on codex/briefing-integration from the accepted merge; fetch and
-reuse that branch if already created, preserving its existing work. Inspect
-origin/kazi/frontend-ui and frontend/AGENTS.md; preserve and connect the existing
-UI. Build the real Control/UI boundary and standalone HTML briefing, verify its
-browser download and stop at the Phase 9 checkpoint. Do not start from main,
+Read docs/phase9-validation.md and frontend/AGENTS.md; preserve the integrated UI,
+local Control API, durable sessions and standalone HTML briefing. Phase 9 manual
+checks were accepted by the user. Phase 10 has not started: when authorized, use
+a separate codex/* branch from the accepted base, obtain the actual event deadline,
+submission format and required assets, and follow its final checkpoint. Do not start from main,
 redo accepted phases, invent measurements, expose
 secrets or claim fixture/local/replayed activity is fresh distributed execution.
 Report missing evidence or credentials while continuing independent work.
@@ -333,7 +352,7 @@ Report missing evidence or credentials while continuing independent work.
 
 ## Current Phase
 
-**Phase 8 accepted and merged; Phase 9 frontend and report integration ready to begin.**
+**Phases 1–9 accepted and merged; Phase 10 reliability and submission work is next.**
 
 Completed so far:
 
@@ -362,10 +381,14 @@ Completed so far:
 - bounded Responses API request interpretation and deterministic grounded explanations
 - Phase 8 live API validation passed; requested completeness fixes and offline review passed
 - Phase 8 accepted under the user's authorization to proceed after a successful review
+- Phase 9 local authenticated Control API, durable sessions and existing frontend integration
+- Phase 9 new physical worker investigation, grounded HTML download and restart persistence: PASS
+- Phase 9 automated checks: 1,327 Python tests; 25 frontend tests, lint and production build PASS
+- Phase 9 six manual checks, including standalone HTML visual review: PASS; human accepted October 4
 
 Current focus:
 
-**Begin Phase 9 on `codex/briefing-integration` from the accepted Phase 8 merge on `codex/parallel-dispatch`. Connect the existing frontend and produce the real downloadable briefing using the complete grounded explanation. Python retains measurements, review decisions and worker dispatch.**
+**Phase 9 is complete and accepted. Preserve the integrated frontend, local Control API and downloadable briefing. Phase 10 has not started; its work requires the actual event deadline, submission format and required assets. See [the accepted Phase 9 checkpoint](docs/phase9-validation.md).**
 
 ## Status Matrix
 
@@ -395,25 +418,26 @@ Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
 Control Fusion          PHASE 7 PASS; HUMAN ACCEPTED OCTOBER 4
 Agent Integration       PHASE 8 PASS; ACCEPTED AFTER COMPLETENESS REVIEW
-Frontend                DEMONSTRATION UI ON kazi/frontend-ui; LIVE INTEGRATION PENDING
-Final Report            STRUCTURED JSON IMPLEMENTED; LIVE HTML BRIEFING PENDING
+Frontend                PHASE 9 PASS; HUMAN ACCEPTED OCTOBER 4
+Final Report            STANDALONE HTML AND BROWSER DOWNLOAD PASS
 ```
 
 ## Immediate Next Steps
 
-Phase 8 is accepted after the user-requested explanation fixes and successful
-completeness review. Its tested implementation `25e48d5` is merged into
-`codex/parallel-dispatch`. Create or fetch `codex/briefing-integration` from that
-accepted base for Phase 9. Preserve the existing frontend and follow its
-instructions before integrating live Control state and the HTML briefing. See
-[the Phase 8 evidence and API boundaries](docs/phase8-validation.md).
+Phase 9 is accepted following the user’s “all passed” response to the six manual
+checks. Tested implementation `ccd0de8` and its acceptance record are merged into
+`codex/parallel-dispatch`. Preserve [the accepted checkpoint](docs/phase9-validation.md).
+Phase 10 has not started; obtain its actual submission constraints before planning
+the deadline-dependent work.
+The Phase 8 evidence and API boundaries remain documented in
+[its validation record](docs/phase8-validation.md).
 
 [Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
 offline replay, optional Control CLI integration, real-data evidence and limits.
 
 **Repository base:** remote `main` does not contain the accepted backend phases.
-Use the accepted Phase 8 merge on `origin/codex/parallel-dispatch`, which includes
-tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f`. Preserve the
+Use the accepted Phase 9 merge on `origin/codex/parallel-dispatch`, which includes
+tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb`. Preserve the
 separate worker checkouts and existing `kazi/frontend-ui` work.
 
 Current cross-platform update commands and overlap requirements are in
@@ -512,8 +536,9 @@ Implemented responsibilities through Phase 6:
 
 Phase 7 adds evidence combination and deterministic analyst-review rules.
 Natural-language/agent orchestration is Phase 8. The existing demonstration UI,
-live UI boundary and downloadable HTML briefing are connected in Phase 9;
-durable history is not implemented by the current in-memory worker registry.
+live UI boundary and downloadable HTML briefing are connected in Phase 9.
+Control sessions have durable private JSON history; worker registries remain
+in memory and are not automatically reconstructed after worker restarts.
 
 Laptop 1 must not use the LLM to calculate authoritative environmental measurements.
 
@@ -1093,9 +1118,11 @@ GitHub default branch: `main` (behind accepted backend work).
 Current development branches:
 
 ```text
-codex/parallel-dispatch    accepted backend through Phase 6
-codex/fusion-review        Phase 7 implementation and this handoff
-kazi/frontend-ui          existing standalone frontend demonstration
+codex/parallel-dispatch    accepted implementation through Phase 9
+codex/fusion-review        accepted Phase 7 implementation
+codex/agent-integration    accepted Phase 8 implementation
+codex/briefing-integration accepted Phase 9 implementation and checkpoint
+kazi/frontend-ui          original frontend, preserved in Phase 9
 codex/<next-phase>        create only from the verified accepted checkpoint
 ```
 
@@ -1214,9 +1241,9 @@ MeshMind/
     `-- manual-test-checklist.md
 ```
 
-The Next.js/TypeScript/Tailwind demonstration UI already exists separately on
-`origin/kazi/frontend-ui`. Preserve it and read its own instructions before
-Phase 9 integration; its fixture activity is not live distributed execution.
+The Next.js/TypeScript/Tailwind UI from `origin/kazi/frontend-ui` is preserved
+and integrated in Phase 9. Read its own instructions before editing. Its optional
+fixture mode is separate from the real Control provider.
 `docs/architecture.md` is currently an empty placeholder; use this README, the
 phase records and implemented contracts for the actual architecture.
 
@@ -1417,12 +1444,14 @@ prerequisites and `triggered` / `not_triggered` / `not_assessable` results.
 ### `backend/control/reporting.py`
 
 Phase 7: strict, atomic structured review artifacts and offline replay support.
-The downloadable HTML briefing remains a Phase 9 deliverable.
+The downloadable HTML briefing is implemented in `backend/control/briefing.py`
+and served through the Phase 9 local Control API.
 
 ### `backend/control/state.py`
 
 Implemented validated dispatch records and the independent collection envelope.
-Durable storage such as SQLite remains later work.
+Phase 9 `sessions.py` persists these records in bounded private JSON history;
+database-backed storage such as SQLite remains later work.
 
 ---
 
@@ -1640,8 +1669,8 @@ Every explanation now includes all eight measurements, all review outcomes,
 study-area/time/coverage context, source products, processing methods and limits.
 Radar threshold sensitivity is displayed only after consistency checks. The
 original request is omitted by default; `--include-request` saves it locally as
-quoted, untrusted user context. The complete standalone HTML report remains a
-Phase 9 deliverable.
+quoted, untrusted user context. Phase 9 now provides the complete standalone
+HTML report and verified browser download.
 
 The AI layer may:
 
@@ -1660,11 +1689,16 @@ It must not:
 
 ## Phase 9 — Frontend and Report
 
-The frontend below is already implemented on `kazi/frontend-ui` with labeled
-fixtures. Phase 9 connects it to real execution and reporting; see the continuation
-brief for the provider boundary, required checks and incomplete download capture.
-The accepted Phase 8 merge is its base; Phase 9 is ready to begin, and live
-integration is not yet implemented.
+Implemented on `codex/briefing-integration`, preserving `kazi/frontend-ui` and
+the accepted Phase 8 base. Automated, live browser and six manual checks pass.
+The user accepted Phase 9 on October 4; it is merged into `codex/parallel-dispatch`.
+See [the Phase 9 validation record](docs/phase9-validation.md) for startup,
+verification and the checkpoint. The browser uses a local authenticated Python
+API through a server-only Next.js proxy. Real execution is the default; fixtures
+require explicit demo mode. Server-owned history, independent worker snapshots
+and one explicit eligible-worker retry preserve validated evidence across reloads.
+The standalone HTML briefing contains actual measurements, sources, processing
+context, all demonstration-rule outcomes and scientific limitations.
 
 - Next.js
 - TypeScript
@@ -1957,7 +1991,7 @@ Every laptop uses the same repository.
 
 ## Laptop 1
 
-Currently runs Control's terminal CLI. Phase 9 connects the existing frontend:
+Runs Control's terminal CLI or the local Phase 9 web API and frontend:
 
 ```text
 backend/control/
@@ -2072,7 +2106,7 @@ The cloud AI layer and physical worker execution must not be confused.
 - strict remote-response validation, ambiguous submissions, deadlines and branch preservation
 - Phase 7: 906 Windows tests passed, 1 expected capability skip; dependency and diff checks passed
 - Phase 7: real local measurements matched 15 reference checks; four controlled evidence omissions passed
-- frontend lane: 12 tests, lint and build passed; actual browser download capture still unverified
+- original frontend lane: 12 tests, lint and build passed; download capture was pending at that historical checkpoint
 
 ## PHASE 5 ACCEPTED
 
@@ -2129,17 +2163,27 @@ live API call or physical-laptop run. Original live reports retain their origina
 Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` is merged into
 `codex/parallel-dispatch`; that accepted base supplies the Phase 9 branch.
 
+## PHASE 9 ACCEPTED
+
+After receiving exact manual steps, the user reported **“all passed”** on
+October 4. This accepts worker completion, all eight measurements, explanation
+and limitations, conditions and provenance, history/reload, and the downloaded
+standalone HTML visual review. Tested implementation
+`ccd0de8932e2f26351cf939d714173797b9bbeeb` is merged into
+`codex/parallel-dispatch`. Original raw reports and private evidence are unchanged;
+the acceptance is recorded in [the Phase 9 checkpoint](docs/phase9-validation.md).
+
 ## NEXT
 
-**Start Phase 9 on `codex/briefing-integration` from the accepted Phase 8 merge,
-preserving `kazi/frontend-ui`. Fetch and reuse the branch if already created.
-Stop at the Phase 9 human checkpoint after live frontend and briefing verification.**
+**Phase 9 is accepted and merged into `codex/parallel-dispatch`. Phase 10 is next
+and has not started. Preserve [the accepted validation record](docs/phase9-validation.md),
+then follow the reliability/submission scope and final human checkpoint when authorized.**
 
 ## CUT FOR NOW
 
 Until their separate accepted phases:
 
-- live frontend integration (the demonstration UI already exists separately)
+- remote hosting and multi-user access to the local operator UI
 - further agent capabilities beyond the bounded Phase 8 workflow
 - optional sponsor integrations
 - unnecessary dashboards
