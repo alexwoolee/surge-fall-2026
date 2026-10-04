@@ -108,3 +108,9 @@ Primary references: [Copernicus data specification](https://dataspace.copernicus
 The existing smoke scripts continue to verify the same external providers and
 access paths; both were rerun successfully. Production calculations stay in
 `backend/`. The main README will be updated at the milestone frequency it requests.
+
+## Next checkpoint
+
+Phase 3B implementation and numerical validation are recorded in
+[phase3b-validation.md](phase3b-validation.md). Its Sentinel-1 visual/manual gate
+is pending before the combined Phase 3C Flood worker.
