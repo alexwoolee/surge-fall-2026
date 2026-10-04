@@ -1,0 +1,52 @@
+{
+  "version": "1.0",
+  "label": "MeshMind demonstration analyst-review conditions — not scientific disaster thresholds",
+  "purpose": "demonstration",
+  "rules": [
+    {
+      "id": "D-01",
+      "label": "Mean rainfall accumulation over supplied observations totaling one hour",
+      "metric": "gpm.mean_accumulation_mm",
+      "unit": "mm",
+      "comparator": "gte",
+      "threshold": 5.0,
+      "required_duration_hours": 1.0,
+      "minimum_valid_fraction": 0.9
+    },
+    {
+      "id": "D-02",
+      "label": "Surface soil-moisture state",
+      "metric": "smap.surface_mean_m3_m3",
+      "unit": "m3/m3",
+      "comparator": "gte",
+      "threshold": 0.4,
+      "minimum_valid_fraction": 0.9
+    },
+    {
+      "id": "D-03",
+      "label": "Root-zone soil-moisture state",
+      "metric": "smap.rootzone_mean_m3_m3",
+      "unit": "m3/m3",
+      "comparator": "gte",
+      "threshold": 0.4,
+      "minimum_valid_fraction": 0.9
+    },
+    {
+      "id": "D-04",
+      "label": "Candidate surface-water extent warrants analyst review",
+      "metric": "sentinel1.candidate_area_km2",
+      "unit": "km2",
+      "comparator": "gte",
+      "threshold": 50.0,
+      "minimum_valid_fraction": 0.95
+    },
+    {
+      "id": "D-05",
+      "label": "Incomplete valid SAR coverage warrants analyst review",
+      "metric": "sentinel1.valid_fraction",
+      "unit": "fraction",
+      "comparator": "lt",
+      "threshold": 0.99
+    }
+  ]
+}

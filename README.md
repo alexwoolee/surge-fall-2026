@@ -12,7 +12,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 6 — Real Parallel Execution: complete**
+**Phase 7 — Evidence Combination and Deterministic Review: validation PASS; human acceptance pending**
 
 Completed so far:
 
@@ -29,15 +29,19 @@ Completed so far:
 - Hydro and Flood HTTP APIs validated with real data on loopback
 - bounded Control dispatch with task/result checks, deadlines and independent branch records
 - worker hostname/startup identity and cross-platform deployment instructions
-- automated test suite: **758 passing tests on macOS**
+- accepted Phase 6 automated baseline: **758 passing tests on macOS**
 - Phase 6 Windows verification: **757 passed, 1 expected symlink-privilege skip**
 - real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; Phase 5 accepted**
 - concurrent Control dispatch, authenticated clock samples and conservative overlap proof
 - Phase 6 real-data parallel execution on Windows and Linux workers: **PASS; human checkpoint complete**
+- structured source-evidence combination and explicitly configured demonstration review rules
+- Phase 7 new local real-data processing and review: **PASS; all 15 reference checks match**
+- Phase 7 Windows Python 3.12 suite: **906 passed, 1 expected symlink-privilege skip**
+- missing-worker and partial-component review preserves available real measurements
 
 Current focus:
 
-**The requested work through Phase 6 is complete. Remote validation at implementation commit `7bde416` proved 0.227333 seconds of guaranteed execution overlap, results match Phase 5, and the user confirmed both workers' terminal activity. Stop here; no later phase has started.**
+**Phase 7 extends accepted baseline `b8a74b6` on `codex/fusion-review`. It combines validated evidence and evaluates explicitly configured demonstration review conditions. Phase 6 remains accepted: implementation `7bde416` proved 0.227333 seconds of guaranteed overlap. Phase 8 waits for the separate Phase 7 human checkpoint.**
 
 ## Status Matrix
 
@@ -65,16 +69,25 @@ Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
-Control Fusion          NOT STARTED
+Control Fusion          PHASE 7 PASS; HUMAN ACCEPTANCE PENDING
 Agent Integration       NOT STARTED
-Frontend                NOT STARTED
+Frontend                DEMONSTRATION UI ON kazi/frontend-ui; LIVE INTEGRATION PENDING
 Final Report            NOT STARTED
 ```
 
 ## Immediate Next Steps
 
-The Phase 6 technical and manual checks are complete. Preserve the recorded
-evidence and stop at the requested scope. Later phases require a new instruction.
+Review the Phase 7 structured evidence and explicitly labeled demonstration
+policy, then accept or request changes at the human checkpoint. Do not begin
+Phase 8 or merge this phase based solely on automated evaluation.
+
+[Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
+offline replay, optional Control CLI integration, real-data evidence and limits.
+
+**Repository base:** remote `main` does not contain the accepted backend phases.
+This development branch starts from `origin/codex/parallel-dispatch` at
+`b8a74b698ce476a90b5418aab65f4fd53678e61d`. Preserve the separate worker checkouts
+and existing `kazi/frontend-ui` work.
 
 Current cross-platform update commands and overlap requirements are in
 [Phase 6 validation](docs/phase6-validation.md). The accepted
@@ -160,11 +173,8 @@ Multiple laptops are not used because the hackathon datasets require extraordina
 
 Laptop 1 is the MeshMind coordinator.
 
-Planned responsibilities:
+Implemented responsibilities through Phase 6:
 
-- main application UI
-- natural-language request
-- OpenAI agent orchestration
 - task creation
 - worker selection
 - task dispatch
@@ -172,11 +182,11 @@ Planned responsibilities:
 - worker-state tracking
 - result collection
 - deterministic result validation
-- evidence fusion
-- deterministic analyst-review rules
-- report generation
-- history
-- application state
+
+Phase 7 adds evidence combination and deterministic analyst-review rules.
+Natural-language/agent orchestration is Phase 8. The existing demonstration UI,
+live UI boundary and downloadable HTML briefing are connected in Phase 9;
+durable history is not implemented by the current in-memory worker registry.
 
 Laptop 1 must not use the LLM to calculate authoritative environmental measurements.
 
@@ -610,9 +620,10 @@ execution. No new HTML/manual visual review is needed for this phase.
 
 # Automated Tests
 
-Current full test suite:
-
-**390 tests passing**
+Accepted Phase 6 baseline: **758 tests on macOS; 757 passed and one expected
+Windows symlink-privilege skip**. Phase 7 verification is recorded in
+[the Phase 7 checkpoint](docs/phase7-validation.md). Older counts in historical
+phase records describe those milestones, not the current suite.
 
 Run:
 
@@ -761,7 +772,9 @@ feature/worker-api
 feature/control-dispatch
 ```
 
-Use small branches and merge tested milestones into `main`.
+Use separate `codex/*` phase branches based on the latest accepted backend
+checkpoint. Merge only after the phase's human acceptance. Remote `main` is
+currently behind the accepted backend baseline; do not start new work from it.
 
 ---
 
@@ -850,7 +863,9 @@ MeshMind/
     `-- manual-test-checklist.md
 ```
 
-The frontend will be generated later with the official Next.js project generator.
+The Next.js/TypeScript/Tailwind demonstration UI already exists separately on
+`origin/kazi/frontend-ui`. Preserve it and read its own instructions before
+Phase 9 integration; its fixture activity is not live distributed execution.
 
 ---
 
@@ -973,7 +988,7 @@ The service returns a structured dictionary containing task/worker identity,
 processing status, compact summaries, full component evidence, separate coverage,
 safe provenance, limitations and component errors. Successful components are
 retained if another fails. The API now validates the service output with the shared Pydantic `FloodResult`
-contract. Distributed execution remains Phase 5.
+contract. Remote and parallel execution were accepted in Phases 5 and 6.
 
 ### `backend/workers/flood/main.py`
 
@@ -1024,41 +1039,37 @@ failed
 
 ### `backend/control/main.py`
 
-Future FastAPI entry point for Laptop 1.
+Implemented terminal entry point for concurrent HTTP dispatch. Optional
+`--rules <policy.json>` adds deterministic Phase 7 review while retaining the
+original requests and independent dispatch results. Control does not yet expose
+a web API.
 
 ### `backend/control/coordinator.py`
 
-Planned:
-
-- task creation
-- worker selection
-- dispatch
-- concurrency
-- result collection
+Implemented bounded HTTP dispatch, concurrent branch execution, independent
+result preservation, validation, deadlines and process identity checks.
 
 ### `backend/control/fusion.py`
 
-Planned:
-
-- validate HydroResult
-- validate FloodResult
-- combine grounded evidence
+Phase 7: revalidate original request/result bindings, preserve full source
+evidence and errors, and expose measurements with units, observation context,
+coverage and explicit unavailable states. This is structured evidence assembly;
+no common-grid overlay or additional environmental measurements are computed.
 
 ### `backend/control/alerts.py`
 
-Planned deterministic analyst-review rules.
+Phase 7: explicit configurable demonstration thresholds, coverage/duration
+prerequisites and `triggered` / `not_triggered` / `not_assessable` results.
 
 ### `backend/control/reporting.py`
 
-Planned briefing generation.
-
-HTML first.
+Phase 7: strict, atomic structured review artifacts and offline replay support.
+The downloadable HTML briefing remains a Phase 9 deliverable.
 
 ### `backend/control/state.py`
 
-Planned investigation/task state.
-
-SQLite may be used later.
+Implemented validated dispatch records and the independent collection envelope.
+Durable storage such as SQLite remains later work.
 
 ---
 
@@ -1245,11 +1256,17 @@ Required validation:
 
 ## Phase 7 — Fusion and Review Rules
 
-Planned:
+Implemented on this phase branch, subject to validation and human acceptance:
 
 - validate both worker results
 - combine evidence
 - deterministic configured review conditions
+
+Demonstration thresholds are explicitly configured in `config/rules.example.json`;
+they are not validated hazard or severity policy. Missing evidence remains
+unavailable/not assessable. Requested event windows remain separate from the
+actual one-hour rainfall accumulation, individual snapshots and static terrain.
+See [Phase 7 validation](docs/phase7-validation.md).
 
 The LLM does not decide whether numerical thresholds were crossed.
 
@@ -1321,7 +1338,8 @@ Existing behavior must remain compatible unless an intentional migration is docu
 
 Baseline:
 
-**17 tests passing**
+**Historical pre-Phase-3 baseline: 17 tests.** Use Current Status and the latest
+phase validation record for present test counts.
 
 Before every merge:
 
@@ -1665,20 +1683,21 @@ Additional dependencies should only be introduced when the current implementatio
 
 ## Backend
 
-Planned:
+Implemented:
 
 - Python
 - FastAPI
 - Uvicorn
 - Pydantic
-- SQLite
+
+SQLite/durable history remains planned.
 
 ## Worker Communication
 
-Planned:
+Implemented:
 
 - HTTP
-- `httpx` or equivalent
+- `httpx` with bounded requests, authentication and independent failure records
 
 ## Environmental Processing
 
@@ -1726,7 +1745,7 @@ Runs:
 backend/workers/flood/
 ```
 
-External data access passes. Deterministic worker implementation is the current focus.
+Deterministic Flood processing and physical remote execution are accepted.
 
 ---
 
@@ -1836,17 +1855,18 @@ passed plus one expected skip, and Karan reported his Linux tests passed.
 The user subsequently confirmed both owners observed this investigation's
 activity, completing the remaining manual check. The Phase 6 checkpoint is
 complete. The raw validator report retains its original `PASS / PENDING_USER`;
-the later human confirmation is recorded separately. No later phase has started.
+the later human confirmation is recorded separately. Phase 7 now extends this
+accepted baseline on a separate branch.
 
 ## NEXT
 
-**Requested scope complete through Phase 6. Await further instructions.**
+**Finish the Phase 7 review checkpoint before beginning Phase 8.**
 
 ## CUT FOR NOW
 
-Until deterministic workers and distributed execution are complete:
+Until their separate accepted phases:
 
-- frontend implementation
+- live frontend integration (the demonstration UI already exists separately)
 - OpenAI agent implementation
 - optional sponsor integrations
 - unnecessary dashboards
