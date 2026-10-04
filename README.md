@@ -12,7 +12,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 6 — Real Parallel Execution**
+**Phase 6 — Real Parallel Execution: complete**
 
 Completed so far:
 
@@ -33,11 +33,11 @@ Completed so far:
 - Phase 6 Windows verification: **757 passed, 1 expected symlink-privilege skip**
 - real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; Phase 5 accepted**
 - concurrent Control dispatch, authenticated clock samples and conservative overlap proof
-- Phase 6 real-data parallel execution on Windows and Linux workers: **PASS; human checkpoint pending**
+- Phase 6 real-data parallel execution on Windows and Linux workers: **PASS; human checkpoint complete**
 
 Current focus:
 
-**Phase 6 remote validation passed at implementation commit `7bde416`, proving 0.227333 seconds of guaranteed execution overlap after clock uncertainty. Results match Phase 5. Await the Phase 6 human checkpoint.**
+**The requested work through Phase 6 is complete. Remote validation at implementation commit `7bde416` proved 0.227333 seconds of guaranteed execution overlap, results match Phase 5, and the user confirmed both workers' terminal activity. Stop here; no later phase has started.**
 
 ## Status Matrix
 
@@ -64,7 +64,7 @@ DISTRIBUTED SYSTEM
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
-Parallel Execution      REMOTE PASS; HUMAN CHECKPOINT PENDING
+Parallel Execution      PASS; PHASE 6 COMPLETE
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
 Frontend                NOT STARTED
@@ -73,9 +73,8 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Confirm the completed Phase 6 investigation in Kazi's and Karan's worker terminals.
-2. Review the overlap evidence and matching numerical results, then accept the Phase 6 checkpoint.
-3. Stop at Phase 6; later phases are outside the current request.
+The Phase 6 technical and manual checks are complete. Preserve the recorded
+evidence and stop at the requested scope. Later phases require a new instruction.
 
 Current cross-platform update commands and overlap requirements are in
 [Phase 6 validation](docs/phase6-validation.md). The accepted
@@ -1213,7 +1212,7 @@ Required:
 
 ## Phase 6 — Real Parallel Execution
 
-**Implementation, local tests and physical remote overlap PASS; human acceptance pending.**
+**Implementation, local tests, physical remote overlap and human checkpoint PASS; Phase 6 complete.**
 
 The `codex/parallel-dispatch` branch launches both bounded HTTP clients
 concurrently. Expected branch failures/timeouts retain the other result. Workers
@@ -1223,7 +1222,7 @@ run proved 0.227333 seconds of guaranteed overlap on `Boni` and `ARE`. Both
 complete results and requests match accepted Phase 5 except for the fresh task
 ID. Hydro completed first and remained intact while Flood continued. All clock,
 authentication, identity, duplicate and topology checks passed. See the
-[Phase 6 evidence](docs/phase6-validation.md#physical-laptop-validation--pending-human-acceptance).
+[Phase 6 evidence](docs/phase6-validation.md#physical-laptop-validation--accepted).
 
 Required:
 
@@ -1827,19 +1826,21 @@ has been satisfied: the physical run, numerical comparisons, local TCP
 failure/timeout tests, automated suites and worker confirmations all passed.
 Phase 5 is accepted; clock agreement and overlap belong to Phase 6.
 
-## PENDING PHASE 6 CHECKPOINT
+## PHASE 6 COMPLETE
 
 The physical-laptop validator returned **PASS / PENDING_USER** for investigation
 `f1f4cc63-1b2c-4a29-a924-f3c7490b554f`. Guaranteed execution overlap was 0.227333
 seconds. A live status snapshot captured Hydro complete while Flood was still
 processing; both results exactly match Phase 5. Kazi reported 757 Windows tests
 passed plus one expected skip, and Karan reported his Linux tests passed.
-Both owners must confirm this investigation's terminal activity and the user must
-accept the checkpoint before Phase 6 is complete. No later phase has started.
+The user subsequently confirmed both owners observed this investigation's
+activity, completing the remaining manual check. The Phase 6 checkpoint is
+complete. The raw validator report retains its original `PASS / PENDING_USER`;
+the later human confirmation is recorded separately. No later phase has started.
 
 ## NEXT
 
-**Phase 6 — Real Parallel Execution**
+**Requested scope complete through Phase 6. Await further instructions.**
 
 ## CUT FOR NOW
 

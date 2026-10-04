@@ -1,8 +1,8 @@
 # Phase 6 — Real parallel execution
 
 Phase 5 is accepted. Phase 6 runs on `codex/parallel-dispatch`, based on that
-accepted checkpoint. **Physical-laptop validation passed; human acceptance is
-pending.** The validator proved 0.227333 seconds of guaranteed execution overlap
+accepted checkpoint. **Physical-laptop validation and the human checkpoint
+passed; Phase 6 is complete.** The validator proved 0.227333 seconds of guaranteed execution overlap
 on the remote workers at implementation commit `7bde416`.
 
 ## What changed
@@ -168,7 +168,7 @@ symlink-privilege skip, 0 failures**. The user also confirmed Karan pulled the
 update, passed his Linux tests and restarted Flood; an exact Linux test count
 was not supplied.
 
-## Physical-laptop validation — pending human acceptance
+## Physical-laptop validation — accepted
 
 Recorded on **2026-10-03 America/Vancouver** (2026-10-04 UTC), using implementation
 commit `7bde416c701d88072f8ae8801c1d35ebb91c8ea0` on Control and operator-confirmed
@@ -221,11 +221,12 @@ Evidence in `outputs/debug/parallel-workers/physical-7bde416/`:
 - `progress-snapshot.json`: Hydro complete while Flood continued processing;
 - `reference-comparison.json`: complete request/result comparison with Phase 5.
 
-**Human checkpoint:** Kazi and Karan should confirm this task's matching activity
-and result retrieval in their worker terminals. Review the measured overlap and
-matching results, then explicitly accept Phase 6. No HTML review is necessary.
-Do not merge the Phase 6 implementation or start a later phase before acceptance.
+**Human checkpoint complete:** after receiving the passing results and task ID,
+the user confirmed that both Kazi and Karan observed the activity. This completes
+the requested manual check alongside the successful numerical comparison,
+overlap proof and failure-handling tests. The confirmation and completed gate are
+recorded in `human-checkpoint.json` in the evidence directory above. The raw
+validator report preserves its historical `PASS / PENDING_USER` result.
 
-After the physical run passes, compare numerical results, obtain human acceptance
-and stop at the Phase 6 checkpoint. No HTML review is needed. Later phases are
-outside the current request.
+Phase 6 is complete. Stop at this checkpoint; later phases remain outside the
+current request. No further real-data run or HTML review is needed for closure.
