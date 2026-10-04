@@ -24,10 +24,11 @@ retain their original `PENDING_USER` status.
 | --- | --- | --- |
 | Phases 1–6 backend | Implemented, real-data validated, human accepted | `origin/codex/parallel-dispatch` at `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
 | Phase 7 implementation | Implemented, validated and human accepted October 4 | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
-| Phase 7 pull request | **Draft, open, not merged**; base `codex/parallel-dispatch`, head `codex/fusion-review` | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
+| Phase 7 pull request | **Merged** into `codex/parallel-dispatch` at `0aa918f`; historical draft metadata remains | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
 | Existing frontend | Next.js/TypeScript/Tailwind demonstration implemented; integration pending | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d` |
 | `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
-| Phases 8–10 | Not implemented | Remaining work is detailed below |
+| Phase 8 | Implementation on `codex/agent-integration`; automated and live API validation PASS; human acceptance pending | [Phase 8 checkpoint](docs/phase8-validation.md) |
+| Phases 9–10 | Not implemented | Remaining work is detailed below |
 
 Fetch and verify this snapshot against the remote before acting; another owner
 may have advanced it. README-only commits after `ea4f322` do not represent a new
@@ -62,7 +63,12 @@ evidence that the locally run tests failed.
   recorded 12 tests, lint and production build passing. Actual browser download
   capture remains unverified and must be completed in Phase 9.
 
-**Latest backend verification:** Windows Python 3.12, **906 passed and 1 expected
+**Current Phase 8 verification:** macOS Python 3.12.14, **1,171 passed**, zero
+failures/skips; dependency and diff checks pass. Controlled API-failure replay
+preserves the retained real measurements. The live `gpt-5.4-mini` check also
+passed (three requests, estimated $0.0037 USD). Phase 8 human acceptance remains pending; see [Phase 8 validation](docs/phase8-validation.md).
+
+**Historical Phase 7 verification:** Windows Python 3.12, **906 passed and 1 expected
 symlink-privilege skip**; `pip check` and `git diff --check` passed. Independent
 code review and manual artifact QA found no outstanding issues. This is the
 Phase 7 Windows result, not a claim that Phase 7 was tested on every OS. The
@@ -88,15 +94,15 @@ these commands succeed.
 Fresh checkout (macOS/Linux shell or PowerShell):
 
 ```sh
-git clone --branch codex/fusion-review https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase7-review
-cd surge-fall-2026-phase7-review
+git clone --branch codex/agent-integration https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase8-review
+cd surge-fall-2026-phase8-review
 git status --short --branch
 git log -3 --oneline
-git merge-base --is-ancestor ea4f322ae2c4359a3dfb807365e389056e1f6830 HEAD
+git merge-base --is-ancestor 0aa918ff3468a25e58ba543970855c51ab9342fa HEAD
 ```
 
 For an existing **separate development checkout**, inspect `git status` first,
-then fetch, switch to `codex/fusion-review`, and pull with `--ff-only`. Preserve
+then fetch, switch to `codex/agent-integration`, and pull with `--ff-only`. Preserve
 local edits and investigate any refusal instead of using a reset or force push.
 The branch includes the current README; selecting `main` on GitHub shows older
 documentation.
@@ -216,18 +222,20 @@ development checkout moved laptops.
    (907 passing tests, preserved real evidence and all five demonstration outcomes),
    the user instructed “proceed.” This records the current user’s approval; it does
    not invent a separate named worker-owner confirmation. Original raw reports
-   remain unchanged. Mark PR #1 ready and merge it into **`codex/parallel-dispatch`**.
-   Recheck the PR target and head before merging. Do not merge it into `main`.
-2. **Phase 8 — OpenAI agent integration.** Fetch the accepted merge, then create a
-   new `codex/*` branch from the verified accepted commit. Consult current official
-   OpenAI documentation before selecting SDK/interfaces/model configuration. Add
+   remain unchanged. PR #1 was merged into **`codex/parallel-dispatch`** at
+   `0aa918ff3468a25e58ba543970855c51ab9342fa` using Git access. The connector
+   could not update the historical draft flag or PR description; GitHub confirms
+   the merged state. `main` was not changed.
+2. **Phase 8 — OpenAI agent integration.** Work continues on
+   `codex/agent-integration` from the verified accepted merge. The implementation
+   uses the Responses API directly, following current official documentation. It adds
    bounded request interpretation, supported investigation/tool selection and
    grounded explanations. Python owns measurements and threshold decisions. Reject
    unsupported requests, malformed model output and invented resources. Handle
    API/model failures while preserving deterministic results. Keep model access
-   bounded; no arbitrary remote commands. `.env.example` only has an OpenAI key
-   placeholder; no agent SDK/interface or app model setup is implemented yet.
-   Run automated tests plus a real integration check with privately configured
+   bounded; no arbitrary remote commands. The opt-in CLI and private API/model
+   configuration are documented in [Phase 8 validation](docs/phase8-validation.md).
+   Complete automated tests plus the real integration check with privately configured
    credentials, document the outcome and stop for Phase 8 acceptance.
 3. **Phase 9 — Connect the existing UI and final briefing.** Inspect
    `origin/kazi/frontend-ui` before integration, including `frontend/AGENTS.md`,
@@ -278,18 +286,17 @@ not require rerunning the unchanged implementation suite on Kazi's laptop.
 
 ```text
 Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the latest
-README on codex/fusion-review, starting with "Continue on Another Laptop".
+README on codex/agent-integration, starting with "Continue on Another Laptop".
 Preserve existing checkouts, private environment files, data and running workers.
-Phases 1–6 are accepted. Phase 7 implementation ea4f322 passed validation; PR #1
-targets codex/parallel-dispatch. Phase 7 human acceptance was recorded after
-the Mac review when the user instructed “proceed” on October 4. Establish the
-current Git/PR state, verify the accepted phase merge, and begin Phase 8 on a
-fresh codex/* branch from that verified merge. Continue phases one at a time with the human
-checkpoints and validation in this README. Inspect origin/kazi/frontend-ui before
-Phase 9; preserve and connect the existing UI. Do not start from main, redo
-accepted Phases 1–6, invent measurements, expose secrets or claim fixture/local
-activity is real distributed execution. Report any missing evidence or credentials
-while continuing independent work.
+Phases 1–7 are accepted. Phase 7 merged into codex/parallel-dispatch at 0aa918f.
+Phase 8 implements bounded Responses API interpretation and grounded fact
+selection. Check docs/phase8-validation.md for actual automated/live results;
+its human acceptance remains pending. Complete that checkpoint before merging
+Phase 8 or beginning Phase 9. The separate Agents API/SDK are not used.
+Inspect origin/kazi/frontend-ui before Phase 9; preserve and connect the existing
+UI. Do not start from main, redo accepted phases, invent measurements, expose
+secrets or claim fixture/local/replayed activity is fresh distributed execution.
+Report missing evidence or credentials while continuing independent work.
 ```
 
 ---
@@ -298,7 +305,7 @@ while continuing independent work.
 
 ## Current Phase
 
-**Phase 7 — Evidence Combination and Deterministic Review: validation PASS; human accepted October 4**
+**Phase 8 — OpenAI Agent Integration: automated and live API validation PASS; human checkpoint pending**
 
 Completed so far:
 
@@ -327,7 +334,7 @@ Completed so far:
 
 Current focus:
 
-**Phase 7 extends accepted baseline `b8a74b6` on `codex/fusion-review`. It combines validated evidence and evaluates explicitly configured demonstration review conditions. Phase 6 remains accepted: implementation `7bde416` proved 0.227333 seconds of guaranteed overlap. The user accepted the Phase 7 checkpoint after the Mac review; Phase 8 follows the accepted merge.**
+**Phase 8 adds opt-in request interpretation and grounded explanations on `codex/agent-integration`, based on accepted Phase 7 merge `0aa918f`. Python retains measurements, review decisions and worker dispatch. Automated verification and a live API check precede the next human checkpoint.**
 
 ## Status Matrix
 
@@ -356,23 +363,24 @@ Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
 Control Fusion          PHASE 7 PASS; HUMAN ACCEPTED OCTOBER 4
-Agent Integration       NOT STARTED
+Agent Integration       PHASE 8 AUTOMATED / LIVE API PASS; HUMAN CHECKPOINT PENDING
 Frontend                DEMONSTRATION UI ON kazi/frontend-ui; LIVE INTEGRATION PENDING
 Final Report            STRUCTURED JSON IMPLEMENTED; LIVE HTML BRIEFING PENDING
 ```
 
 ## Immediate Next Steps
 
-The user accepted the Phase 7 checkpoint after review. Merge PR #1 into
-`codex/parallel-dispatch`, then start Phase 8 on a new `codex/*` branch from
-the verified accepted merge. Phase 8 requires its own validation and human gate.
+Phase 7 is accepted and merged into `codex/parallel-dispatch` at `0aa918f`.
+Automated and live API verification pass on `codex/agent-integration`. Review the
+grounded explanation and accept or request changes at the Phase 8 human checkpoint. See
+[the commands and API boundaries](docs/phase8-validation.md).
 
 [Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
 offline replay, optional Control CLI integration, real-data evidence and limits.
 
 **Repository base:** remote `main` does not contain the accepted backend phases.
-This development branch starts from `origin/codex/parallel-dispatch` at
-`b8a74b698ce476a90b5418aab65f4fd53678e61d`. Preserve the separate worker checkouts
+This development branch starts from the accepted Phase 7 merge on
+`origin/codex/parallel-dispatch` at `0aa918ff3468a25e58ba543970855c51ab9342fa`. Preserve the separate worker checkouts
 and existing `kazi/frontend-ui` work.
 
 Current cross-platform update commands and overlap requirements are in
@@ -1584,7 +1592,12 @@ The LLM does not decide whether numerical thresholds were crossed.
 
 ## Phase 8 — OpenAI Agent Integration
 
-Authorized after the accepted Phase 7 merge; implementation begins on a separate branch.
+Implemented on `codex/agent-integration` from the accepted Phase 7 merge
+`0aa918f`; automated and live API verification pass, and human acceptance is pending. See
+[Phase 8 validation](docs/phase8-validation.md) for setup, commands and evidence.
+The opt-in interface uses the OpenAI Responses API with bounded function calling
+and structured fact selection; Python owns orchestration and explanation text.
+The separate Agents API and Agents SDK are not used.
 
 The AI layer may:
 
@@ -2057,14 +2070,14 @@ a separately claimed confirmation from a named worker owner.
 
 ## NEXT
 
-**Verify the accepted Phase 7 merge, then implement Phase 8 on a new branch.**
+**Review and accept Phase 8 before merging it or beginning Phase 9.**
 
 ## CUT FOR NOW
 
 Until their separate accepted phases:
 
 - live frontend integration (the demonstration UI already exists separately)
-- OpenAI agent implementation
+- further agent capabilities beyond the bounded Phase 8 workflow
 - optional sponsor integrations
 - unnecessary dashboards
 - fake telemetry
