@@ -28,6 +28,8 @@ from fastapi.responses import JSONResponse
 from backend.shared.contracts import (
     AnalysisTask, FloodResult, HydroResult, TaskStatus, WorkerClock, WorkerStatus,
 )
+from backend.shared.dam_contracts import DamTask, DamResult
+from backend.shared.context_contracts import ContextTask, ContextResult
 from backend.shared.status import TaskState
 from backend.shared.worker_dashboard import (
     DASHBOARD_ASSETS, MAX_DASHBOARD_EVENTS, PUBLIC_GET_PATHS, dashboard_asset,
@@ -37,11 +39,12 @@ from backend.shared.worker_dashboard import (
 
 MAX_REQUEST_BYTES = 64 * 1024
 _FAILURE_MESSAGE = "Worker processing failed; no validated result is available."
-_PROGRESS_ORDER = {"task_received": 0, "dataset_located": 1, "processing": 2, "preparing_result": 3}
-_PAIRS = {"hydro-worker": "hydrometeorology", "flood-worker": "surface_water_and_terrain"}
+_PROGRESS_ORDER = {"task_received": 0, "acquiring_data": 1, "dataset_located": 2, "processing": 3, "preparing_result": 4}
+_PAIRS = {"hydro-worker": "hydrometeorology", "flood-worker": "surface_water_and_terrain", "dam-worker": "dam_risk"}
 _SAFE_LOCATIONS = {
     "body", "query", "path", "task_id", "analysis_type", "bbox", "west", "south", "east", "north",
     "gpm_resources", "smap_resource", "start_time", "end_time", "reference_time", "threshold_db",
+    "site_id", "window", "as_of", "investigation", "location_id",
 }
 
 
@@ -135,16 +138,16 @@ class _RequestGuard:
 @dataclass
 class _Record:
     fingerprint: str
-    task: AnalysisTask
+    task: AnalysisTask | DamTask | ContextTask
     status: TaskStatus
-    result: HydroResult | FloodResult | None = None
+    result: HydroResult | FloodResult | DamResult | ContextResult | None = None
     events: list[dict] = field(default_factory=list)
 
 
 def create_worker_app(
     worker_id: str,
     analysis_type: str,
-    runner: Callable[[AnalysisTask, Callable[[str], None]], dict[str, Any]],
+    runner: Callable[[AnalysisTask | DamTask | ContextTask, Callable[[str], None]], dict[str, Any]],
     *,
     token: str | None = None,
     capacity: int = 128,
@@ -160,7 +163,9 @@ def create_worker_app(
         raise ValueError("A supported worker, analysis type and callable runner are required.")
     if isinstance(capacity, bool) or not isinstance(capacity, int) or not 1 <= capacity <= 1024:
         raise ValueError("Task capacity must be an integer from 1 to 1024.")
-    result_type = HydroResult if worker_id == "hydro-worker" else FloodResult
+    traditional_result_type = HydroResult if worker_id == "hydro-worker" else FloodResult
+    task_type = DamTask if worker_id == "dam-worker" else AnalysisTask | ContextTask
+    response_result_type = DamResult if worker_id == "dam-worker" else traditional_result_type | ContextResult
     lock = Lock()
     records: dict[str, _Record] = {}
     executor: ThreadPoolExecutor | None = None
@@ -171,7 +176,7 @@ def create_worker_app(
 
     def record_event(record, state, observed_at):
         # Called only while holding the lifecycle lock. Legal progress is
-        # monotonic, so a task has at most seven distinct genuine states.
+        # monotonic, so each genuine lifecycle state is recorded at most once.
         if not record.events or record.events[-1]["state"] != state:
             record.events.append(dashboard_event(state, observed_at))
             del record.events[:-MAX_DASHBOARD_EVENTS]
@@ -198,11 +203,21 @@ def create_worker_app(
             # A strict JSON round trip detaches all producer-owned containers and
             # rejects NaN/infinity or objects that could not cross the boundary.
             raw = json.loads(json.dumps(raw, allow_nan=False))
+            result_type = (DamResult if isinstance(record.task, DamTask) else ContextResult
+                           if isinstance(record.task, ContextTask) else traditional_result_type)
             result = result_type.model_validate(raw)
             if (result.task_id != record.task.task_id or result.worker_id != worker_id
-                    or result.analysis_type != analysis_type
-                    or result.bbox.as_tuple() != record.task.bbox.as_tuple()):
+                    or result.analysis_type != analysis_type):
                 raise ValueError("Worker result does not match its accepted task.")
+            if isinstance(result, DamResult):
+                if (result.window != record.task.window or result.as_of != record.task.as_of
+                        or result.site.id != record.task.site_id):
+                    raise ValueError("Result does not match its accepted date and site.")
+            elif result.bbox != record.task.bbox:
+                raise ValueError("Result does not match its accepted area.")
+            if isinstance(result, ContextResult):
+                if any(getattr(result, key) != getattr(record.task, key) for key in ContextTask.model_fields):
+                    raise ValueError("Context result does not match its accepted task.")
             if isinstance(result, FloodResult) and result.summary.surface_water is not None:
                 water = result.summary.surface_water
                 if (water.threshold_db != record.task.threshold_db
@@ -274,7 +289,8 @@ def create_worker_app(
             latest = records[next(reversed(records))] if records else None
             status = latest.status.model_copy(deep=True) if latest else None
             events = deepcopy(latest.events) if latest else []
-        return JSONResponse(dashboard_snapshot(worker_id, status, events), headers=dashboard_headers())
+            result = latest.result.model_copy(deep=True) if latest and isinstance(latest.result, DamResult) else None
+        return JSONResponse(dashboard_snapshot(worker_id, status, events, result=result), headers=dashboard_headers())
 
     @app.exception_handler(RequestValidationError)
     async def invalid_request(request: Request, error: RequestValidationError):
@@ -286,7 +302,7 @@ def create_worker_app(
         return JSONResponse({"detail": details}, status_code=422)
 
     @app.post("/tasks", status_code=202, response_model=TaskStatus)
-    async def submit_task(task: AnalysisTask):
+    async def submit_task(task: task_type):
         nonlocal active_task_id
         if task.analysis_type != analysis_type:
             raise HTTPException(status_code=422, detail="This worker does not support the requested analysis type.")
@@ -347,7 +363,7 @@ def create_worker_app(
                 raise HTTPException(status_code=404, detail="Task was not found.")
             return records[task_id].status.model_copy(deep=True)
 
-    @app.get("/tasks/{task_id}/result", response_model=result_type)
+    @app.get("/tasks/{task_id}/result", response_model=response_result_type)
     async def task_result(task_id: str):
         with lock:
             if task_id not in records:

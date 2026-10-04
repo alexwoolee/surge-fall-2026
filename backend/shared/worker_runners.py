@@ -5,6 +5,7 @@ import re
 from typing import Callable
 
 from backend.shared.contracts import AnalysisTask
+from backend.shared.context_contracts import ContextTask
 from backend.shared.settings import WorkerSettings
 from backend.shared.status import TaskState
 from backend.workers.hydro.service import run_hydro_analysis
@@ -39,7 +40,10 @@ def _validated(task: AnalysisTask, analysis_type: str) -> AnalysisTask:
     return task
 
 
-def run_hydro_task(task: AnalysisTask, progress: Callable, *, settings: WorkerSettings) -> dict:
+def run_hydro_task(task: AnalysisTask | ContextTask, progress: Callable, *, settings: WorkerSettings) -> dict:
+    if isinstance(task, ContextTask):
+        from backend.workers.hydro.context import run_hydro_context
+        return run_hydro_context(task, progress, settings=settings)
     task = _validated(task, 'hydrometeorology')
     gpm = [_resource(settings.gpm_dir, name) for name in task.gpm_resources]
     smap = _resource(settings.smap_dir, task.smap_resource)
@@ -50,7 +54,10 @@ def run_hydro_task(task: AnalysisTask, progress: Callable, *, settings: WorkerSe
     return result
 
 
-def run_flood_task(task: AnalysisTask, progress: Callable, *, settings: WorkerSettings) -> dict:
+def run_flood_task(task: AnalysisTask | ContextTask, progress: Callable, *, settings: WorkerSettings) -> dict:
+    if isinstance(task, ContextTask):
+        from backend.workers.flood.context import run_flood_context
+        return run_flood_context(task, progress)
     task = _validated(task, 'surface_water_and_terrain')
     bbox = task.bbox.as_tuple()
     scene = discover_sentinel1_scene(bbox, task.start_time, task.end_time, reference_time=task.reference_time)

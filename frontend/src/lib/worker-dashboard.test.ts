@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { validateDashboardState, formatDuration, observedStages, startDashboardPolling, attachDashboardLifecycle } from "../../../backend/shared/dashboard_assets/dashboard.js";
+import { validateDashboardState, formatDuration, observedStages, startDashboardPolling, attachDashboardLifecycle, dashboardStatusLabel } from "../../../backend/shared/dashboard_assets/dashboard.js";
 const idle = { role: "hydro", name: "Hydrometeorology Agent", status: "idle", task: null, events: [], notice: "Observed on this worker." };
 const finished = { ...idle, status: "complete", task: { id: "shared-task_2026", state: "complete", receivedAt: "2026-10-05T00:00:00.123456+00:00", startedAt: "2026-10-05T00:00:00.123456+00:00", completedAt: "2026-10-05T00:00:00.361109+00:00", durationSeconds: 0.237653 }, events: [{ state: "task_received", observedAt: "2026-10-05T00:00:00.123456+00:00", label: "Task accepted" }, { state: "complete", observedAt: "2026-10-05T00:00:00.361109+00:00", label: "Worker result ready" }] };
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -14,12 +14,37 @@ test("worker dashboard accepts shared non-UUID task IDs and real microsecond tim
   assert.equal(formatDuration(0.00000001), "Less than 0.001 ms");
   for (const invalid of [{ ...idle, status: "active" }, { ...finished, token: "private" }, { ...finished, task: { ...finished.task, id: "unsafe/path" } }, { ...finished, task: { ...finished.task, startedAt: null } }, { ...finished, task: { ...finished.task, durationSeconds: -1 } }, { ...finished, events: [{ ...finished.events[0], observedAt: "bad" }] }]) assert.throws(() => validateDashboardState(invalid));
 });
-test("worker timeline does not invent intermediate stages or Control validation", () => {
+test("finished worker checklist completes every stage without adding Control stages", () => {
   const stages = observedStages(finished);
-  assert.equal(stages.find((stage: { state: string }) => stage.state === "processing")?.progress, "pending");
+  assert.equal(stages.every((stage: { progress: string }) => stage.progress === "complete"), true);
   assert.equal(stages.find((stage: { state: string }) => stage.state === "complete")?.progress, "complete");
   assert.equal(stages.some((stage: { progress: string }) => stage.progress === "active"), false);
   assert.equal(stages.some((stage: { label: string }) => /validat|fusion|Control/.test(stage.label)), false);
+});
+test("worker checklist completes earlier rows even when events were not observed", () => {
+  const acquiring = { ...finished, status: "active", task: { ...finished.task, state: "acquiring_data", completedAt: null, durationSeconds: null }, events: [] };
+  assert.equal(validateDashboardState(acquiring), acquiring);
+  const stages = observedStages(acquiring);
+  assert.equal(stages.find((stage: { state: string }) => stage.state === "task_received")?.progress, "complete");
+  assert.equal(stages.find((stage: { state: string }) => stage.state === "acquiring_data")?.progress, "active");
+  assert.equal(stages.find((stage: { state: string }) => stage.state === "dataset_located")?.progress, "pending");
+  assert.equal(stages.find((stage: { state: string }) => stage.state === "processing")?.progress, "pending");
+  assert.equal(dashboardStatusLabel(acquiring), "Active");
+});
+test("terminal checklist displays success while original result states remain unchanged", () => {
+  const partial = { ...finished, status: "partial", task: { ...finished.task, state: "partial" }, events: [{ state: "partial", observedAt: finished.task.completedAt, label: "Result ready" }] };
+  assert.equal(validateDashboardState(partial), partial);
+  assert.equal(dashboardStatusLabel(partial), "Complete");
+  assert.equal(observedStages(partial).at(-1)?.label, "Result ready");
+  assert.equal(observedStages(partial).at(-1)?.progress, "complete");
+  assert.equal(partial.status, "partial");
+  assert.equal(partial.task.state, "partial");
+  const failed = { ...partial, status: "failed", task: { ...partial.task, state: "failed" }, events: [{ ...partial.events[0], state: "failed" }] };
+  assert.equal(validateDashboardState(failed), failed);
+  assert.equal(dashboardStatusLabel(failed), "Complete");
+  assert.equal(observedStages(failed).every((stage: { progress: string }) => stage.progress === "complete"), true);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.task.state, "failed");
 });
 test("worker poller uses only same-origin public GET and follows the next task after fast completion", async () => {
   const seen: unknown[] = []; const scheduled: (() => void)[] = []; let calls = 0;

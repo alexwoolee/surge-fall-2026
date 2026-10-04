@@ -5,6 +5,7 @@ from enum import StrEnum
 
 class TaskState(StrEnum):
     TASK_RECEIVED = "task_received"
+    ACQUIRING_DATA = "acquiring_data"
     DATASET_LOCATED = "dataset_located"
     PROCESSING = "processing"
     PREPARING_RESULT = "preparing_result"

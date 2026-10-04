@@ -61,7 +61,7 @@ export async function proxyControl(request: Request, path: string[], options: { 
       if (!value || typeof value !== "object" || Array.isArray(value)) return fail(400);
       const keys = Object.keys(value).sort().join(",");
       if (typeof value.requestId !== "string" || !new RegExp(`^${ID}$`, "i").test(value.requestId)) return fail(400);
-      if (route === "sessions" ? keys !== "prompt,requestId" || typeof value.prompt !== "string" || !value.prompt.trim() || value.prompt.length > 4000 || new TextEncoder().encode(value.prompt.trim()).length > 4096 : keys !== "requestId,worker" || !["hydro", "flood"].includes(value.worker)) return fail(400);
+      if (route === "sessions" ? keys !== "prompt,requestId" || typeof value.prompt !== "string" || !value.prompt.trim() || value.prompt.length > 4000 || new TextEncoder().encode(value.prompt.trim()).length > 4096 : keys !== "requestId,worker" || !["hydro", "flood", "dam"].includes(value.worker)) return fail(400);
     } catch { return fail(400); }
   }
   target.pathname = `/${route}`;

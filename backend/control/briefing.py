@@ -210,7 +210,20 @@ def render_briefing_html(briefing: dict) -> str:
         title = text(briefing["title"])
         availability = ("Partial or unreported spatial coverage is present. Check the source-specific coverage below."
                         if briefing["partial"] else "Validated source results are available; temporal limitations still apply.")
+        if briefing.get('risk') is not None:
+            availability = 'Screening briefing prepared from the available evidence. Product availability is recorded in source notes.'
         body = f'<header><p class="eyebrow">MeshMind · Analyst support</p><h1>{title}</h1></header>'
+        if briefing.get('risk') is not None:
+            from backend.shared.risk_contracts import RiskView
+            risk = RiskView.model_validate(briefing['risk'])
+            score = 'Not assessable' if risk.score is None else f'{risk.score}/100 ordinal index'
+            role = 'alert' if risk.alert else 'status'
+            body += (f'<section role="{role}" aria-label="Flood-risk screening" class="risk-summary">'
+                     '<h2>' + text(risk.title) + '</h2>' + paragraphs([risk.summary, risk.basis]) +
+                     '<details><summary>Risk index and evidence confidence</summary><p><strong>Risk level: ' + text(risk.level) +
+                     ' · ' + text(score) + '</strong></p><p>Evidence confidence: ' + text(risk.confidenceLevel) +
+                     f' ({risk.confidenceScore:.3f} on a 0–1 evidence index).</p>' +
+                     paragraphs(['These indices are not probabilities of flooding or dam failure.']) + '</details></section>')
         body += '<aside aria-label="Execution context">' + paragraphs([briefing.get("executionNotice", "Execution context unavailable; no new execution is established."), availability]) + '</aside>'
         body += '<section><h2>Original request</h2><p class="muted">User context, not an environmental finding.</p><blockquote>' + text(briefing["originalRequest"]) + '</blockquote></section>'
         body += '<section><h2>Study area and time coverage</h2>' + paragraphs([briefing["studyArea"], briefing["requestedWindow"], briefing["actualCoverage"]]) + '</section>'

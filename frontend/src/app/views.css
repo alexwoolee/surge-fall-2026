@@ -306,3 +306,26 @@
 @media (max-width: 600px) { .viewer-events li { grid-template-columns: 1fr; gap: 3px; } }
 
 .viewer-session-id { color: var(--dim); font-size: 11px; text-align: center; overflow-wrap: anywhere; line-height: 1.7; margin-bottom: 20px; }
+
+/* Control supplies the assessment; prominence follows its validated risk level. */
+.risk-summary { margin: 24px 0; padding: 24px; border: 1px solid #ffffff24; border-radius: 18px; background: #131b1b; line-height: 1.7; overflow-wrap: anywhere; }
+.risk-summary-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 12px; }
+.risk-level { font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.risk-summary h2 { margin: 12px 0 8px; font-size: 21px; }
+.risk-summary p, .risk-summary li { font-size: 13px; }
+.risk-summary--high, .risk-summary--critical { border: 2px solid #ef8c79; background: #291c1c; }
+.risk-summary--high .risk-summary-heading, .risk-summary--critical .risk-summary-heading { color: #ffc3b4; }
+.risk-summary--moderate { border-color: #c3a062; }
+.risk-summary--low { border-color: #79af91; }
+.risk-summary-scores { display: flex; flex-wrap: wrap; gap: 24px 48px; margin: 18px 0; }
+.risk-summary-scores dt { color: var(--dim); font-size: 12px; }
+.risk-summary-scores dd { margin: 4px 0 0; font-size: 18px; font-variant-numeric: tabular-nums; }
+.risk-explanation { color: var(--dim); }
+.risk-summary ul { margin: 12px 0 0; padding-left: 20px; }
+.composer-examples { display: flex; flex-direction: column; gap: 7px; margin: 12px 0; }
+.composer-examples button { text-align: left; color: var(--text); background: #ffffff08; border: 1px solid #ffffff20; border-radius: 8px; padding: 9px 12px; cursor: pointer; line-height: 1.6; }
+.composer-examples button:hover { background: #ffffff12; }
+.composer-examples button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+.composer-examples button:disabled { opacity: .5; cursor: default; }
+.agent-row, .agent-status-row { flex-wrap: wrap; }
+@media (max-width: 600px) { .risk-summary { padding: 18px; } .risk-summary h2 { font-size: 18px; } }

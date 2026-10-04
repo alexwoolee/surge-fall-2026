@@ -22,14 +22,15 @@ _HEADERS = {
 }
 _CSP = ("default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; "
         "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
-_NAMES = {"hydro-worker": "Hydrometeorology Agent", "flood-worker": "Surface Water and Terrain Agent"}
+_NAMES = {"hydro-worker": "Hydrometeorology Agent", "flood-worker": "Surface Water and Terrain Agent", "dam-worker": "Reservoir Risk Agent"}
 _LABELS = {
     "task_received": "Worker accepted the task.",
+    "acquiring_data": "Worker began finding and downloading input data.",
     "dataset_located": "Worker located the input data.",
     "processing": "Worker began processing the data.",
     "preparing_result": "Worker began preparing its result.",
     "complete": "Worker checked and completed its result.",
-    "partial": "Worker checked a partial result; some evidence is unavailable.",
+    "partial": "Worker checked and completed its result.",
     "failed": "Worker processing failed; no completed result is claimed.",
 }
 _NOTICE = ("This page shows the latest task accepted by this worker process. Events and task history "
@@ -45,7 +46,7 @@ def dashboard_event(state: str, observed_at: datetime):
     return {"state": state, "observedAt": observed_at.isoformat(), "label": _LABELS[state]}
 
 
-def dashboard_snapshot(worker_id: str, status: TaskStatus | None, events: list[dict]):
+def dashboard_snapshot(worker_id: str, status: TaskStatus | None, events: list[dict], *, result=None):
     task, state = None, "idle"
     if status is not None:
         state = status.state.value
@@ -62,8 +63,16 @@ def dashboard_snapshot(worker_id: str, status: TaskStatus | None, events: list[d
             "completedAt": status.completed_at.isoformat() if status.completed_at else None,
             "durationSeconds": elapsed,
         }
-    return {"role": worker_id.removesuffix("-worker"), "name": _NAMES[worker_id],
-            "status": state, "task": task, "events": events, "notice": _NOTICE}
+    snapshot = {"role": worker_id.removesuffix("-worker"), "name": _NAMES[worker_id],
+                "status": state, "task": task, "events": events, "notice": _NOTICE}
+    if worker_id == "dam-worker":
+        snapshot["risk"] = None if result is None else {
+            "level": result.summary.risk_level, "score": result.summary.risk_score,
+            "confidenceLevel": result.summary.confidence_level,
+            "confidenceScore": result.summary.confidence_score,
+            "alert": result.summary.alert, "asOf": result.as_of.isoformat(),
+        }
+    return snapshot
 
 
 def dashboard_asset(path: str):

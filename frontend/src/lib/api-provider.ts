@@ -1,5 +1,7 @@
 import type { MeshMindDataProvider } from "./data-provider";
 import type { AnalysisState, ControlConfig, SessionSummary } from "./types";
+import { matchingRisk, optionalRisk } from "./risk";
+import { isWorkerId } from "./workers";
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ROOT = "/api/control";
@@ -24,8 +26,12 @@ function analysis(value: unknown): value is AnalysisState {
     || !["dispatched", "processing", "validating", "reviewing", "complete"].includes(String(value.phase))
     || !availability.includes(String(value.control)) || typeof value.retrying !== "boolean"
     || !object(value.workers) || !Array.isArray(value.retryableWorkers)
-    || !value.retryableWorkers.every((worker) => ["hydro", "flood"].includes(worker))) return false;
-  for (const id of ["hydro", "flood"]) {
+    || !optionalRisk(value.risk)
+    || !Object.keys(value.workers).every(isWorkerId)
+    || !Object.hasOwn(value.workers, "hydro") || !Object.hasOwn(value.workers, "flood")
+    || new Set(value.retryableWorkers).size !== value.retryableWorkers.length
+    || !value.retryableWorkers.every((worker) => isWorkerId(worker) && Object.hasOwn(value.workers as object, worker))) return false;
+  for (const id of Object.keys(value.workers)) {
     const worker = value.workers[id];
     if (!object(worker) || worker.id !== id || !stringKeys(worker, ["name", "location", "summary"])
       || !availability.includes(String(worker.status)) || !strings(worker.resources)
@@ -41,6 +47,7 @@ function analysis(value: unknown): value is AnalysisState {
   const b = value.briefing;
   return b === null || (object(b) && stringKeys(b, ["title", "originalRequest", "studyArea", "requestedWindow", "actualCoverage", "disclaimer", "demoNotice"])
     && typeof b.partial === "boolean" && (b.executionNotice === undefined || typeof b.executionNotice === "string")
+    && optionalRisk(b.risk) && matchingRisk(value.risk, b.risk)
     && strings(b.limitations) && conditions(b.reviewConditions)
     && Array.isArray(b.sections) && b.sections.every((entry) => stringKeys(entry, ["id", "title"]) && strings(entry.paragraphs))
     && Array.isArray(b.metrics) && b.metrics.every((entry) => stringKeys(entry, ["label", "value"]))
@@ -53,7 +60,7 @@ export class ControlApiError extends Error {
 }
 function errorMessage(status: number): string {
   if (status === 409) return "Control could not accept this request in its current state. Refresh this investigation and check History before trying again.";
-  if (status === 400 || status === 422) return "The request was not accepted. Use the configured study area, dates, and supported environmental investigations.";
+  if (status === 400 || status === 422) return "The request was not accepted. Include a supported study area and explicit dates, and check the investigation guidance.";
   if (status === 401 || status === 403 || status === 503) return "Control is unavailable or is not configured for this action. Ask the operator to check the local setup.";
   return "Control could not complete this request. Check History before trying again.";
 }
@@ -102,6 +109,10 @@ export function createApiProvider({ fetcher = (...args) => fetch(...args), uuid 
     async getConfig(signal) {
       const result = await request("/config", signal);
       if (!object(result) || !["execute", "review"].includes(String(result.mode)) || typeof result.canStart !== "boolean" || typeof result.notice !== "string" || !object(result.case) || !stringKeys(result.case, ["case_id", "name"]) || !object(result.case.bbox) || !stringKeys(result.case.requested_window, ["start", "end"])) throw new ControlApiError(502, "Control configuration could not be read.");
+      if (result.routingMode !== undefined && result.routingMode !== "prompt"
+        || result.examples !== undefined && (!strings(result.examples) || result.examples.length > 10 || result.examples.some((example) => !example.trim() || example.length > 4000))
+        || result.availableWorkers !== undefined && (!Array.isArray(result.availableWorkers) || !result.availableWorkers.every(isWorkerId) || new Set(result.availableWorkers).size !== result.availableWorkers.length || !result.availableWorkers.includes("hydro") || !result.availableWorkers.includes("flood"))
+        || result.routingMode === "prompt" && (!strings(result.examples) || !Array.isArray(result.availableWorkers))) throw new ControlApiError(502, "Control configuration could not be read.");
       return result as unknown as ControlConfig;
     },
     async startAnalysis(prompt) {
@@ -122,7 +133,7 @@ export function createApiProvider({ fetcher = (...args) => fetch(...args), uuid 
     },
     async retryWorker(id, worker) {
       requireId(id);
-      if (!["hydro", "flood"].includes(worker)) throw new ControlApiError(400, "Unknown investigation.");
+      if (!isWorkerId(worker)) throw new ControlApiError(400, "Unknown investigation.");
       await mutate(`/sessions/${id}/retry`, `retry:${id}:${worker}`, { worker });
     },
     async resetDemo() { throw new Error("Demo reset is unavailable in Control mode."); },

@@ -1,5 +1,22 @@
 # Team deployment setup
 
+## Toddbrook feature branch
+
+For the current third-worker experiment, use
+[docs/TODDBROOK_SETUP.md](docs/TODDBROOK_SETUP.md). It has the matching branch,
+copyable setup commands, private installer, historical prompts and handoffs for
+Kazi (Hydro), Alex (Flood), Karan (Dam) and Ryan (Control). Hydro and Flood query
+sources for each requested area/date; the old fixed Hydro ZIP is not used by
+`--generic`. Keep `codex/toddbrook-private-worker` separate from `main` until the
+user explicitly approves merging.
+
+The remaining commands below preserve the previously accepted configured
+Abbotsford deployment and its original worker assignments. They do not start the
+new four-device arrangement. Preserve its configuration and history when testing
+the feature branch.
+
+## Existing configured deployment
+
 These commands use the team's existing checkouts, Python 3.12 virtual
 environments, downloaded data and private external-service configuration. For a
 fresh generic setup, use [README.md](README.md). For architecture, progress,

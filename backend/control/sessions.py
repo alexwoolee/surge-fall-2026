@@ -27,7 +27,7 @@ _ROLES = ("hydro", "flood")
 _RETRYABLE = {"transport_error", "timed_out", "rejected"}
 _STAGES = {"preflight", "submission", "polling", "result", "finished"}
 MAX_OBSERVED_EVENTS = 32
-_TASK_STATES = {"task_received", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"}
+_TASK_STATES = {"task_received", "acquiring_data", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"}
 _OUTCOMES = {"complete", "partial", "worker_failed", "transport_error", "protocol_error", "rejected", "timed_out"}
 _EVENT_FIELDS = {"id", "observed_at", "stage", "task_state", "outcome"}
 

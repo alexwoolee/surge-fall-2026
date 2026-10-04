@@ -6,13 +6,15 @@ import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { isDemoMode } from "@/lib/data-provider";
 import type { WorkerId } from "@/lib/types";
+import { WORKERS } from "@/lib/workers";
 import { StatusOrb } from "./agent-status";
 import { StatusTimeline } from "./status-timeline";
 
 export function WorkerView({ workerId, sessionId = isDemoMode ? "running" : "" }: { workerId: WorkerId; sessionId?: string }) {
   const { analysis, loading, error } = useAnalysis(sessionId);
   const worker = analysis?.workers[workerId];
-  const workerLabel = workerId === "hydro" ? "Hydrometeorology Agent" : "Surface Water & Terrain Agent";
+  const workerLabel = `${WORKERS[workerId].name} Agent`;
+  const unavailable = workerId === "dam" ? analysis ? "Dam Condition was not included in this investigation. It runs only for Toddbrook Reservoir, Whaley Bridge, Derbyshire." : "Owner-record review is available only for Toddbrook Reservoir, Whaley Bridge, Derbyshire. Open a matching investigation to see its observed activity." : "The investigation for this worker is not available.";
 
   return (
     <main className="worker-page atmosphere">
@@ -21,7 +23,7 @@ export function WorkerView({ workerId, sessionId = isDemoMode ? "running" : "" }
         <Button variant="outline" asChild><Link href={sessionId ? `/session/${encodeURIComponent(sessionId)}` : "/"}><ArrowLeft size={17} aria-hidden="true" />Back to session</Link></Button>
         <span className="demo-label">{analysis?.isDemo ? "Demo · simulated workflow" : analysis?.executionMode === "review" ? "Retained evidence review" : "Investigation activity"}</span>
       </header>
-      {loading ? <div className="view-empty-state" role="status">Opening worker activity…</div> : !analysis || !worker ? <div className="view-empty-state"><h1>{workerLabel}</h1><p>{error || "The investigation for this worker is not available."}</p><Button asChild variant="outline"><Link href="/">Back to Home</Link></Button></div> : <div className="worker-content">
+      {loading ? <div className="view-empty-state" role="status">Opening worker activity…</div> : !analysis || !worker ? <div className="view-empty-state"><h1>{workerLabel}</h1><p>{error || unavailable}</p><Button asChild variant="outline"><Link href="/">Back to Home</Link></Button></div> : <div className="worker-content">
         {error && <p role="alert">{error} Displaying the last received state.</p>}
         <div className="worker-heading">
           <StatusOrb status={worker.status} size="lg" />

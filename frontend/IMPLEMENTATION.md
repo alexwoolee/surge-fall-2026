@@ -2,7 +2,7 @@
 
 ## Scope and integration
 
-The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branch. Visual direction, two-worker architecture, navigation, and core components are preserved. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The [root README](../README.md) covers setup; [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) hold development instructions and phase checkpoints.
+The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branch. Visual direction, navigation, and core components are preserved; the optional Dam worker extends the original two-worker interface. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The [root README](../README.md) covers setup; [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md) and [PROJECT_PROGRESS.md](../PROJECT_PROGRESS.md) hold development instructions and phase checkpoints.
 
 ## File groups
 
@@ -86,6 +86,12 @@ Session polling is sequential, abortable, and stops on terminal status. Errors r
 The server route accepts only the fixed route/method allowlist and loopback Control origins. It validates JSON bodies, prompt byte/character bounds, UUIDs, and same-origin POSTs before forwarding the request. Internal token values are ignored unconditionally and no Authorization header is constructed. The default Control origin is `http://127.0.0.1:8001`. It passes no caller cookies/authentication headers, follows no redirects, and bounds body sizes and total request duration. Backend error bodies, cookies, and arbitrary filenames are excluded. The native download uses a fixed same-origin URL and safe attachment headers. Default npm servers bind only to 127.0.0.1 because this is a local operator workspace without public user authentication.
 
 `BriefingViewModel.executionNotice` distinguishes retained evidence from current execution. The visible briefing renders all measurements and sections. Source and processing provenance are safe projections supplied by Python. Original request text is explicitly user context, not a finding.
+
+## Prompt routing and conditional Dam assessment
+
+`ControlConfig.routingMode="prompt"` enables generic composer guidance and server-provided example prompts. `availableWorkers` controls whether Dam Condition appears as available in Home/sidebar; the actual session `workers` controls all observed activity. Hydro and Flood are required, Dam is optional, and unknown worker roles are rejected. A Dam page for a session without that worker clearly says it was not included. Legacy configured-case servers, two-worker history and the explicit fixture demo remain supported.
+
+`risk.ts` accepts only the public assessment fields with finite 0–100 risk score (unknown requires null), 0–1 evidence-confidence score, known levels, and high/critical alert consistency. Session and briefing assessments must match. `risk-summary.tsx` renders high/critical assessments as accessible alerts, preserves unknown and lower levels, escapes text through React, and distinguishes both scores from failure probabilities or certainty of an environmental event. The UI does not calculate scores or decide whether private owner records apply. The API's optional risk fields are absent on old reports.
 
 ## Worker-owned static dashboards
 

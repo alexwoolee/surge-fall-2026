@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { DownloadBriefingButton } from "./download-briefing-button";
+import { BriefingIntroduction } from "./briefing-introduction";
 
 const reviewLabels = { triggered: "Review recommended", "not-triggered": "Not triggered", "not-assessable": "Not assessable" };
 
@@ -20,22 +21,12 @@ export function BriefingView({ id }: { id: string }) {
   return (
     <>
       <header className="view-topbar briefing-topbar">
-        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : "Final briefing"}</span><span className="demo-label">{analysis?.isDemo ? "Demo evidence" : analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span></div>
+        <div className="topbar-left"><span>{briefing.risk ? "Screening briefing" : briefing.partial ? "Partial briefing" : "Final briefing"}</span><span className="demo-label">{analysis?.isDemo ? "Demo evidence" : analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span></div>
         <div className="topbar-actions"><Button asChild variant="outline"><Link href={`/session/${id}`}><ArrowLeft size={14} aria-hidden="true" />Back to investigation</Link></Button><DownloadBriefingButton briefing={briefing} sessionId={id} /></div>
       </header>
       <div className="briefing-content">
         <article className="briefing-document">
-          <header className="briefing-document-header">
-            <p className="eyebrow">MeshMind briefing · prepared by Control on Laptop 1</p>
-            <h1>{briefing.title}</h1>
-            <p className="briefing-demo-notice">{briefing.executionNotice || briefing.demoNotice}</p>
-          </header>
-          <dl className="briefing-meta">
-            <div><dt>Original request · user context, not a finding</dt><dd>“{briefing.originalRequest}”</dd></div>
-            <div><dt>Study area</dt><dd>{briefing.studyArea}</dd></div>
-            <div><dt>Requested window</dt><dd>{briefing.requestedWindow}</dd></div>
-            <div><dt>Actual data coverage</dt><dd>{briefing.actualCoverage}</dd></div>
-          </dl>
+          <BriefingIntroduction briefing={briefing} />
           <section className="briefing-section" aria-labelledby="briefing-measurements"><h2 id="briefing-measurements">Validated measurements</h2><dl className="briefing-metrics">{briefing.metrics.map((metric) => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl></section>
           {briefing.sections.map((section) => <section key={section.id} className="briefing-section" aria-labelledby={`briefing-${section.id}`}><h2 id={`briefing-${section.id}`}>{section.title}</h2>{section.paragraphs.map((paragraph, index) => <p key={`${section.id}-${index}`}>{paragraph}</p>)}</section>)}
           <section className="briefing-section" aria-labelledby="briefing-review">

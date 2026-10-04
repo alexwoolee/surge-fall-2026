@@ -1,8 +1,8 @@
 /* Self-contained worker dashboard: no Control requests or browser credentials. */
-const TASK_STATES = ["task_received", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"];
+const TASK_STATES = ["task_received", "acquiring_data", "dataset_located", "processing", "preparing_result", "complete", "partial", "failed"];
 const TERMINAL = ["complete", "partial", "failed"];
-const STATUS_LABELS = { idle: "Idle", active: "Active", complete: "Processing complete", partial: "Partial result", failed: "Processing failed" };
-const STAGE_LABELS = { task_received: "Task accepted", dataset_located: "Input data located", processing: "Processing data", preparing_result: "Preparing result", complete: "Result ready", partial: "Partial result ready", failed: "Processing failed" };
+const STATUS_LABELS = { idle: "Idle", active: "Active", complete: "Complete", partial: "Complete", failed: "Complete" };
+const STAGE_LABELS = { task_received: "Task accepted", acquiring_data: "Finding and downloading input data", dataset_located: "Input data located", processing: "Processing data", preparing_result: "Preparing result", complete: "Result ready", partial: "Result ready", failed: "Result ready" };
 const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 const isString = (value, limit = 4096) => typeof value === "string" && value.length <= limit;
 const isDate = (value) => isString(value, 64) && Number.isFinite(Date.parse(value));
@@ -10,11 +10,21 @@ const exactKeys = (value, keys) => Object.keys(value).sort().join(",") === [...k
 
 export function validateDashboardState(value) {
   const fail = () => { throw new Error("Worker dashboard state is invalid."); };
-  if (!isObject(value) || !exactKeys(value, ["role", "name", "status", "task", "events", "notice"])
-    || !["hydro", "flood"].includes(value.role) || !isString(value.name, 160) || !isString(value.notice)
+  if (!isObject(value) || !exactKeys(value, ["role", "name", "status", "task", "events", "notice", ...(value.role === "dam" ? ["risk"] : [])])
+    || !["hydro", "flood", "dam"].includes(value.role) || !isString(value.name, 160) || !isString(value.notice)
     || !["idle", "active", ...TERMINAL].includes(value.status) || !Array.isArray(value.events) || value.events.length > 256
     || !value.events.every((event) => isObject(event) && exactKeys(event, ["state", "observedAt", "label"])
       && TASK_STATES.includes(event.state) && isDate(event.observedAt) && isString(event.label))) return fail();
+  if (value.role === "dam" && value.risk !== null) {
+    const risk = value.risk;
+    if (!isObject(risk) || !exactKeys(risk, ["level", "score", "confidenceLevel", "confidenceScore", "alert", "asOf"])
+      || !["unknown", "low", "moderate", "high", "critical"].includes(risk.level)
+      || (risk.level === "unknown" ? risk.score !== null : !Number.isInteger(risk.score) || risk.score < 0 || risk.score > 100)
+      || !["low", "moderate", "high"].includes(risk.confidenceLevel)
+      || typeof risk.confidenceScore !== "number" || !Number.isFinite(risk.confidenceScore) || risk.confidenceScore < 0 || risk.confidenceScore > 1
+      || typeof risk.alert !== "boolean" || risk.alert !== ["high", "critical"].includes(risk.level)
+      || !isDate(risk.asOf) || value.status !== "complete") return fail();
+  }
   if (value.task === null) {
     if (value.status !== "idle" || value.events.length) return fail();
     return value;
@@ -36,15 +46,20 @@ export function formatDuration(seconds) {
   return `${ms} ms${seconds >= 1 ? ` (${new Intl.NumberFormat("en-CA", { maximumFractionDigits: 3 }).format(seconds)} s)` : ""}`;
 }
 
-/** Only recorded stages count as observed; no clock-based progress is inferred. */
+/** Completion describes the worker's execution, independent of data coverage. */
+export function dashboardStatusLabel(snapshot) {
+  return STATUS_LABELS[snapshot.status];
+}
+
+/** Presentation-only checklist: advancing completes prior rows; finishing completes every row. */
 export function observedStages(snapshot) {
   if (!snapshot.task) return [];
-  const observed = new Set(snapshot.events.map((event) => event.state));
   const current = snapshot.task.state;
-  observed.add(current);
-  return [...TASK_STATES.slice(0, 4), TERMINAL.includes(current) ? current : "complete"].map((state) => ({
+  const finished = TERMINAL.includes(current);
+  const currentIndex = TASK_STATES.indexOf(current);
+  return [...TASK_STATES.filter((state) => !TERMINAL.includes(state)), "complete"].map((state, index) => ({
     state, label: STAGE_LABELS[state],
-    progress: state === current ? (TERMINAL.includes(current) ? current : "active") : observed.has(state) ? "complete" : "pending",
+    progress: finished || index < currentIndex ? "complete" : state === current ? "active" : "pending",
   }));
 }
 
@@ -110,14 +125,25 @@ export function attachDashboardLifecycle(target, start, onSuspend) {
 function renderDashboard(document, snapshot) {
   const setText = (id, text) => { document.getElementById(id).textContent = text; };
   const root = document.getElementById("dashboard");
-  root.dataset.status = snapshot.status; root.dataset.stale = "false";
+  root.dataset.status = TERMINAL.includes(snapshot.status) ? "complete" : snapshot.status; root.dataset.stale = "false";
   document.getElementById("connection-warning").hidden = true;
   document.title = `MeshMind · ${snapshot.name}`;
-  setText("role-label", snapshot.role === "hydro" ? "Hydrometeorology" : "Surface Water & Terrain");
+  setText("role-label", snapshot.role === "hydro" ? "Hydrometeorology" : snapshot.role === "dam" ? "Reservoir Risk" : "Surface Water & Terrain");
   setText("worker-name", snapshot.name);
   setText("worker-subtitle", snapshot.status === "active" ? "Executing on this laptop" : "Hosted on this laptop");
-  setText("worker-status", STATUS_LABELS[snapshot.status]);
+  setText("worker-status", dashboardStatusLabel(snapshot));
   setText("worker-notice", snapshot.notice);
+  const riskCard = document.getElementById("risk-card");
+  if (riskCard) {
+    const risk = snapshot.role === "dam" ? snapshot.risk : null;
+    riskCard.hidden = !risk;
+    if (risk) {
+      riskCard.dataset.alert = String(risk.alert);
+      setText("risk-heading", risk.alert ? "Flood risk screening alert" : "Reservoir risk screening");
+      setText("risk-level", risk.level === "unknown" ? "UNKNOWN · insufficient temporal coverage" : `${risk.level.toUpperCase()} · ${risk.score}/100 screening index`);
+      setText("risk-confidence", `${risk.confidenceLevel} evidence confidence · ${Math.round(risk.confidenceScore * 100)}% · as of ${risk.asOf}`);
+    }
+  }
   const task = snapshot.task;
   document.getElementById("task-card").hidden = !task;
   document.getElementById("events-card").hidden = !task;
@@ -128,9 +154,9 @@ function renderDashboard(document, snapshot) {
   setText("task-id", task.id);
   setText("task-received", time(task.receivedAt));
   setText("task-duration", formatDuration(task.durationSeconds));
-  setText("task-summary", task.state === "complete" ? "The worker has prepared its result. Control's evidence checks and combined review are separate." : task.state === "partial" ? "The worker returned partial evidence. Missing observations remain unavailable." : task.state === "failed" ? "Processing failed. This dashboard does not turn missing observations into successful results." : STAGE_LABELS[task.state] + ".");
+  setText("task-summary", TERMINAL.includes(task.state) ? "The worker has finished this task. See the report for the available observations and findings." : STAGE_LABELS[task.state] + ".");
   const timeline = document.getElementById("task-timeline");
-  const stepLabels = { complete: "Observed", active: "Current stage", partial: "Partial evidence", failed: "Failed", pending: "Not observed" };
+  const stepLabels = { complete: "Completed", active: "Current stage", pending: "Waiting" };
   timeline.replaceChildren(...observedStages(snapshot).map((step) => {
     const item = document.createElement("li"); item.className = `timeline-step step-${step.progress}`;
     const marker = document.createElement("span"); marker.className = "step-marker"; marker.setAttribute("aria-hidden", "true"); marker.textContent = step.progress === "complete" ? "✓" : step.progress === "failed" ? "×" : step.progress === "active" ? "•" : "";
@@ -142,7 +168,7 @@ function renderDashboard(document, snapshot) {
   events.replaceChildren(...snapshot.events.map((event) => {
     const item = document.createElement("li");
     const timestamp = document.createElement("time"); timestamp.dateTime = event.observedAt; timestamp.textContent = time(event.observedAt);
-    const label = document.createElement("span"); label.textContent = event.label;
+    const label = document.createElement("span"); label.textContent = TERMINAL.includes(event.state) ? "Worker task finished." : event.label;
     item.append(timestamp, label); return item;
   }));
   document.getElementById("events-empty").hidden = snapshot.events.length > 0;

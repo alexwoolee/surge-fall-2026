@@ -26,8 +26,8 @@ from backend.shared.status import TERMINAL_STATES, TaskState
 
 
 _ANALYSIS = {"hydro-worker": "hydrometeorology", "flood-worker": "surface_water_and_terrain"}
-_ORDER = {"task_received": 0, "dataset_located": 1, "processing": 2, "preparing_result": 3,
-          "complete": 4, "partial": 4, "failed": 4}
+_ORDER = {"task_received": 0, "acquiring_data": 1, "dataset_located": 2, "processing": 3, "preparing_result": 4,
+          "complete": 5, "partial": 5, "failed": 5}
 _ERRORS = {
     "worker_failed": "The worker reported processing failure; any validated component evidence is retained.",
     "transport_error": "Control could not complete communication with the worker.",

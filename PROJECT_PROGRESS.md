@@ -5,6 +5,296 @@ phase checkpoints, validation evidence and development workflow that previously
 lived in the root README. Current generic setup is in [README.md](README.md);
 the team's existing machine commands are in [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md).
 
+## Toddbrook feature branch — October 4, 2026
+
+The user requested a third worker on **`codex/toddbrook-private-worker`**, kept
+separate from `main` until explicit merge approval. This instruction supersedes
+older branch-integration guidance in the historical record below. It does not
+claim the Phase 10 or four-device acceptance checkpoint has passed.
+
+New deployment: Kazi runs Hydro (`100.100.3.2:8002`), Alex runs Flood
+(`100.100.3.3:8003`), Karan runs Dam (`100.100.3.4:8004`), and Ryan runs Control/UI.
+Use [the branch setup and handoff](docs/TODDBROOK_SETUP.md); preserve the original
+configured-case deployment, configuration files, cached data and saved sessions.
+
+`--generic` resolves each ISO historical date or inclusive interval of at most
+seven days, then dispatches matching location/date tasks to Hydro and Flood in
+parallel. Hydro queries live NASA CMR metadata and acquires matching GPM/SMAP
+files on its own device; it reuses only exact, currently discovered cache entries.
+Flood independently queries Sentinel-1 and terrain providers. No fixed recent
+Hydro ZIP supplies these requests. Product absence, incomplete coverage, provider
+failures and finite acquisition budgets remain explicit. Static terrain and
+current reprocessed historical products are labelled with their temporal limits.
+
+Only an explicit Toddbrook Reservoir target adds the Dam worker. Other named
+areas require a registered location or explicit WGS84 bounding box; nearby
+coordinates alone never enable private data. Toddbrook is registered at Whaley
+Bridge, Derbyshire, England. The Dam worker filters operational, inspection,
+supervision, maintenance and instrumentation evidence by observation and
+availability dates. Dates outside the supplied private periods return unknown
+private coverage. Evaluation files and retrospective timelines are not risk
+inputs. The installer extracts only five allowlisted JSONL files and does not
+execute package code. Repository test discovery excludes private packages.
+
+The prepared `private_data/toddbrook_runtime/as_of.zip` is now shared in this
+feature repository at the user's request; raw and other generated inputs remain
+ignored. It mocks one device's private storage: only Karan's Dam service consumes
+it during an investigation, though repository readers can access the bundle.
+API/dashboard/report outputs contain bounded aggregates,
+fixed screening criteria and opaque references, without raw records, local
+paths, free-text notes or data-origin flags.
+
+Control validates worker identity, lifecycle and matching date/area before
+combining evidence. Risk is a documented ordinal screening index; confidence is
+an evidence-coverage index, not a calibrated probability. A high/critical concern
+produces an accessible screen alert and appears in the standalone report. Missing
+public evidence cannot lower a high private concern. Private records and
+environmental metrics remain processed by deterministic Python; this explicit
+prompt mode makes no paid model calls. Existing configured-case APIs still work.
+
+Validation for this branch:
+
+- Full Python suite: **1,672 passed**, including the original regression tests,
+  location/date routing, private-data isolation, real TCP lifecycle checks,
+  installer, historical cutoffs, source limits, report formatting and persistence.
+- Frontend: **65 tests passed**; lint, TypeScript and isolated production build
+  passed. The existing running interface's build was preserved.
+- Local real HTTP integration through the built Next interface: **197 checks
+  passed** across eight historical/negative-routing sessions. The actual supplied
+  records were processed by a temporary Dam worker; Hydro/Flood used controlled
+  test responses. All eight responses passed the production frontend parser.
+  Browser inspection confirmed the visible critical alert, confidence, three
+  worker results and combined briefing. Temporary servers were stopped.
+- Live read-only provider checks selected matching GPM granules in both 2007 and
+  2019, one fully contained 2019 SMAP averaging interval, the 2019-07-31 Sentinel-1
+  scene, and two DEM/two HAND tiles. This caught and fixed NASA's prefixed GPM
+  catalog identifiers. These checks did not authenticate, download datasets or
+  open rasters; they establish catalog availability, not completed processing.
+- Dependency consistency, generic Control configuration, documentation links,
+  staged private-file exclusion and `git diff --check` passed.
+
+Local evidence: `outputs/debug/toddbrook-full-pytest.log`,
+`outputs/debug/toddbrook-local-smoke/`, and
+`outputs/debug/environmental-context/catalog-validation.json`. These are ignored
+local outputs. Worker setup/handoffs and prompts are in the deployment guide.
+The physical four-device run, actual new-date authenticated downloads and user
+review remain pending; do not merge this feature automatically.
+
+## Dam runtime input preparation — October 4, 2026
+
+The user clarified that development may inspect the supplied data, while the
+running analysis must receive neither origin classifications nor evaluation
+data, and must treat records equally. Preparation now selects only the analytical
+fields consumed by the existing rules, recursively dropping all other fields.
+It does not interpret or classify discarded metadata and does not filter records
+by it. Only the five approved archive members are opened; evaluation contents,
+archive code and other documents are not read by the installer.
+
+The installer writes canonical JSONL into the separate ignored
+`private_data/toddbrook_runtime/data/` directory. The source ZIP and earlier raw
+development copy remain unchanged. Runtime defaults now point to the prepared
+directory, and the Dam worker rejects extra fields rather than falling back to
+raw data. The original calculations, cutoff rules and public API remain intact.
+
+Validation: **1,709 Python tests passed**, including metadata-independent
+preparation, malformed analytical inputs, safe repeated installation, strict
+runtime schema and explicit file-open guards. Seven checks against the previously
+retained historical Dam results produced identical metrics, summaries, evidence
+and rule outcomes. Only the five prepared data files were opened during those
+checks; no evaluation file was read. Evidence is retained locally under
+`outputs/debug/dam-runtime-preparation/`. Documentation links and
+`git diff --check` passed. Frontend code did not change.
+
+[The setup guide](docs/TODDBROOK_SETUP.md) now gives fresh Windows installation
+steps for Alex's Flood worker and the exact transition from Karan's old Flood
+service to Dam, including the new runtime path. The feature remains on
+`codex/toddbrook-private-worker`; physical deployment, joint investigation and
+explicit merge approval are still pending.
+
+## Exact historical observation cutoffs — October 4, 2026
+
+The user clarified that later observations must be excluded while current
+reprocessed estimates of historical observations are allowed. This is an
+observation cutoff, not a requirement to use only product versions published by
+the assessment date. A date-only request ends at the following midnight UTC,
+exclusive.
+
+Offline installation now also prepares 1,594 exact-date input folders under
+`private_data/toddbrook_runtime/as_of/YYYY-MM-DD/data/` on the owner device. Each
+contains only the five analytical files, with both event and record-availability
+dates bounded by that day and future maintenance closures removed. Preparation
+uses no evaluation contents or archive code. The running Dam worker opens only
+the selected day's files; it never scans other dates or loads the full master.
+Missing snapshots fail without a fallback. The existing master and raw archive
+remain preserved; Karan must rerun the installer before restarting the worker.
+
+Original observation periods remain unchanged. An explicit seven-day tail allows
+recent last-known evidence to be assessed with its actual age: August 1, 2019 can
+use July 31 observations, while August 8 remains outside private coverage. No new
+observations are invented. Dated Flood investigations exclude DEM/HAND before
+discovery or raster reads because the current sources do not provide a verifiable
+observation period. Control rejects older dated results containing undated terrain.
+The existing configured-case terrain flow is unchanged.
+
+Validation: **1,758 Python tests passed**. Boundary checks cover future events,
+record availability, maintenance closure masking, exact-day file isolation,
+missing snapshots, symlinks, public observation intervals and stale-worker terrain
+rejection. Independent code review found no remaining actionable issue. Local
+Dam runtime checks opened exactly five selected-day files for each requested
+assessment: August 1, 2019 returned critical concern (90, evidence confidence
+0.75, last observation July 31); December 9, 2007 returned moderate concern (35,
+evidence confidence 0.75, last observation December 9). These are Dam-only
+checks, not completed combined remote assessments.
+
+All three physical worker status endpoints returned HTTP 200 and idle from the
+Mac when bound to `100.100.3.5`. The cutoff update still needs to be pulled and
+restarted on the workers before submitting the two joint investigations. Local
+evidence is in `outputs/debug/historical-cutoff/`; the feature remains unmerged.
+
+## Repository-bundled Dam inputs — October 4, 2026
+
+Karan's installer failed because neither the requested Downloads ZIP nor the
+prepared input directory existed on his laptop. The user then explicitly
+requested that the data be included in the feature repository and read directly
+from `private_data`, without installation or copying elsewhere. This supersedes
+the earlier no-data-in-Git and installer prerequisite for this demonstration.
+
+The feature now includes `private_data/toddbrook_runtime/as_of.zip`, a prepared
+bundle of the same cutoff-specific analytical inputs. Git makes this bundle
+available to repository readers; the one-owner storage boundary is mocked here.
+Only the Dam worker opens it at runtime. Control, Hydro and Flood still consume
+only bounded Dam results, and no endpoint serves the bundle. The original owner
+archive, evaluation data, notes, origin metadata and package code remain outside
+the tracked runtime inputs.
+
+Dam reads exactly the five entries for its requested date directly from the
+bundle, without extraction, installation, or opening other days' record contents.
+The existing base setting ending in `toddbrook_runtime/data` is retained for
+compatibility; its sibling `as_of.zip` takes precedence. A malformed bundle fails
+without falling back to other records. Dates, risk rules and result APIs are
+unchanged. Karan only needs to pull this feature branch and restart Dam.
+
+`scripts.bundle_private_dataset` is an offline developer packaging command,
+not a startup prerequisite. It builds reproducible date inputs from the five
+prepared source files. Raw data, extracted snapshots and caches remain ignored;
+only the specific prepared bundle is tracked alongside its instructions.
+
+The bundle contains 7,970 analytical members for 1,594 dates (about 5.2 MiB
+compressed). Fresh-checkout HTTP checks with no source ZIP, prepared master
+directory, or extracted snapshots returned complete results for both requested
+dates. The July-31-based critical August 1 result and moderate December 9 result
+exactly matched the previously validated aggregates. Each task opened only its
+five exact-date member streams and created no extracted input directories.
+This is local validation; Karan still needs to pull/restart before a new physical
+run. Evidence is under `outputs/debug/repository-dam-bundle/`.
+
+Validation: **1,808 Python tests passed**. The reproducible developer builder
+returned `unchanged` against the included bundle. Archive bounds, exact-date reads,
+future-fact rejection, no extraction, malformed-bundle failures, atomic packaging
+and existing worker/Control regressions passed. `git diff --check` passed; frontend
+code and the result API did not change.
+
+## Live environmental acquisition and dashboard milestones — October 4, 2026
+
+The reported Hydro/Flood “Input data located — Not observed” had two causes.
+Both dated runners omitted that lifecycle event, and Hydro rejected the specific
+CloudFront distributions used by NASA's HTTPS download redirects. Those two CDN
+hosts are now allowed only as redirects from a validated provider link. Hydro
+announces acquired files before processing; Flood announces its validated,
+cutoff-matching scene before raster processing. Empty or failed discovery does
+not invent a located event. Successful empty catalog searches return the distinct
+`no_matching_observations` reason.
+
+Actual authenticated NASA downloads and processing through the local Hydro HTTP
+API passed for both requested dates:
+
+- **2019-08-01:** 48 GPM granules covering all 24 hours; area-mean accumulation
+  3.364999885 mm. SMAP's wholly contained final three-hour interval returned
+  surface moisture 0.325211287 and root-zone moisture 0.320841908 m³/m³.
+- **2007-12-09:** 48 GPM granules covering all 24 hours; area-mean accumulation
+  0.185833331 mm. SMAP predates its product coverage and remains unavailable.
+
+Both runs retained the actual located/processing/result lifecycle events.
+December 9 is a working historical example, not a high-rainfall example. No Dam
+records, dates, or prompts were replaced. The user's conditional request for a
+later replacement period was unnecessary because GPM covers this date.
+
+Expected historical product absence is now recorded in source notes without
+duplicating unavailable measurement rows or marking an otherwise assessable
+briefing partial. Numerical risk, confidence, source provenance, original worker
+results and unassessable review conditions are unchanged. Provider, login,
+processing and worker failures, incomplete measured coverage and unknown risk
+still require attention. The generic report is labelled a screening briefing.
+
+These are local live-data checks, not a new combined physical-laptop acceptance.
+Kazi and Alex must pull this branch and restart their workers before the joint
+rerun can validate the changes on Windows. Local evidence is retained under
+`outputs/debug/environmental-worker-investigation/`. Main remains unmerged.
+
+Validation: **1,857 Python tests passed**, including genuine dashboard HTTP
+milestones, empty versus failed catalog responses, exact redirect allowlisting,
+future-scene rejection and expected-absence product/date bounds. **65 frontend
+tests**, lint, TypeScript, the production build, dependency consistency and
+`git diff --check` passed. Control/UI were restarted with their existing settings
+and history; both services, the UI proxy and retained report returned HTTP 200.
+All three remote workers returned HTTP 200 and idle in the final read-only check.
+
+## AI synthesis, active acquisition and report presentation — October 4, 2026
+
+The user requested contextual AI interpretation of all returned factors, rather
+than new hard-coded interaction thresholds. Control now sends an anonymous,
+cutoff-bound catalog of checked aggregates to its configured OpenAI Responses
+model once per new investigation. The model supplies the concern classification,
+plain-language summary and reasons with evidence references. Rainfall/soil/dam
+relationships are reasoning examples, not a new interaction rule table. Raw Dam
+records, record references, location identity, the user's free-form prompt and
+credentials are excluded from the model input. Independent high/critical Dam
+alerts cannot be silently downgraded. Measurements and the evidence-confidence
+calculation stay in Python; AI does not change either.
+
+Strict output validation checks schema, cited fields, copied numerical values,
+input digest and the protected Dam concern. It cannot prove that every free-form
+interpretation is scientifically correct. Invalid or failed responses retain
+the measurements and explicitly label the independent screening fallback.
+Saved interpretations are revalidated against their aggregates on reload without
+new model calls. Opening summaries lead the screen and HTML report; technical
+indices, method, conditions and source notes follow. Missing products do not
+produce a "partial" screen label or unavailable measurement rows. Original
+coverage states remain in evidence, and actual worker/API failures remain visible.
+
+Hydro now emits `acquiring_data` before NASA discovery/download, so its local
+dashboard and Control describe the long network phase truthfully. Acquisition
+uses at most four independent download sessions, retains every selected sample,
+preserves result order, and shares byte/deadline bounds. No thinning, imputation,
+synthetic delay or live performance benchmark was introduced. Tests exercise
+concurrency, cleanup, cancellation, cache reuse and observed-stage presentation.
+
+Validation: **1,935 Python tests** and **71 frontend tests** passed. Lint,
+TypeScript, production build, dependency consistency and diff checks passed.
+Mocked AI tests cover one-call execution, idempotency, replay, privacy, fallback,
+citations and distinct routine/combined/independent-concern presentations.
+Those scenario fixtures test integration; they do not establish model accuracy
+or promise those outcomes for particular historical dates.
+
+The user specifically approved sending the displayed private-Dam-derived
+aggregate payload and enabling AI synthesis. The first live model response failed
+validation; the runtime fallback is covered by integration tests. Offline review
+fixed false rejections of the Sentinel-1 product name and narrowly negated claims.
+Diagnostic repair calls require the user's separate approval; no live download benchmark was run. Evidence and the exact
+payload preview are in `outputs/debug/ai-synthesis-validation/`. The feature
+remains separate from main.
+
+## Worker dashboard checklist display — October 4, 2026
+
+At the user's request, the standalone worker dashboard now marks every earlier
+row green when a task advances, even when intermediate events were not captured.
+Every terminal state displays a fully green checklist and Complete badge; future
+rows during execution say Waiting. This is a local presentation override only:
+worker API states, saved results, risk assessment and Control remain unchanged.
+Validation: 71 frontend tests, lint and diff checks passed. All 1,935 Python tests
+passed: 1,931 in the initial run and four local socket tests on rerun outside the
+sandbox, which had blocked their listeners.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control

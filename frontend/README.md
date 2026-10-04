@@ -1,6 +1,6 @@
 # MeshMind frontend
 
-The existing environmental-analysis interface now connects to Control by default. Control coordinates Hydrometeorology on Laptop 2 and Surface Water & Terrain on Laptop 3, validates their independent evidence, and provides a grounded HTML briefing. The approved visual design is preserved.
+The existing environmental-analysis interface now connects to Control by default. Control coordinates Hydrometeorology and Surface Water & Terrain, plus a conditional Dam Condition worker for Toddbrook Reservoir, validates their independent evidence, and provides a grounded HTML briefing. The approved visual design is preserved.
 
 ## Run locally
 
@@ -28,13 +28,19 @@ Internal Control, worker, and viewer credential values are ignored unconditional
 
 ## Workflow
 
-Home displays the configured study area, historical dates, and whether Control is executing new worker tasks or reviewing retained evidence. Requests must match that configured case. Control's bounded model interpretation decides whether to accept a request. The UI does not silently apply arbitrary locations or dates to the fixed case.
+When Control enables prompt routing, Home offers example requests and asks for a location and explicit dates. Hydro and Flood run for each resolved request; Dam Condition is included only for Toddbrook Reservoir, Whaley Bridge, Derbyshire. The default case is an example, not a restriction on the request. Control owns location/date resolution and decides whether the request can be accepted. The frontend never dispatches a private-record worker based on matching prompt text.
+
+Requests can select historical dates or ranges. A single ISO date selects that UTC day. Hydro and Flood query available observations at runtime; unavailable products or dates remain explicit coverage gaps. The generic interface does not assume a preselected recent input archive.
+
+Older configured-case servers still show their fixed study area and window. Retained evidence reviews and two-worker history keep their existing behavior.
 
 The session view polls server state without overlapping requests. Worker availability starts **Not observed**. Returned work is **Complete**, distinct from current availability. Cards update independently, and failed polling retains the last received state with a visible warning. Polling stops after a terminal session state. History is loaded from Control, including after reload.
 
 Review mode is prominently labeled **Retained evidence review** and never claims new remote execution. The briefing includes the original request as user context, every validated measurement, review conditions, source/processing provenance, limitations, and the required analyst-support disclaimer.
 
-Partial results retain independently validated Hydro or Flood evidence. Missing observations remain unavailable, and dependent rules remain not assessable. Retry buttons appear only for workers explicitly allowed by Control; its bounded retry preserves the other worker. Uncertain POST responses are never replayed automatically. An explicit repeat of the same request reuses its idempotency key, including after a browser reload when session storage is available.
+Partial results retain independently validated worker evidence. Missing observations remain unavailable, and dependent rules remain not assessable. Retry buttons appear only for workers explicitly allowed by Control; its bounded retry preserves the other worker. Uncertain POST responses are never replayed automatically. An explicit repeat of the same request reuses its idempotency key, including after a browser reload when session storage is available.
+
+Risk assessments, when supplied by Control, appear on both the investigation and briefing. High and critical levels use an accessible alert; unknown stays not assessable. The displayed review index is not a failure probability, and evidence confidence is not certainty of flooding or dam failure. Malformed scores, alert-level conflicts, foreign worker roles, and differing session/briefing assessments are rejected before display. Owner-record labels do not make a claim about record origin.
 
 Downloads use a native same-origin link through the bounded server route. The server returns the actual standalone HTML briefing with an attachment filename; no live report is assembled from frontend fixtures.
 
@@ -42,12 +48,13 @@ Downloads use a native same-origin link through the bounded server route. The se
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Configured request composer and recent investigations |
+| `/` | Prompt-based or configured-case composer and recent investigations |
 | `/history` | Searchable server-backed history |
 | `/session/[id]` | Independent worker activity and result |
 | `/session/[id]/briefing` | Full or partial grounded briefing |
 | `/worker/hydro?session=[id]` | Hydrometeorology activity for the selected session |
 | `/worker/flood?session=[id]` | Surface Water & Terrain activity for the selected session |
+| `/worker/dam?session=[id]` | Dam Condition activity only when included in the selected session |
 
 A worker page without a selected session does not invent an active investigation. Sidebar worker links use the most recent known session.
 
@@ -55,8 +62,7 @@ A worker page without a selected session does not invent an active investigation
 
 The primary worker screens are served by each worker's Python API, with no Node installation or frontend build on that laptop:
 
-- Kazi's Hydro dashboard: `http://100.100.3.2:8002/dashboard`.
-- Karan's Flood dashboard: `http://100.100.3.4:8003/dashboard`.
+Open `/dashboard` on the selected worker's configured host and port. The current machine assignments and commands are in [DEVELOPER_SETUP.md](../DEVELOPER_SETUP.md).
 
 The worker launcher opens its own dashboard automatically; `--no-open-dashboard` disables that convenience. The page reads only its own `/dashboard/state` endpoint and follows the latest accepted task. Processing duration is displayed in milliseconds, including fast Hydro work. Worker completion is distinct from Control's later evidence checks and combined briefing. Worker task APIs accept internal credentials unconditionally while retaining their route and payload checks.
 
@@ -64,7 +70,7 @@ The self-contained HTML, CSS, and JavaScript live in `backend/shared/dashboard_a
 
 ## Optional Control-hosted legacy viewers
 
-The earlier Control-hosted viewer is optional; it is not the worker-owned dashboard described above. A separate viewer-only Next process can display Control-observed activity over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control, then run from `frontend/`:
+The earlier two-role Control-hosted viewer is optional; it is not the worker-owned dashboard described above. A separate viewer-only Next process can display Control-observed activity over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control, then run from `frontend/`:
 
 ```bash
 npm run start:viewers -- --host 100.100.3.5 --port 3001 --upstream http://127.0.0.1:8001
@@ -72,8 +78,10 @@ npm run start:viewers -- --host 100.100.3.5 --port 3001 --upstream http://127.0.
 
 The legacy `--env-file` flag remains accepted but is optional and ignored. Missing files and invalid internal credential contents do not block startup. No browser login or upstream viewer token is required. The npm command includes Node’s option separator; when invoking the launcher directly, use `node -- scripts/start-viewers.mjs ...` so Node cannot consume the legacy flag itself.
 
-- Kazi opens `http://100.100.3.5:3001/viewer/hydro`.
-- Karan opens `http://100.100.3.5:3001/viewer/flood`.
+- Hydro view: `http://100.100.3.5:3001/viewer/hydro`.
+- Flood view: `http://100.100.3.5:3001/viewer/flood`.
+
+The legacy viewer does not expose a Dam route; use the Dam worker's own dashboard or its selected-session activity page.
 
 These are read-only views of the same current execution session. Open both before Ryan submits the request. They automatically follow each new execution, show a shared session ID and UTC request time, and retain actual observed events when a worker completes between polls. Completed earlier work is labeled while waiting for another investigation; it is never replayed as current processing. Missing updates show a stale-state warning and stop active animations.
 
