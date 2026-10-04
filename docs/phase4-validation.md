@@ -134,11 +134,11 @@ execution; those are Phases 5 and 6.
 
 ## Phase boundary
 
-**Technical checks PASS; awaiting the user checkpoint before Phase 5.**
+**PASS — user approved advancing to Phase 5 on 2026-10-03.**
 
 The necessary checks run in the terminal. No new visual/HTML approval is needed.
 The implementation stays on its separate branch and nothing is pushed remotely.
-Pause at this checkpoint before Phase 5: real remote worker communication.
+The Phase 4 checkpoint is accepted. Phase 5 now covers real remote worker communication.
 
 Primary API references: [FastAPI background execution](https://fastapi.tiangolo.com/tutorial/background-tasks/)
 and [Pydantic strict validation](https://docs.pydantic.dev/latest/concepts/strict_mode/).

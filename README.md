@@ -12,7 +12,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 4 — Shared Contracts and Worker APIs**
+**Phase 5 — Remote Worker Communication**
 
 Completed so far:
 
@@ -31,7 +31,7 @@ Completed so far:
 
 Current focus:
 
-**Phase 4 terminal checkpoint before real remote worker communication**
+**Implement Control dispatch and validate execution on two remote worker laptops.**
 
 ## Status Matrix
 
@@ -57,7 +57,7 @@ DISTRIBUTED SYSTEM
 
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
-Remote Dispatch         NOT STARTED
+Remote Dispatch         IN PROGRESS
 Parallel Execution      NOT STARTED
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
@@ -67,9 +67,9 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Review the Phase 4 terminal checkpoint and approve advancing.
+1. Implement bounded Control-to-worker dispatch and failure/timeout handling.
 2. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
-3. Prove both workers execute at the same time.
+3. Pause for the Phase 5 checkpoint before testing real parallel execution.
 
 Current validation commands and limits are recorded in
 [Phase 4 validation](docs/phase4-validation.md). The earlier
@@ -1169,7 +1169,7 @@ Required:
 
 ## Phase 4 — Shared Contracts and Worker APIs
 
-**Real-data HTTP and automated validation PASS; user checkpoint pending.**
+**PASS — real-data HTTP, automated tests and user checkpoint approved.**
 
 Required:
 
@@ -1781,8 +1781,6 @@ The cloud AI layer and physical worker execution must not be confused.
 Nothing currently.
 
 ## NEXT
-
-**Phase 4 checkpoint acknowledgment**, then:
 
 **Phase 5 — Remote Worker Communication**
 
