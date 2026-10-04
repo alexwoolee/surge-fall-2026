@@ -313,7 +313,17 @@ TCP failure scenarios and a real socket source-address binding check. `pip check
 and `git diff --check` passed. Evidence is in
 `outputs/debug/phase5-portability-pytest.log`. This does not establish native
 Windows cleanup behavior or the physical-laptop checkpoint. Kazi's Hydro endpoint
-is reachable; Karan's Flood startup and the authenticated remote run are next.
+is reachable. Control subsequently verified Karan's Flood endpoint returns 401
+without a token and 200 with its token, identifying an idle `flood-worker` on
+host `ARE`. The authenticated remote real-data run remains pending.
+
+Kazi's native Windows rerun at `f8926da` reported **615 passed, 2 failed, 1
+expected symlink-privilege skip**. Temporary-server cleanup now passes. Both
+remaining Sentinel-1 failures occur after the expected overwrite rejection, when
+the test reopens a Windows file URI to inspect source pixels; Kazi independently
+confirmed both source rasters remained intact. The test now preserves its native
+source path for that final pixel-content check while retaining the URI as analyzer
+input and keeping the overwrite assertion. A further Windows rerun is required.
 
 On Ryan's Mac, normal TCP connections to the Tailscale worker IPs returned
 `EADDRNOTAVAIL`, while binding the socket to the Mac's actual Tailscale address

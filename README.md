@@ -33,7 +33,7 @@ Completed so far:
 
 Current focus:
 
-**Hydro is reachable over Tailscale; bring up Karan's Flood worker and align worker commits for the physical-laptop checkpoint. Windows portability fixes await a native rerun.**
+**Hydro and Flood are reachable over Tailscale. The final Windows test path correction awaits a native rerun; align worker commits for the physical-laptop checkpoint.**
 
 ## Status Matrix
 
@@ -1794,11 +1794,12 @@ The cloud AI layer and physical worker execution must not be confused.
 
 ## BLOCKED
 
-The Phase 5 physical-laptop checkpoint awaits Karan's running Flood server, shared
-private API tokens, matching commits and the authenticated remote real-data run.
-Tailscale peer connectivity is verified; Control can reach Hydro HTTP using its
-explicit Tailscale source address. Windows portability fixes still require a
-native Windows rerun. No Phase 5 completion or Phase 6 overlap is claimed.
+The Phase 5 physical-laptop checkpoint awaits the shared Hydro API token, matching
+commits and the authenticated remote real-data run. Control can reach Hydro HTTP
+using its explicit Tailscale source address and has authenticated Karan's Flood
+worker. Kazi's Windows rerun reported 615 passed, 2 failed and 1 expected symlink
+privilege skip; the remaining native-path test correction awaits another Windows
+rerun. No Phase 5 completion or Phase 6 overlap is claimed.
 
 ## NEXT
 

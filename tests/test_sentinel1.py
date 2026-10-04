@@ -404,11 +404,12 @@ def test_catalog_error_redacts_signed_urls(monkeypatch):
 @pytest.mark.parametrize("file_uri", [False, True])
 def test_output_cannot_overwrite_source_raster(tmp_path, name, file_uri):
     scene = write_scene(tmp_path, [[0.01, 1]], name=name)
+    source_path = Path(scene.href)
     if file_uri:
-        scene = replace(scene, href=Path(scene.href).as_uri())
+        scene = replace(scene, href=source_path.as_uri())
     with pytest.raises(Sentinel1ProcessingError, match="overwrite"):
         analyze_sentinel1_scene(scene, grid_bbox(2, 1), output_dir=tmp_path)
-    with rasterio.open(scene.href) as source:
+    with rasterio.open(source_path) as source:
         np.testing.assert_allclose(source.read(1), [[0.01, 1]])
 
 
