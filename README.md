@@ -17,6 +17,11 @@ The original handoff did not accept Phase 7. After the Mac review below, the
 user explicitly instructed **“proceed”** on October 4, accepting this checkpoint
 and authorizing the accepted phase merge and Phase 8. Historical raw reports
 retain their original `PENDING_USER` status.
+The user subsequently authorized Phase 9 if the grounded explanation passed
+review and requested the identified completeness fixes. Those fixes and the
+offline evidence review now pass, satisfying that condition and accepting
+Phase 8. This records the current user's conditional authorization, not a new
+worker-owner confirmation, physical-laptop run or API test.
 
 ## Exact checkpoint and branches
 
@@ -24,10 +29,12 @@ retain their original `PENDING_USER` status.
 | --- | --- | --- |
 | Phases 1–6 backend | Implemented, real-data validated, human accepted | `origin/codex/parallel-dispatch` at `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
 | Phase 7 implementation | Implemented, validated and human accepted October 4 | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
-| Phase 7 pull request | **Draft, open, not merged**; base `codex/parallel-dispatch`, head `codex/fusion-review` | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
+| Phase 7 pull request | **Merged** into `codex/parallel-dispatch` at `0aa918f`; historical draft metadata remains | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
 | Existing frontend | Next.js/TypeScript/Tailwind demonstration implemented; integration pending | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d` |
 | `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
-| Phases 8–10 | Not implemented | Remaining work is detailed below |
+| Phase 8 | Accepted after the requested explanation fixes and completeness review; merged into `codex/parallel-dispatch` | Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` on `codex/agent-integration`; [Phase 8 checkpoint](docs/phase8-validation.md) |
+| Phase 9 | Ready to begin; live frontend/report integration not implemented | `codex/briefing-integration` from the accepted Phase 8 merge; fetch and reuse it if already created |
+| Phase 10 | Not implemented | Reliability, final demo and submission work remains |
 
 Fetch and verify this snapshot against the remote before acting; another owner
 may have advanced it. README-only commits after `ea4f322` do not represent a new
@@ -55,6 +62,12 @@ evidence that the locally run tests failed.
   atomic output and failure preservation. Missing data is unavailable or
   `not_assessable`, never fabricated zero. Kazi selected **clearly labeled
   demonstration thresholds**, not a validated severity policy.
+- **Phase 8:** bounded Responses API interpretation and validated fact selection;
+  Python-rendered explanations now always include all eight measurements, all
+  review outcomes, study-area/time/coverage context, source products, processing
+  methods and scientific limits. Radar sensitivity is checked before display.
+  Original request retention requires the explicit local `--include-request`
+  opt-in and labels that text as untrusted context, not environmental evidence.
 - **Frontend lane:** Home, history/search, investigation/worker views, complete,
   partial and failed outcomes, bounded demo retry and an HTML briefing demo are
   implemented. Its activity/timing/measurements are explicitly labeled fixtures;
@@ -62,7 +75,17 @@ evidence that the locally run tests failed.
   recorded 12 tests, lint and production build passing. Actual browser download
   capture remains unverified and must be completed in Phase 9.
 
-**Latest backend verification:** Windows Python 3.12, **906 passed and 1 expected
+**Current Phase 8 verification:** macOS Python 3.12.14, **1,239 passed**, zero
+failures/skips; dependency and diff checks pass. All nine offline completeness
+checks pass against retained real evidence. Controlled API-failure replay keeps
+the same measurements and review outcomes. The earlier live `gpt-5.4-mini` check
+passed (three requests, estimated $0.0037 USD); the model catalog and API boundary
+are unchanged, and the rendering fixes required no new API requests or worker
+dispatches. Phase 8 is accepted under the user's conditional authorization; see
+[Phase 8 validation](docs/phase8-validation.md). The downloadable standalone
+HTML briefing and browser download verification remain Phase 9 work.
+
+**Historical Phase 7 verification:** Windows Python 3.12, **906 passed and 1 expected
 symlink-privilege skip**; `pip check` and `git diff --check` passed. Independent
 code review and manual artifact QA found no outstanding issues. This is the
 Phase 7 Windows result, not a claim that Phase 7 was tested on every OS. The
@@ -88,18 +111,21 @@ these commands succeed.
 Fresh checkout (macOS/Linux shell or PowerShell):
 
 ```sh
-git clone --branch codex/fusion-review https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase7-review
-cd surge-fall-2026-phase7-review
+git clone --branch codex/parallel-dispatch https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase9
+cd surge-fall-2026-phase9
 git status --short --branch
 git log -3 --oneline
-git merge-base --is-ancestor ea4f322ae2c4359a3dfb807365e389056e1f6830 HEAD
+git merge-base --is-ancestor 25e48d57eabc942184892cbdb5fb009bd6da487f HEAD
 ```
 
 For an existing **separate development checkout**, inspect `git status` first,
-then fetch, switch to `codex/fusion-review`, and pull with `--ff-only`. Preserve
+then fetch, switch to `codex/parallel-dispatch`, and pull with `--ff-only`. Preserve
 local edits and investigate any refusal instead of using a reset or force push.
-The branch includes the current README; selecting `main` on GitHub shows older
-documentation.
+The ancestor check above verifies that the tested Phase 8 implementation is
+included in the accepted base. Fetch and reuse `codex/briefing-integration` if
+another session has already created it; otherwise create that fresh branch from
+the accepted base. Preserve any existing work on that branch. Selecting `main`
+on GitHub shows older documentation.
 
 Read this README, `requirements.txt`, `.env.example`, and the linked
 [Phase 4](docs/phase4-validation.md), [Phase 5](docs/phase5-validation.md),
@@ -204,8 +230,8 @@ on another machine unless binding to that machine's verified local address.
 The worker needs its own data folders/settings and existing NASA authentication;
 Control needs connectivity to both workers for a real distributed run. Workers
 must use one Uvicorn process, without reload. Registry state is lost on restart.
-Do not stop, update or restart a deployed worker just to review Phase 7 or prepare
-Phase 8; coordinate any later required deployment with its owner. The exact
+Do not stop, update or restart a deployed worker just to review accepted evidence
+or prepare Phase 9; coordinate any later required deployment with its owner. The exact
 startup, authentication and clock-calibration commands remain in the Phase 5/6
 documents. Do not repeat their accepted physical checkpoints merely because the
 development checkout moved laptops.
@@ -216,20 +242,24 @@ development checkout moved laptops.
    (907 passing tests, preserved real evidence and all five demonstration outcomes),
    the user instructed “proceed.” This records the current user’s approval; it does
    not invent a separate named worker-owner confirmation. Original raw reports
-   remain unchanged. Mark PR #1 ready and merge it into **`codex/parallel-dispatch`**.
-   Recheck the PR target and head before merging. Do not merge it into `main`.
-2. **Phase 8 — OpenAI agent integration.** Fetch the accepted merge, then create a
-   new `codex/*` branch from the verified accepted commit. Consult current official
-   OpenAI documentation before selecting SDK/interfaces/model configuration. Add
-   bounded request interpretation, supported investigation/tool selection and
-   grounded explanations. Python owns measurements and threshold decisions. Reject
-   unsupported requests, malformed model output and invented resources. Handle
-   API/model failures while preserving deterministic results. Keep model access
-   bounded; no arbitrary remote commands. `.env.example` only has an OpenAI key
-   placeholder; no agent SDK/interface or app model setup is implemented yet.
-   Run automated tests plus a real integration check with privately configured
-   credentials, document the outcome and stop for Phase 8 acceptance.
-3. **Phase 9 — Connect the existing UI and final briefing.** Inspect
+   remain unchanged. PR #1 was merged into **`codex/parallel-dispatch`** at
+   `0aa918ff3468a25e58ba543970855c51ab9342fa` using Git access. The connector
+   could not update the historical draft flag or PR description; GitHub confirms
+   the merged state. `main` was not changed.
+2. **Phase 8 — Accepted after completeness fixes.** The implementation on
+   `codex/agent-integration` uses the Responses API directly for bounded request
+   interpretation and supported fact selection. Python owns measurements,
+   threshold decisions and explanation text. The final narrative always includes
+   eight measurements, source/method context, validated radar sensitivity when
+   available, every rule outcome and scientific limits. An optional saved request
+   is explicitly untrusted context. Automated checks, the earlier live API check
+   and the updated offline completeness review pass. The user's authorization to
+   proceed once that review passed is now satisfied. Tested implementation
+   **`25e48d57eabc942184892cbdb5fb009bd6da487f`** is merged into
+   **`codex/parallel-dispatch`**, the accepted Phase 9 base. See
+   [Phase 8 validation](docs/phase8-validation.md).
+3. **Phase 9 — Ready to connect the existing UI and final briefing.** Start
+   `codex/briefing-integration` from the accepted Phase 8 merge. Inspect
    `origin/kazi/frontend-ui` before integration, including `frontend/AGENTS.md`,
    `frontend/README.md` and `frontend/IMPLEMENTATION.md`. Preserve that work and
    the approved design. The existing provider boundary is
@@ -254,8 +284,9 @@ tests → review/commit/push a separate `codex/*` branch → human acceptance �
 the accepted phase. Preserve existing passing assertions, run the full Python
 suite and `git diff --check` before finalizing code, and report exact commands,
 PASS/FAIL, limitations and remaining work. Treat historical test counts as history.
-Do not overwrite unrelated work or push `main`. This README-only handoff does
-not require rerunning the unchanged implementation suite on Kazi's laptop.
+Do not overwrite unrelated work or push `main`. Moving the development checkout
+does not require repeating accepted physical-laptop checkpoints; run the checks
+appropriate to new implementation changes before advancing their phase.
 
 ## Scientific boundaries that must survive integration
 
@@ -278,18 +309,22 @@ not require rerunning the unchanged implementation suite on Kazi's laptop.
 
 ```text
 Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the latest
-README on codex/fusion-review, starting with "Continue on Another Laptop".
+README on codex/parallel-dispatch, starting with "Continue on Another Laptop".
 Preserve existing checkouts, private environment files, data and running workers.
-Phases 1–6 are accepted. Phase 7 implementation ea4f322 passed validation; PR #1
-targets codex/parallel-dispatch. Phase 7 human acceptance was recorded after
-the Mac review when the user instructed “proceed” on October 4. Establish the
-current Git/PR state, verify the accepted phase merge, and begin Phase 8 on a
-fresh codex/* branch from that verified merge. Continue phases one at a time with the human
-checkpoints and validation in this README. Inspect origin/kazi/frontend-ui before
-Phase 9; preserve and connect the existing UI. Do not start from main, redo
-accepted Phases 1–6, invent measurements, expose secrets or claim fixture/local
-activity is real distributed execution. Report any missing evidence or credentials
-while continuing independent work.
+Phases 1–8 are accepted and merged into codex/parallel-dispatch. Verify that
+tested Phase 8 implementation 25e48d57eabc942184892cbdb5fb009bd6da487f is an
+ancestor of your continuation branch.
+Phase 8 uses bounded Responses API interpretation and Python-rendered grounded
+explanations. Check docs/phase8-validation.md for current checks, historical live
+API evidence and scientific limitations. The separate Agents API/SDK are not used.
+Start Phase 9 on codex/briefing-integration from the accepted merge; fetch and
+reuse that branch if already created, preserving its existing work. Inspect
+origin/kazi/frontend-ui and frontend/AGENTS.md; preserve and connect the existing
+UI. Build the real Control/UI boundary and standalone HTML briefing, verify its
+browser download and stop at the Phase 9 checkpoint. Do not start from main,
+redo accepted phases, invent measurements, expose
+secrets or claim fixture/local/replayed activity is fresh distributed execution.
+Report missing evidence or credentials while continuing independent work.
 ```
 
 ---
@@ -298,7 +333,7 @@ while continuing independent work.
 
 ## Current Phase
 
-**Phase 7 — Evidence Combination and Deterministic Review: validation PASS; human accepted October 4**
+**Phase 8 accepted and merged; Phase 9 frontend and report integration ready to begin.**
 
 Completed so far:
 
@@ -324,10 +359,13 @@ Completed so far:
 - Phase 7 new local real-data processing and review: **PASS; all 15 reference checks match**
 - Phase 7 Windows Python 3.12 suite: **906 passed, 1 expected symlink-privilege skip**
 - missing-worker and partial-component review preserves available real measurements
+- bounded Responses API request interpretation and deterministic grounded explanations
+- Phase 8 live API validation passed; requested completeness fixes and offline review passed
+- Phase 8 accepted under the user's authorization to proceed after a successful review
 
 Current focus:
 
-**Phase 7 extends accepted baseline `b8a74b6` on `codex/fusion-review`. It combines validated evidence and evaluates explicitly configured demonstration review conditions. Phase 6 remains accepted: implementation `7bde416` proved 0.227333 seconds of guaranteed overlap. The user accepted the Phase 7 checkpoint after the Mac review; Phase 8 follows the accepted merge.**
+**Begin Phase 9 on `codex/briefing-integration` from the accepted Phase 8 merge on `codex/parallel-dispatch`. Connect the existing frontend and produce the real downloadable briefing using the complete grounded explanation. Python retains measurements, review decisions and worker dispatch.**
 
 ## Status Matrix
 
@@ -356,24 +394,27 @@ Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
 Control Fusion          PHASE 7 PASS; HUMAN ACCEPTED OCTOBER 4
-Agent Integration       NOT STARTED
+Agent Integration       PHASE 8 PASS; ACCEPTED AFTER COMPLETENESS REVIEW
 Frontend                DEMONSTRATION UI ON kazi/frontend-ui; LIVE INTEGRATION PENDING
 Final Report            STRUCTURED JSON IMPLEMENTED; LIVE HTML BRIEFING PENDING
 ```
 
 ## Immediate Next Steps
 
-The user accepted the Phase 7 checkpoint after review. Merge PR #1 into
-`codex/parallel-dispatch`, then start Phase 8 on a new `codex/*` branch from
-the verified accepted merge. Phase 8 requires its own validation and human gate.
+Phase 8 is accepted after the user-requested explanation fixes and successful
+completeness review. Its tested implementation `25e48d5` is merged into
+`codex/parallel-dispatch`. Create or fetch `codex/briefing-integration` from that
+accepted base for Phase 9. Preserve the existing frontend and follow its
+instructions before integrating live Control state and the HTML briefing. See
+[the Phase 8 evidence and API boundaries](docs/phase8-validation.md).
 
 [Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
 offline replay, optional Control CLI integration, real-data evidence and limits.
 
 **Repository base:** remote `main` does not contain the accepted backend phases.
-This development branch starts from `origin/codex/parallel-dispatch` at
-`b8a74b698ce476a90b5418aab65f4fd53678e61d`. Preserve the separate worker checkouts
-and existing `kazi/frontend-ui` work.
+Use the accepted Phase 8 merge on `origin/codex/parallel-dispatch`, which includes
+tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f`. Preserve the
+separate worker checkouts and existing `kazi/frontend-ui` work.
 
 Current cross-platform update commands and overlap requirements are in
 [Phase 6 validation](docs/phase6-validation.md). The accepted
@@ -1584,7 +1625,23 @@ The LLM does not decide whether numerical thresholds were crossed.
 
 ## Phase 8 — OpenAI Agent Integration
 
-Authorized after the accepted Phase 7 merge; implementation begins on a separate branch.
+Implemented on `codex/agent-integration` from the accepted Phase 7 merge
+`0aa918f`; accepted after the requested completeness fixes and review. Automated
+checks and the earlier live API verification pass; new rendering was verified
+offline without more paid requests or worker dispatches. Tested implementation
+`25e48d57eabc942184892cbdb5fb009bd6da487f` is merged into the accepted base,
+`codex/parallel-dispatch`. See
+[Phase 8 validation](docs/phase8-validation.md) for setup, commands and evidence.
+The opt-in interface uses the OpenAI Responses API with bounded function calling
+and structured fact selection; Python owns orchestration and explanation text.
+The separate Agents API and Agents SDK are not used.
+
+Every explanation now includes all eight measurements, all review outcomes,
+study-area/time/coverage context, source products, processing methods and limits.
+Radar threshold sensitivity is displayed only after consistency checks. The
+original request is omitted by default; `--include-request` saves it locally as
+quoted, untrusted user context. The complete standalone HTML report remains a
+Phase 9 deliverable.
 
 The AI layer may:
 
@@ -1606,6 +1663,8 @@ It must not:
 The frontend below is already implemented on `kazi/frontend-ui` with labeled
 fixtures. Phase 9 connects it to real execution and reporting; see the continuation
 brief for the provider boundary, required checks and incomplete download capture.
+The accepted Phase 8 merge is its base; Phase 9 is ready to begin, and live
+integration is not yet implemented.
 
 - Next.js
 - TypeScript
@@ -2055,16 +2114,33 @@ accepting this checkpoint and authorizing PR #1’s merge into
 `codex/parallel-dispatch` and Phase 8. This is the current user’s approval, not
 a separately claimed confirmation from a named worker owner.
 
+## PHASE 8 ACCEPTED
+
+The user authorized Phase 9 if the grounded explanation passed review, then
+requested fixes for the identified gaps. The completed explanation now includes
+all measurements, request/study-area context when supplied, source products,
+processing methods, checked radar sensitivity and the necessary limitations.
+All nine offline completeness checks pass against retained real evidence;
+automated tests pass and the earlier live API validation remains applicable to
+the unchanged model catalog and transport. This satisfies the user's condition
+and records Phase 8 acceptance. It does not claim a new named worker-owner check,
+live API call or physical-laptop run. Original live reports retain their original
+`PASS / PENDING_USER` state as historical evidence.
+Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` is merged into
+`codex/parallel-dispatch`; that accepted base supplies the Phase 9 branch.
+
 ## NEXT
 
-**Verify the accepted Phase 7 merge, then implement Phase 8 on a new branch.**
+**Start Phase 9 on `codex/briefing-integration` from the accepted Phase 8 merge,
+preserving `kazi/frontend-ui`. Fetch and reuse the branch if already created.
+Stop at the Phase 9 human checkpoint after live frontend and briefing verification.**
 
 ## CUT FOR NOW
 
 Until their separate accepted phases:
 
 - live frontend integration (the demonstration UI already exists separately)
-- OpenAI agent implementation
+- further agent capabilities beyond the bounded Phase 8 workflow
 - optional sponsor integrations
 - unnecessary dashboards
 - fake telemetry
