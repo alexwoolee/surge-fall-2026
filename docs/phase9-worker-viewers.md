@@ -3,9 +3,9 @@
 The Mac-only human checklist passed, and that implementation was merged at
 `fb14c2a`. The user then clarified that the demo must also show Hydro on Kazi's
 Windows laptop and Flood on Karan's Linux laptop during the same investigation.
-That three-screen checkpoint remains **PENDING**. Phase 10 has not started.
-Continue this addition on `codex/worker-viewers`; preserve the previous evidence
-and accepted local checks without treating them as a three-screen test.
+That three-screen checkpoint is now **PASS — human accepted October 4**.
+Phase 10 has not started. This addition was tested on `codex/worker-viewers`;
+preserve the previous evidence and the separate new run recorded below.
 
 ## What was already proved
 
@@ -107,7 +107,7 @@ tailscale ping 100.100.3.5
 A login failure requires the viewer password, not the worker-service token.
 Do not work around errors by removing authentication or exposing the operator UI.
 
-## Coordinated manual test — PENDING
+## Coordinated manual test — PASS
 
 1. Kazi and Karan open their respective pages and both confirm readiness.
 2. Ryan opens `http://127.0.0.1:3000` and submits **one** supported request:
@@ -146,6 +146,56 @@ Do not work around errors by removing authentication or exposing the operator UI
 
 Evidence is retained locally in `outputs/debug/phase9/worker-viewers-pytest.log`,
 `worker-viewer-api-checks.json` and `worker-viewer-http-checks.json`. The last two
-paths are in that same directory. The operator and viewer listeners are running
-for the owners' browser check. No new three-screen investigation has been
-submitted yet; the coordinated physical-browser checkpoint remains **PENDING**.
+paths are in that same directory. The operator and viewer listeners remain
+running after the accepted coordinated check.
+
+## Coordinated physical run — October 4
+
+Tested implementation: `01df4d7` on `codex/worker-viewers`.
+The user confirmed both physical worker browser pages were open and operational,
+then authorized exactly one new submission from the Control browser.
+
+Shared session and task: **`c51fd780-8b4d-4eea-906b-5fea0bfff690`**.
+
+| Worker | Physical host | Worker-reported execution | Retained observed events |
+| --- | --- | --- | --- |
+| Hydro | Boni (Kazi, Windows) | 0.300619 seconds; complete and validated | 6 |
+| Flood | ARE (Karan, Linux) | 84.312377 seconds; complete and validated | 7 |
+
+Control visibly observed Hydro complete while Flood remained active, then both
+complete. Both role-specific feeds followed the new session and retained their
+own genuine activity. The user confirmed both laptops saw the investigation,
+and that Karan's screen moved through the steps to Complete. Kazi did not see
+an active frame: Hydro finished between the viewer's one-second updates. No
+Hydro processing event was observed, and none was invented or artificially
+extended. Its six retained events include submission, task acceptance, reported
+completion, retrieval and validated evidence.
+
+All **15 live completion checks passed**: matching session IDs, validated worker
+completion, retained terminal observations, stable repeated reads, page access,
+standalone briefing attachment, both workers idle afterward, and unchanged
+history bytes. Independent validation passed **27 read-only assertions**. All
+eight full metric records and all five rule assessments match the prior Phase 9
+session and regenerated accepted Phase 6 reference. Four conditions triggered;
+the root-zone moisture condition did not. Coverage remains correctly partial.
+The briefing preserves historical observation dates and scientific limitations.
+This follow-up does not claim a new calibrated execution-overlap measurement.
+
+Private evidence is in `outputs/debug/phase9/`:
+
+- `three-screen-initial-observation.json`
+- `three-screen-completion-checks.json`
+- `three-screen-control-progress.png` and `three-screen-control-complete.png`
+- `three-screen-briefing.html`
+- `live-history/c51fd780-8b4d-4eea-906b-5fea0bfff690.json`
+
+The new session SHA-256 is
+`cc3a00fae38568d46f31fad7e2847ed5e895272a67cd1257d3244eb562e76f01`.
+The previous session and original Phase 6 report remain byte-for-byte unchanged.
+
+**Human acceptance:** after confirming both physical displays saw the same new
+investigation, the user answered **“Yes both pass”** to the final refresh check:
+the session ID, Complete status and Observed activity persisted, with no Run or
+Retry controls. This accepts **Ryan Control PASS; Kazi Hydro browser PASS;
+Karan Flood browser PASS** and closes the clarified Phase 9 checkpoint.
+Phase 10 has not started.

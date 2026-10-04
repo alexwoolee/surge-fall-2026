@@ -11,10 +11,12 @@ record are merged into `codex/parallel-dispatch`. Phase 10 has not started.
 **Subsequent scope clarification:** “all passed” covered the six Mac-side manual
 checks listed here. The user then required the worker screens on Kazi's and
 Karan's physical laptops to show the same investigation. That additional
-three-screen checkpoint remains pending on `codex/worker-viewers`; see
+three-screen checkpoint passed with user acceptance on `codex/worker-viewers`; see
 [setup and coordinated test](phase9-worker-viewers.md). The prior merge and
-technical evidence remain valid, but do not close the clarified Phase 9 scope
-or begin Phase 10 before this additional check passes.
+technical evidence remain valid. The new shared session was
+`c51fd780-8b4d-4eea-906b-5fea0bfff690`; the user's “Yes both pass” confirms the
+two remote screens and their refresh checks. Phase 9 is accepted in full;
+Phase 10 has not started.
 
 ## Execution boundary
 
@@ -254,5 +256,5 @@ two local servers are running. No new worker run is needed for this review.
 The initial automated, live and six Mac-side human checks pass.
 The accepted development base is `codex/parallel-dispatch`; preserve the separate
 `codex/briefing-integration` implementation history. The additional three-screen
-check on `codex/worker-viewers` remains pending. Phase 10 has not started and
+check on `codex/worker-viewers` also passed with human acceptance. Phase 10 has not started and
 still needs its own reliability and final demo checkpoint.
