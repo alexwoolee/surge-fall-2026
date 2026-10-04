@@ -1,7 +1,9 @@
 /** Frontend view models only; these are not backend/Pydantic contracts. */
 export type StepState = "pending" | "active" | "complete" | "failed";
 export type AgentAvailability = "ready" | "active" | "down" | "failed" | "unknown" | "complete";
-export type WorkerId = "hydro" | "flood";
+export type EnvironmentalWorkerId = "hydro" | "flood";
+export type WorkerId = EnvironmentalWorkerId | "dam";
+export type InvestigationWorkers = Record<EnvironmentalWorkerId, WorkerStatus> & { dam?: WorkerStatus };
 export type DemoScenario = "happy" | "partial" | "validation-failed" | "failed";
 export type AnalysisStatus = "running" | "briefing-ready" | "partial" | "checks-failed" | "failed";
 export type AnalysisPhase = "dispatched" | "processing" | "validating" | "reviewing" | "complete";
@@ -52,6 +54,18 @@ export interface BriefingSection {
   paragraphs: string[];
 }
 
+export interface RiskAssessment {
+  level: "unknown" | "low" | "moderate" | "high" | "critical";
+  score: number | null;
+  confidenceLevel: "low" | "moderate" | "high";
+  confidenceScore: number;
+  alert: boolean;
+  title: string;
+  summary: string;
+  basis: string;
+  limitations: string[];
+}
+
 export interface BriefingViewModel {
   title: string;
   originalRequest: string;
@@ -68,6 +82,7 @@ export interface BriefingViewModel {
   disclaimer: string;
   demoNotice: string;
   executionNotice?: string;
+  risk?: RiskAssessment | null;
 }
 
 export interface SessionSummary {
@@ -85,7 +100,7 @@ export interface AnalysisState extends SessionSummary {
   requestedWindow: string;
   actualCoverage: string;
   control: AgentAvailability;
-  workers: Record<WorkerId, WorkerStatus>;
+  workers: InvestigationWorkers;
   activities: ActivityGroup[];
   reviewConditions: ReviewCondition[];
   validationFailures: ValidationFailure[];
@@ -93,6 +108,7 @@ export interface AnalysisState extends SessionSummary {
   isDemo: boolean;
   executionMode?: "execute" | "review";
   executionNotice?: string;
+  risk?: RiskAssessment | null;
   retryableWorkers?: WorkerId[];
   retrying: boolean;
 }
@@ -102,6 +118,9 @@ export interface ControlConfig {
   case: { case_id: string; name: string; bbox: Record<string, number>; requested_window: { start: string; end: string } };
   canStart: boolean;
   notice: string;
+  routingMode?: "prompt";
+  examples?: string[];
+  availableWorkers?: WorkerId[];
 }
 
 export interface WorkerViewerSnapshot {

@@ -5,6 +5,79 @@ phase checkpoints, validation evidence and development workflow that previously
 lived in the root README. Current generic setup is in [README.md](README.md);
 the team's existing machine commands are in [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md).
 
+## Toddbrook feature branch — October 4, 2026
+
+The user requested a third worker on **`codex/toddbrook-private-worker`**, kept
+separate from `main` until explicit merge approval. This instruction supersedes
+older branch-integration guidance in the historical record below. It does not
+claim the Phase 10 or four-device acceptance checkpoint has passed.
+
+New deployment: Kazi runs Hydro (`100.100.3.2:8002`), Alex runs Flood
+(`100.100.3.3:8003`), Karan runs Dam (`100.100.3.4:8004`), and Ryan runs Control/UI.
+Use [the branch setup and handoff](docs/TODDBROOK_SETUP.md); preserve the original
+configured-case deployment, configuration files, cached data and saved sessions.
+
+`--generic` resolves each ISO historical date or inclusive interval of at most
+seven days, then dispatches matching location/date tasks to Hydro and Flood in
+parallel. Hydro queries live NASA CMR metadata and acquires matching GPM/SMAP
+files on its own device; it reuses only exact, currently discovered cache entries.
+Flood independently queries Sentinel-1 and terrain providers. No fixed recent
+Hydro ZIP supplies these requests. Product absence, incomplete coverage, provider
+failures and finite acquisition budgets remain explicit. Static terrain and
+current reprocessed historical products are labelled with their temporal limits.
+
+Only an explicit Toddbrook Reservoir target adds the Dam worker. Other named
+areas require a registered location or explicit WGS84 bounding box; nearby
+coordinates alone never enable private data. Toddbrook is registered at Whaley
+Bridge, Derbyshire, England. The Dam worker filters operational, inspection,
+supervision, maintenance and instrumentation evidence by observation and
+availability dates. Dates outside the supplied private periods return unknown
+private coverage. Evaluation files and retrospective timelines are not risk
+inputs. The installer extracts only five allowlisted JSONL files and does not
+execute package code. Repository test discovery excludes private packages.
+
+`private_data` is ignored except for its placeholder README. It represents one
+device's private storage: only Karan reads it in deployment; local development
+mocks that boundary. API/dashboard/report outputs contain bounded aggregates,
+fixed screening criteria and opaque references, without raw records, local
+paths, free-text notes or data-origin flags.
+
+Control validates worker identity, lifecycle and matching date/area before
+combining evidence. Risk is a documented ordinal screening index; confidence is
+an evidence-coverage index, not a calibrated probability. A high/critical concern
+produces an accessible screen alert and appears in the standalone report. Missing
+public evidence cannot lower a high private concern. Private records and
+environmental metrics remain processed by deterministic Python; this explicit
+prompt mode makes no paid model calls. Existing configured-case APIs still work.
+
+Validation for this branch:
+
+- Full Python suite: **1,672 passed**, including the original regression tests,
+  location/date routing, private-data isolation, real TCP lifecycle checks,
+  installer, historical cutoffs, source limits, report formatting and persistence.
+- Frontend: **65 tests passed**; lint, TypeScript and isolated production build
+  passed. The existing running interface's build was preserved.
+- Local real HTTP integration through the built Next interface: **197 checks
+  passed** across eight historical/negative-routing sessions. The actual supplied
+  records were processed by a temporary Dam worker; Hydro/Flood used controlled
+  test responses. All eight responses passed the production frontend parser.
+  Browser inspection confirmed the visible critical alert, confidence, three
+  worker results and combined briefing. Temporary servers were stopped.
+- Live read-only provider checks selected matching GPM granules in both 2007 and
+  2019, one fully contained 2019 SMAP averaging interval, the 2019-07-31 Sentinel-1
+  scene, and two DEM/two HAND tiles. This caught and fixed NASA's prefixed GPM
+  catalog identifiers. These checks did not authenticate, download datasets or
+  open rasters; they establish catalog availability, not completed processing.
+- Dependency consistency, generic Control configuration, documentation links,
+  staged private-file exclusion and `git diff --check` passed.
+
+Local evidence: `outputs/debug/toddbrook-full-pytest.log`,
+`outputs/debug/toddbrook-local-smoke/`, and
+`outputs/debug/environmental-context/catalog-validation.json`. These are ignored
+local outputs. Worker setup/handoffs and prompts are in the deployment guide.
+The physical four-device run, actual new-date authenticated downloads and user
+review remain pending; do not merge this feature automatically.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control

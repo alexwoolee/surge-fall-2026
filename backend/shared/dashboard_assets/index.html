@@ -31,6 +31,12 @@
         <ol id="task-timeline" class="status-timeline" aria-label="Observed worker processing stages"></ol>
         <p id="task-summary" class="worker-summary"></p>
       </section>
+      <section id="risk-card" class="worker-task-card" aria-labelledby="risk-heading" hidden>
+        <h2 id="risk-heading">Reservoir risk screening</h2>
+        <p id="risk-level" role="alert"></p>
+        <p id="risk-confidence"></p>
+        <p>Historical screening indicates concern. The index and evidence confidence are not a probability of dam failure or a flood forecast. See Control's report for rules and limitations.</p>
+      </section>
       <section id="events-card" class="worker-task-card" aria-labelledby="events-heading" hidden>
         <header class="card-header"><h2 id="events-heading">Observed activity</h2><span>Worker clock · UTC</span></header>
         <ol id="events-list" class="events-list"></ol>

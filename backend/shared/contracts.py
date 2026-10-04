@@ -21,7 +21,8 @@ from backend.shared.status import TaskState, TERMINAL_STATES
 
 
 AnalysisType = Literal["hydrometeorology", "surface_water_and_terrain"]
-WorkerID = Literal["hydro-worker", "flood-worker"]
+WorkerID = Literal["hydro-worker", "flood-worker", "dam-worker"]
+WorkerAnalysisType = Literal["hydrometeorology", "surface_water_and_terrain", "dam_risk"]
 TaskID = Annotated[str, Field(strict=True, pattern=r"^[A-Za-z0-9_-]{1,128}$")]
 Finite = Annotated[float, Strict(), Field(allow_inf_nan=False)]
 Nonnegative = Annotated[Finite, Field(ge=0)]
@@ -147,7 +148,7 @@ def _bbox_matches(data, bbox):
 
 
 def _identity(worker_id, analysis_type):
-    expected = "hydrometeorology" if worker_id == "hydro-worker" else "surface_water_and_terrain"
+    expected = {"hydro-worker": "hydrometeorology", "flood-worker": "surface_water_and_terrain", "dam-worker": "dam_risk"}.get(worker_id)
     if analysis_type != expected:
         raise ValueError("Worker identity and analysis_type must agree.")
 
@@ -364,7 +365,7 @@ class TaskStatus(Contract):
     process_instance_id: ProcessInstance | None = None
     task_id: TaskID
     worker_id: WorkerID
-    analysis_type: AnalysisType
+    analysis_type: WorkerAnalysisType
     state: TaskState
     received_at: Timestamp
     started_at: Timestamp | None = None
@@ -397,7 +398,7 @@ class WorkerStatus(Contract):
     execution_host: ExecutionHost | None = None
     process_instance_id: ProcessInstance | None = None
     worker_id: WorkerID
-    analysis_type: AnalysisType
+    analysis_type: WorkerAnalysisType
     status: Literal["idle", "busy"]
     active_task_id: TaskID | None = None
     retained_tasks: Count
@@ -419,7 +420,7 @@ class WorkerClock(Contract):
     execution_host: ExecutionHost
     process_instance_id: ProcessInstance
     worker_id: WorkerID
-    analysis_type: AnalysisType
+    analysis_type: WorkerAnalysisType
     sampled_at: Timestamp
 
     @field_validator("sampled_at")

@@ -14,10 +14,12 @@ class WorkerSettings:
     smap_dir: Path = ROOT / 'data/cache/smap'
     worker_token: str | None = field(default=None, repr=False)
     max_tasks: int = 128
+    dam_data_dir: Path = ROOT / 'private_data/toddbrook_dataset/data'
 
     def __post_init__(self):
         object.__setattr__(self, 'gpm_dir', Path(self.gpm_dir).expanduser().resolve())
         object.__setattr__(self, 'smap_dir', Path(self.smap_dir).expanduser().resolve())
+        object.__setattr__(self, 'dam_data_dir', Path(self.dam_data_dir).expanduser().resolve())
         if isinstance(self.max_tasks, bool) or not isinstance(self.max_tasks, int) or not 1 <= self.max_tasks <= 1024:
             raise ValueError('MESHMIND_MAX_TASKS must be an integer from 1 to 1024.')
         validate_token(self.worker_token)
@@ -33,6 +35,7 @@ class WorkerSettings:
             smap_dir=Path(os.environ.get('MESHMIND_SMAP_DIR') or ROOT / 'data/cache/smap'),
             worker_token=os.environ.get('MESHMIND_WORKER_TOKEN') or None,
             max_tasks=capacity,
+            dam_data_dir=Path(os.environ.get('MESHMIND_DAM_DATA_DIR') or ROOT / 'private_data/toddbrook_dataset/data'),
         )
 
 
@@ -56,7 +59,7 @@ class WorkerEndpoint:
     def __post_init__(self):
         from urllib.parse import urlsplit, urlunsplit
 
-        if not isinstance(self.expected_worker_id, str) or self.expected_worker_id not in {'hydro-worker', 'flood-worker'}:
+        if not isinstance(self.expected_worker_id, str) or self.expected_worker_id not in {'hydro-worker', 'flood-worker', 'dam-worker'}:
             raise ValueError('A supported expected_worker_id is required.')
         try:
             if (not isinstance(self.url, str) or not self.url

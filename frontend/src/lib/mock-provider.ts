@@ -5,7 +5,7 @@ import {
   VALIDATION_FAILURES, WORKER_EVENTS, WORKER_STEPS,
 } from "./mock-data";
 import type { MockRecord } from "./mock-data";
-import type { ActivityGroup, AnalysisPhase, AnalysisState, AnalysisStatus, SessionSummary, WorkerId, WorkerStatus, WorkerStep } from "./types";
+import type { ActivityGroup, AnalysisPhase, AnalysisState, AnalysisStatus, SessionSummary, EnvironmentalWorkerId, WorkerStatus, WorkerStep } from "./types";
 
 export interface DemoStorage {
   getItem(key: string): string | null;
@@ -48,7 +48,7 @@ function elapsedFor(record: MockRecord, now: number): number {
   return record.frozenElapsedMs ?? Math.max(0, now - record.startedAt);
 }
 
-function workerState(id: WorkerId, elapsed: number, flags: { down: boolean; failed: boolean; invalid: boolean; retry: boolean }): WorkerStatus {
+function workerState(id: EnvironmentalWorkerId, elapsed: number, flags: { down: boolean; failed: boolean; invalid: boolean; retry: boolean }): WorkerStatus {
   const agent = AGENTS[id];
   const completedAt = id === "hydro" ? DEMO_TIMING.hydroComplete : DEMO_TIMING.floodComplete;
   const complete = !flags.failed && !(id === "flood" && flags.down) && ((id === "hydro" && flags.retry) || elapsed >= completedAt);

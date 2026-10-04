@@ -1,4 +1,4 @@
-import type { BriefingViewModel, DemoScenario, ReviewCondition, ValidationFailure, WorkerId } from "./types";
+import type { BriefingViewModel, DemoScenario, ReviewCondition, ValidationFailure, EnvironmentalWorkerId } from "./types";
 
 /** All sample measurements, provenance, timings, and scientific prose live here. */
 export const DEMO_NOTICE = "Demo data · Simulated workflow. These example observations are not a live environmental assessment.";
@@ -60,7 +60,7 @@ export function createDemoRecords(now: number): MockRecord[] {
   return records.map((record) => ({ ...record, startedAt: record.createdAt }));
 }
 
-export const WORKER_STEPS: Record<WorkerId, { id: string; label: string; at: number }[]> = {
+export const WORKER_STEPS: Record<EnvironmentalWorkerId, { id: string; label: string; at: number }[]> = {
   hydro: [
     { id: "received", label: "Task received", at: 0 },
     { id: "gpm", label: "Locate GPM IMERG observations", at: 1_000 },
@@ -82,7 +82,7 @@ export const WORKER_STEPS: Record<WorkerId, { id: string; label: string; at: num
   ],
 };
 
-export const WORKER_EVENTS: Record<WorkerId, { at: number; text: string }[]> = {
+export const WORKER_EVENTS: Record<EnvironmentalWorkerId, { at: number; text: string }[]> = {
   hydro: [
     { at: 0, text: "Task received." },
     { at: 1_000, text: "Searching GPM IMERG. Rainfall observations located." },

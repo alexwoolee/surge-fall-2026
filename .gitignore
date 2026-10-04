@@ -81,3 +81,7 @@ outputs/reports/*
 .dodsrc
 .urs_cookies
 .netrc
+
+# Worker-local records. Only the placeholder instructions are shared by Git.
+private_data/*
+!private_data/README.md

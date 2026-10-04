@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { DownloadBriefingButton } from "./download-briefing-button";
+import { RiskSummary } from "./risk-summary";
 
 const reviewLabels = { triggered: "Review recommended", "not-triggered": "Not triggered", "not-assessable": "Not assessable" };
 
@@ -36,6 +37,7 @@ export function BriefingView({ id }: { id: string }) {
             <div><dt>Requested window</dt><dd>{briefing.requestedWindow}</dd></div>
             <div><dt>Actual data coverage</dt><dd>{briefing.actualCoverage}</dd></div>
           </dl>
+          <RiskSummary risk={briefing.risk} />
           <section className="briefing-section" aria-labelledby="briefing-measurements"><h2 id="briefing-measurements">Validated measurements</h2><dl className="briefing-metrics">{briefing.metrics.map((metric) => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl></section>
           {briefing.sections.map((section) => <section key={section.id} className="briefing-section" aria-labelledby={`briefing-${section.id}`}><h2 id={`briefing-${section.id}`}>{section.title}</h2>{section.paragraphs.map((paragraph, index) => <p key={`${section.id}-${index}`}>{paragraph}</p>)}</section>)}
           <section className="briefing-section" aria-labelledby="briefing-review">

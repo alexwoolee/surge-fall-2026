@@ -1,34 +1,28 @@
 # MeshMind
 
-MeshMind combines rainfall, soil moisture, satellite surface-water observations
-and terrain measurements into a grounded environmental briefing. A Control
-service coordinates two Python workers, checks their results and applies explicit
-review rules. The web interface shows real task progress and exports a standalone
-HTML report.
+MeshMind combines rainfall, soil moisture, satellite surface-water observations,
+terrain and available site records into a flood-risk screening briefing. Control
+sends the same location and historical dates to independent workers, checks their
+results, and displays a risk level, evidence confidence and downloadable report.
+Missing data remains explicit; risk scores are screening indicators, not flood
+probabilities or emergency guidance.
 
-The included example investigates **Abbotsford / Sumas Prairie, 14–16 November
-2021**. Its observations have different dates and coverage; the app reports those
-limits rather than treating missing data as zero. It supports environmental
-analysis, not emergency-response or evacuation decisions.
+This branch adds a private records worker for **Toddbrook Reservoir, Whaley Bridge,
+Derbyshire, England**. Hydro and Flood run for every resolved request; only
+Toddbrook requests also use the Dam worker. The feature remains separate from
+`main` until approved.
 
-## Run locally
+## Install
 
-This setup runs Control, both workers and the interface on one computer. For the
-team's distributed deployment, see [DEVELOPER_SETUP.md](DEVELOPER_SETUP.md).
-
-You need Git, **Python 3.12**, **Node.js 20.9 or newer** with npm, a NASA Earthdata
-account for the input download, and an OpenAI API key for request interpretation
-and explanation. Internal MeshMind token values are ignored; missing or invalid
-internal credentials do not block access.
-
-### 1. Install Python dependencies
+You need Git, **Python 3.12**, **Node.js 20.9+** and npm. For the team's four-laptop
+setup and private dataset installation, use [the deployment guide](docs/TODDBROOK_SETUP.md).
 
 ```sh
-git clone --branch main https://github.com/alexwoolee/surge-fall-2026.git
+git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git
 cd surge-fall-2026
 ```
 
-Create and activate a virtual environment:
+Create and activate a Python environment:
 
 **macOS / Linux**
 
@@ -44,79 +38,43 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-Then install the pinned dependencies:
+Then install dependencies and save NASA Earthdata login on the Hydro computer:
 
 ```sh
 python -m pip install -r requirements.txt
-```
-
-Use this activated environment for the Python commands below. Activate it again
-in each new Python terminal. If PowerShell blocks activation, use
-`.\.venv\Scripts\python.exe` in place of `python`.
-
-### 2. Prepare the example inputs
-
-From the repository root, sign in to NASA interactively and download the example
-GPM and SMAP files:
-
-```sh
 python -c "import earthaccess; earthaccess.login(strategy='interactive', persist=True)"
-python -m scripts.validate.prepare_hydro_data
 ```
 
-Inputs are cached under `data/cache/`. Flood processing retrieves public
-Sentinel-1, DEM and HAND data when a job runs, so it needs Internet access.
+Hydro queries NASA for the requested area and dates when a job runs, downloading
+or reusing exactly matching files. Flood queries public satellite and terrain
+sources. Internet access is required. No fixed input ZIP or preselected recent
+hours are used by this mode. Internal API tokens and an OpenAI key are not required.
 
-### 3. Configure Control
+## Run
 
-Create these local files with the contents shown. Replace the OpenAI key
-placeholder privately; these files are ignored by Git. NASA and OpenAI still
-require their own external-service credentials.
+For a local Hydro/Flood setup, open four terminals from the repository root.
+Activate the Python environment in each Python terminal. Reuse an existing server
+only if it is running this branch's code; do not start two servers on the same port.
 
-**`.env.openai.local`** in the repository root:
-
-```dotenv
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=gpt-5.4-mini
-```
-
-**`.env.workers.local`** in the repository root:
-
-```dotenv
-HYDRO_WORKER_URL=http://127.0.0.1:8002
-FLOOD_WORKER_URL=http://127.0.0.1:8003
-```
-
-The interface already defaults to Control at `http://127.0.0.1:8001`.
-
-### 4. Start the services
-
-Keep four terminals open. Run the Python commands from the repository root with
-the virtual environment activated. If a server is already running on a port,
-reuse it instead of starting another copy.
-
-**Terminal 1 — Hydro worker**
+**Terminal 1 — Hydro**
 
 ```sh
 python -m scripts.run_worker hydro
 ```
 
-**Terminal 2 — Flood worker**
+**Terminal 2 — Flood**
 
 ```sh
 python -m scripts.run_worker flood
 ```
 
-Each worker opens its own dashboard: [Hydro](http://127.0.0.1:8002/dashboard) and
-[Flood](http://127.0.0.1:8003/dashboard). Add `--no-open-dashboard` for headless use.
-
 **Terminal 3 — Control**
 
 ```sh
-python -m backend.control.serve --execute --rules config/rules.example.json --openai-env-file .env.openai.local --worker-env-file .env.workers.local --gpm-resources 3B-HHR.MS.MRG.3IMERG.20211115-S000000-E002959.0000.V07B.HDF5 3B-HHR.MS.MRG.3IMERG.20211115-S003000-E005959.0030.V07B.HDF5 --smap-resource SMAP_L4_SM_gph_20211114T223000_Vv8010_001.h5
+python -m backend.control.serve --generic
 ```
 
-**Terminal 4 — interface** (start from the repository root)
+**Terminal 4 — interface**
 
 ```sh
 cd frontend
@@ -125,24 +83,33 @@ npm run build
 npm run start
 ```
 
-The interface prints its dashboard link and opens [MeshMind](http://127.0.0.1:3000)
-in the default browser on this computer once ready. Use
-`npm run start -- --no-open-dashboard` for headless startup; the link is still
-printed. Paste the request below and click **Run Analysis** once:
+The interface prints its link and opens [MeshMind](http://127.0.0.1:3000).
+The workers open their own [Hydro](http://127.0.0.1:8002/dashboard) and
+[Flood](http://127.0.0.1:8003/dashboard) dashboards. Add `--no-open-dashboard` to a
+worker command, or `-- --no-open-dashboard` to `npm run start`, for headless use.
 
-> Investigate Abbotsford / Sumas Prairie for 14–16 November 2021 using the configured rainfall, soil moisture, candidate surface-water and terrain evidence. Explain the demonstration review conditions and coverage limitations.
+Paste a request and click **Run Analysis** once:
 
-Wait for both workers and the briefing. A **Partial result** can describe limited
-observation coverage even when processing succeeds. Review the measurements,
-source dates and conditions, then download the briefing. To stop a service, wait
-for its job to finish and press Ctrl+C in its terminal.
+> Assess flood risk at Abbotsford / Sumas Prairie as of 2021-11-15. Explain the evidence, risk level, confidence and coverage gaps.
+
+Use ISO dates (`YYYY-MM-DD`). One date selects that UTC day; an inclusive date
+range may span up to seven days. Other areas work with an explicit WGS84 box,
+for example `bbox=[-1.94,53.29,-1.90,53.32]`. Place names without coordinates are
+currently registered for Toddbrook and Abbotsford. Dates before a product existed,
+missing observations and failed downloads remain unavailable.
+
+For Toddbrook, configure Karan's Dam worker using [the deployment guide](docs/TODDBROOK_SETUP.md),
+which includes the exact four-device commands and 2007/2019 prompts. Keep owner
+records under `private_data` on that worker only. The local Hydro/Flood setup above
+can still return a partial Toddbrook briefing if no Dam worker is running.
+
+Wait for the briefing, review coverage and risk conditions, and download the report.
+Stop each service with Ctrl+C when its job is finished. Keep distributed services
+on a trusted private network; internal API tokens are ignored.
 
 ## More information
 
-- [Developer and distributed-machine setup](DEVELOPER_SETUP.md)
-- [Architecture, scientific details, progress and development workflow](PROJECT_PROGRESS.md)
+- [Four-device setup, historical prompts and Codex handoffs](docs/TODDBROOK_SETUP.md)
+- [Developer setup and the existing configured example](DEVELOPER_SETUP.md)
+- [Architecture, progress, validation and development process](PROJECT_PROGRESS.md)
 - [Frontend details](frontend/README.md)
-
-Saved configuration, cached data and generated reports are local to each machine.
-Keep distributed services on a trusted private network; internal APIs do not
-check access tokens.

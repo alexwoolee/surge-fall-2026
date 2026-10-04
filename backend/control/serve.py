@@ -82,8 +82,9 @@ def main(argv=None):
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--input", type=Path, help="Review retained original evidence; no new worker dispatches.")
     mode.add_argument("--execute", action="store_true", help="Enable new worker investigations for the configured case.")
+    mode.add_argument("--generic", action="store_true", help="Resolve each prompt's area/date; run Hydro and Flood plus site-specific records when applicable.")
     parser.add_argument("--config", type=Path, default=ROOT / "config/test_case.example.json")
-    parser.add_argument("--rules", type=Path, required=True)
+    parser.add_argument("--rules", type=Path, help="Required for the original configured-case mode.")
     parser.add_argument("--control-env-file", type=Path, help="Legacy compatibility option; internal credential files are ignored.")
     parser.add_argument("--viewer-env-file", type=Path, help="Legacy compatibility option; internal credential files are ignored.")
     parser.add_argument("--openai-env-file", type=Path, help="Private OPENAI_API_KEY and OPENAI_MODEL file.")
@@ -97,6 +98,25 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("Port must be between 1 and 65535.")
+    if args.generic:
+        from backend.control.reservoir_web import ReservoirService, create_reservoir_app, load_settings
+        try:
+            settings = load_settings(args.worker_env_file)
+            history = args.history_dir
+            if history == ROOT / 'outputs/debug/control-web':
+                history = ROOT / 'outputs/debug/reservoir/history'
+            app = create_reservoir_app(ReservoirService(settings, history_dir=history))
+        except (ValueError, TypeError, OSError):
+            print('Control worker configuration failed. No requests were sent.')
+            return 2
+        if args.check_config:
+            print('Prompt-routed Control configuration: PASS. No API or worker requests sent.')
+            return 0
+        print('Control API: prompt locations and historical dates; independent Hydro, Flood and applicable dam workers.', flush=True)
+        uvicorn.run(app, host=args.host, port=args.port, workers=1, reload=False, access_log=False)
+        return 0
+    if args.rules is None:
+        parser.error('--rules is required for configured-case execution or retained review.')
     if args.execute and (not args.gpm_resources or not args.smap_resource):
         parser.error("--execute requires configured --gpm-resources and --smap-resource.")
     if args.input and (args.gpm_resources or args.smap_resource or args.worker_env_file):

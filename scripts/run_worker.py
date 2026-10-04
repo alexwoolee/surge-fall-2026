@@ -80,13 +80,13 @@ class WorkerServer(uvicorn.Server):
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
-    parser.add_argument("role", choices=("hydro", "flood"))
+    parser.add_argument("role", choices=("hydro", "flood", "dam"))
     parser.add_argument("--host", type=_host, default="127.0.0.1")
-    parser.add_argument("--port", type=_port, help="Default: Hydro 8002; Flood 8003.")
+    parser.add_argument("--port", type=_port, help="Default: Hydro 8002; Flood 8003; Dam 8004.")
     parser.add_argument("--no-open-dashboard", action="store_true",
                         help="Run headless without opening this worker's dashboard in a browser.")
     args = parser.parse_args(argv)
-    port = args.port or (8002 if args.role == "hydro" else 8003)
+    port = args.port or {"hydro": 8002, "flood": 8003, "dam": 8004}[args.role]
     url = None if args.no_open_dashboard else _dashboard_url(args.host, port)
     config = uvicorn.Config(
         f"backend.workers.{args.role}.main:create_app", factory=True,

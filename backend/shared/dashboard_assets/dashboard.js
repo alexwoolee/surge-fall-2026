@@ -10,11 +10,21 @@ const exactKeys = (value, keys) => Object.keys(value).sort().join(",") === [...k
 
 export function validateDashboardState(value) {
   const fail = () => { throw new Error("Worker dashboard state is invalid."); };
-  if (!isObject(value) || !exactKeys(value, ["role", "name", "status", "task", "events", "notice"])
-    || !["hydro", "flood"].includes(value.role) || !isString(value.name, 160) || !isString(value.notice)
+  if (!isObject(value) || !exactKeys(value, ["role", "name", "status", "task", "events", "notice", ...(value.role === "dam" ? ["risk"] : [])])
+    || !["hydro", "flood", "dam"].includes(value.role) || !isString(value.name, 160) || !isString(value.notice)
     || !["idle", "active", ...TERMINAL].includes(value.status) || !Array.isArray(value.events) || value.events.length > 256
     || !value.events.every((event) => isObject(event) && exactKeys(event, ["state", "observedAt", "label"])
       && TASK_STATES.includes(event.state) && isDate(event.observedAt) && isString(event.label))) return fail();
+  if (value.role === "dam" && value.risk !== null) {
+    const risk = value.risk;
+    if (!isObject(risk) || !exactKeys(risk, ["level", "score", "confidenceLevel", "confidenceScore", "alert", "asOf"])
+      || !["unknown", "low", "moderate", "high", "critical"].includes(risk.level)
+      || (risk.level === "unknown" ? risk.score !== null : !Number.isInteger(risk.score) || risk.score < 0 || risk.score > 100)
+      || !["low", "moderate", "high"].includes(risk.confidenceLevel)
+      || typeof risk.confidenceScore !== "number" || !Number.isFinite(risk.confidenceScore) || risk.confidenceScore < 0 || risk.confidenceScore > 1
+      || typeof risk.alert !== "boolean" || risk.alert !== ["high", "critical"].includes(risk.level)
+      || !isDate(risk.asOf) || value.status !== "complete") return fail();
+  }
   if (value.task === null) {
     if (value.status !== "idle" || value.events.length) return fail();
     return value;
@@ -113,11 +123,22 @@ function renderDashboard(document, snapshot) {
   root.dataset.status = snapshot.status; root.dataset.stale = "false";
   document.getElementById("connection-warning").hidden = true;
   document.title = `MeshMind · ${snapshot.name}`;
-  setText("role-label", snapshot.role === "hydro" ? "Hydrometeorology" : "Surface Water & Terrain");
+  setText("role-label", snapshot.role === "hydro" ? "Hydrometeorology" : snapshot.role === "dam" ? "Reservoir Risk" : "Surface Water & Terrain");
   setText("worker-name", snapshot.name);
   setText("worker-subtitle", snapshot.status === "active" ? "Executing on this laptop" : "Hosted on this laptop");
   setText("worker-status", STATUS_LABELS[snapshot.status]);
   setText("worker-notice", snapshot.notice);
+  const riskCard = document.getElementById("risk-card");
+  if (riskCard) {
+    const risk = snapshot.role === "dam" ? snapshot.risk : null;
+    riskCard.hidden = !risk;
+    if (risk) {
+      riskCard.dataset.alert = String(risk.alert);
+      setText("risk-heading", risk.alert ? "Flood risk screening alert" : "Reservoir risk screening");
+      setText("risk-level", risk.level === "unknown" ? "UNKNOWN · insufficient temporal coverage" : `${risk.level.toUpperCase()} · ${risk.score}/100 screening index`);
+      setText("risk-confidence", `${risk.confidenceLevel} evidence confidence · ${Math.round(risk.confidenceScore * 100)}% · as of ${risk.asOf}`);
+    }
+  }
   const task = snapshot.task;
   document.getElementById("task-card").hidden = !task;
   document.getElementById("events-card").hidden = !task;

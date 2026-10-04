@@ -97,3 +97,12 @@ test("every valid Control operation accepts absent or arbitrary internal credent
     }
   }
 });
+
+test("Dam retry expands only the fixed role allowlist and preserves request validation", async () => {
+  let calls = 0;
+  const retry = (worker: string) => new Request(`http://localhost:3000/api/control/sessions/${ID}/retry`, { method: "POST", headers: { Host: "localhost:3000", Origin: "http://localhost:3000", "Content-Type": "application/json" }, body: JSON.stringify({ worker, requestId: ID }) });
+  const fetcher: typeof fetch = async (input, init) => { calls++; assert.equal(String(input), `http://127.0.0.1:8001/sessions/${ID}/retry`); assert.equal(JSON.parse(new TextDecoder().decode(init?.body as Uint8Array)).worker, "dam"); return Response.json({ id: ID }, { status: 202 }); };
+  assert.equal((await proxyControl(retry("dam"), ["sessions", ID, "retry"], { env, fetcher })).status, 202);
+  for (const worker of ["DAM", "other", "dam/../hydro", "http://other"]) assert.equal((await proxyControl(retry(worker), ["sessions", ID, "retry"], { env, fetcher })).status, 400);
+  assert.equal(calls, 1);
+});

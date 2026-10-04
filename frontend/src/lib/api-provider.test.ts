@@ -64,3 +64,46 @@ test("forwards cancellation and validates IDs before any network access", async 
   await assert.rejects(provider.getAnalysis("ready")); assert.equal(called, false);
   controller.abort(); await assert.rejects(provider.getAnalysis(ID, controller.signal), { name: "AbortError" });
 });
+
+test("accepts conditional Dam and consistent risk without changing two-worker history", async () => {
+  const base = await realState();
+  const risk = { level: "high", score: 70, confidenceLevel: "moderate", confidenceScore: 0.6, alert: true, title: "Review priority", summary: "Indicators warrant review.", basis: "Owner records and environmental evidence.", limitations: ["Limited coverage."] };
+  const dam = { ...base.workers.hydro, id: "dam", name: "Dam Condition", location: "Dam worker", resources: ["Owner records"] };
+  const state = { ...base, workers: { ...base.workers, dam }, risk, briefing: { ...base.briefing!, risk }, retryableWorkers: ["dam"] };
+  const result = await createApiProvider({ fetcher: async () => json(state) }).getAnalysis(ID);
+  assert.equal(result?.workers.dam?.id, "dam");
+  assert.equal(result?.risk?.level, "high");
+  assert.equal(result?.briefing?.risk?.confidenceScore, 0.6);
+  const historical = await createApiProvider({ fetcher: async () => json(base) }).getAnalysis(ID);
+  assert.equal(historical?.workers.dam, undefined);
+  assert.equal(historical?.risk, undefined);
+  for (const invalid of [
+    { ...state, workers: { ...state.workers, other: dam } },
+    { ...state, workers: { ...state.workers, dam: { ...dam, id: "flood" } } },
+    { ...state, workers: { hydro: base.workers.hydro, dam } },
+    { ...base, retryableWorkers: ["dam"] },
+    { ...state, risk: { ...risk, alert: false } },
+    { ...state, risk: { ...risk, confidenceScore: 1.5 } },
+    { ...state, briefing: { ...state.briefing, risk: { ...risk, score: 35 } } },
+    { ...state, briefing: { ...state.briefing, risk: undefined } },
+    { ...state, risk: undefined },
+  ]) await assert.rejects(createApiProvider({ fetcher: async () => json(invalid) }).getAnalysis(ID), /invalid investigation/);
+});
+
+test("prompt config validates examples and available roles while retaining legacy config", async () => {
+  const config = { mode: "execute", case: { case_id: "toddbrook", name: "Toddbrook", bbox: {}, requested_window: { start: "2019-07-28", end: "2019-08-01" } }, canStart: true, notice: "Locations and dates resolve from your prompt.", routingMode: "prompt", examples: ["Investigate Toddbrook Reservoir in 2007.", "Investigate Toddbrook Reservoir in 2019."], availableWorkers: ["hydro", "flood", "dam"] };
+  const result = await createApiProvider({ fetcher: async () => json(config) }).getConfig!();
+  assert.equal(result.routingMode, "prompt"); assert.deepEqual(result.examples, config.examples);
+  for (const change of [{ routingMode: "anything" }, { examples: [42] }, { examples: [""] }, { examples: undefined }, { availableWorkers: ["hydro", "dam"] }, { availableWorkers: ["hydro", "flood", "other"] }, { availableWorkers: ["hydro", "flood", "dam", "dam"] }]) {
+    await assert.rejects(createApiProvider({ fetcher: async () => json({ ...config, ...change }) }).getConfig!(), /configuration could not be read/);
+  }
+});
+
+test("Dam retry uses only the selected fixed worker role", async () => {
+  const provider = createApiProvider({ uuid: () => KEY, storage: null, fetcher: async (input, init) => {
+    assert.equal(String(input), `/api/control/sessions/${ID}/retry`);
+    assert.deepEqual(JSON.parse(String(init?.body)), { worker: "dam", requestId: KEY });
+    return json({ id: ID }, 202);
+  } });
+  await provider.retryWorker(ID, "dam");
+});

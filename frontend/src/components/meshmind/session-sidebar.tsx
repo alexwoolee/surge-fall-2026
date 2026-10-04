@@ -3,7 +3,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Home, SquarePlus, Search, History, PanelLeftClose, PanelLeft, ArrowUpRight } from "lucide-react";
-import { useSessions } from "@/hooks/use-meshmind";
+import { useControlConfig, useSessions } from "@/hooks/use-meshmind";
+import { configuredWorkers, WORKERS } from "@/lib/workers";
 import { Logo } from "./logo";
 import { isDemoMode } from "@/lib/data-provider";
 import { sessionLabels } from "./session-badge";
@@ -29,6 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { sessions } = useSessions();
+  const { config } = useControlConfig();
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key === "k") { event.preventDefault(); router.push("/history?search=1"); }
@@ -44,7 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="sidebar-brand"><Link href="/" onClick={closeMobileSidebar} aria-label="MeshMind home"><Logo /></Link><button ref={collapseRef} className="icon-button" onClick={closeSidebar} aria-label="Collapse sidebar"><PanelLeftClose size={17}/></button></div>
       <nav>{nav.map(({href,label,icon:Icon}) => <Link key={label} href={href} onClick={(event) => { closeMobileSidebar(); if (label === "New investigation") { event.preventDefault(); router.push(`/?new=${crypto.randomUUID()}`); } }} className={`nav-item ${((href === "/" && pathname === "/") || (href === "/history" && pathname === "/history")) ? "nav-item--active" : ""}`}><Icon size={18}/><span>{label}</span>{label === "Search sessions" && <kbd>⌘K</kbd>}</Link>)}</nav>
       <div className="sidebar-section"><p className="sidebar-label">Recents</p><div className="sidebar-recents">{sessions.slice(0,5).map((session) => <Link key={session.id} href={`/session/${session.id}`} onClick={closeMobileSidebar} className={`recent-nav ${pathname.includes(`/session/${session.id}`) ? "recent-nav--active" : ""}`}><span>{session.title}</span><small>{sessionLabels[session.status]}</small></Link>)}</div></div>
-      <div className="sidebar-section"><p className="sidebar-label">Workers</p><Link href={sessions[0] ? `/worker/hydro?session=${encodeURIComponent(sessions[0].id)}` : "/worker/hydro"} onClick={closeMobileSidebar} className="worker-nav-link"><span className="worker-nav-mark">2</span><span>Hydrometeorology<small>Laptop 2</small></span><ArrowUpRight size={14}/></Link><Link href={sessions[0] ? `/worker/flood?session=${encodeURIComponent(sessions[0].id)}` : "/worker/flood"} onClick={closeMobileSidebar} className="worker-nav-link"><span className="worker-nav-mark">3</span><span>Surface Water & Terrain<small>Laptop 3</small></span><ArrowUpRight size={14}/></Link></div>
+      <div className="sidebar-section"><p className="sidebar-label">Workers</p>{configuredWorkers(config).map((id) => <Link key={id} href={sessions[0] ? `/worker/${id}?session=${encodeURIComponent(sessions[0].id)}` : `/worker/${id}`} onClick={closeMobileSidebar} className="worker-nav-link"><span className="worker-nav-mark">{WORKERS[id].mark}</span><span>{WORKERS[id].name}<small>{WORKERS[id].location}</small></span><ArrowUpRight size={14}/></Link>)}</div>
       <div className="sidebar-foot"><span className="demo-indicator"/>{isDemoMode ? "Frontend demo" : "Control workspace"}<p>{isDemoMode ? "Simulated activity & evidence" : "Validated environmental evidence"}</p></div>
     </aside>
     <button ref={desktopToggleRef} className="sidebar-toggle sidebar-toggle--desktop icon-button" aria-label="Expand sidebar" aria-expanded={!collapsed} aria-controls="main-navigation" onClick={() => { setCollapsed(false); requestAnimationFrame(() => collapseRef.current?.focus()); }}><PanelLeft size={20}/></button>

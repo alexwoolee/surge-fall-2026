@@ -15,6 +15,7 @@ import { PartialResultCard } from "./partial-result-card";
 import { ValidationFailureCard } from "./validation-failure-card";
 import { Composer } from "./composer";
 import { Reveal } from "./reveal";
+import { RiskSummary } from "./risk-summary";
 
 export function SessionView({ id }: { id: string }) {
   const { analysis, loading, error, refresh } = useAnalysis(id);
@@ -55,6 +56,7 @@ export function SessionView({ id }: { id: string }) {
         <p className="sr-only" role="status" aria-live="polite">{phaseLabel}</p>
         <div className="prompt-bubble"><p>{analysis.prompt}</p></div>
         <div className="context-pills"><span className="context-pill">{analysis.studyArea}</span><span className="context-pill">{analysis.requestedWindow}</span></div>
+        <RiskSummary risk={analysis.risk} />
         <div className="session-activity" aria-label="Observable system activity">
           {analysis.activities.map((activity) => {
             const worker = Object.values(analysis.workers).find((candidate) => candidate.name === activity.name && candidate.location === activity.location);
@@ -64,7 +66,7 @@ export function SessionView({ id }: { id: string }) {
         {analysis.status === "running" && <div className="session-run-note"><span className="run-note-dot" aria-hidden="true" /><span>{phaseLabel}</span><span className="muted">Workers update independently</span></div>}
         {analysis.status === "briefing-ready" && <Reveal><BriefingCard analysis={analysis} /></Reveal>}
         {analysis.status === "partial" && <Reveal><PartialResultCard analysis={analysis} onRetry={retryWorker} retrying={retrying || analysis.retrying} /></Reveal>}
-        {analysis.status !== "partial" && !analysis.retrying && analysis.retryableWorkers?.map((worker) => <Button key={worker} variant="outline" onClick={() => void retryWorker(worker)} disabled={retrying}>Retry {analysis.workers[worker].name}</Button>)}
+        {analysis.status !== "partial" && !analysis.retrying && analysis.retryableWorkers?.map((worker) => analysis.workers[worker] && <Button key={worker} variant="outline" onClick={() => void retryWorker(worker)} disabled={retrying}>Retry {analysis.workers[worker]?.name}</Button>)}
         {retryError && <p className="inline-error" role="alert">{retryError}</p>}
         {analysis.status === "checks-failed" && <ValidationFailureCard failures={analysis.validationFailures} />}
         {analysis.status === "failed" && <section className="result-card result-card--red"><header className="result-header"><span className="outcome-badge badge-red">Failed</span></header><div className="result-body"><h2>This investigation could not be completed.</h2><p>No validated combined briefing is available for this run. The activity above records where execution stopped.</p><Button asChild variant="outline"><Link href="/"><RefreshCw size={15} aria-hidden="true" />Start another investigation</Link></Button></div></section>}
