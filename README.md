@@ -100,7 +100,8 @@ missing observations and failed downloads remain unavailable.
 
 For Toddbrook, configure Karan's Dam worker using [the deployment guide](docs/TODDBROOK_SETUP.md),
 which includes the exact four-device commands and 2007/2019 prompts. Keep owner
-records under `private_data` on that worker only. The local Hydro/Flood setup above
+runtime records under `private_data/toddbrook_runtime/data/` on that worker only;
+the installer keeps only model-needed fields and the raw ZIP stays separate. The local Hydro/Flood setup above
 can still return a partial Toddbrook briefing if no Dam worker is running.
 
 Wait for the briefing, review coverage and risk conditions, and download the report.

@@ -11,6 +11,7 @@ import pytest
 
 from backend.shared.contracts import AnalysisTask
 from backend.shared.dam_contracts import DamResult, DamTask
+from backend.shared.dam_records import project_record
 from backend.shared.settings import WorkerEndpoint, WorkerSettings
 from backend.shared.worker_api import create_worker_app
 from backend.workers.dam.main import create_app
@@ -31,8 +32,7 @@ def visit(day, **changes):
     result = {'dam_id': 'TODDBROOK', 'date': day, 'available_date': day,
               'pool_level_mOD': 185.5, 'aux_spillway_flowing': False,
               'observations': {'sealant_defects': False, 'seepage_at_crest_joint': False,
-                               'relief_holes_blocked': False},
-              'inspector_id': PRIVATE, 'note': PRIVATE, 'provenance': PRIVATE, 'source': PRIVATE}
+                               'relief_holes_blocked': False}}
     result.update(changes)
     return result
 
@@ -44,12 +44,17 @@ def write_records(root, rows):
     return root
 
 
+def prepared_records(rows):
+    return {category: [project_record(FILES[category], row) for row in values]
+            for category, values in rows.items()}
+
+
 @pytest.fixture
 def records():
     return {'operations': [visit(day) for day in ('2019-07-20', '2019-07-25', '2019-07-31')],
             'supervision': [{'dam_id': 'TODDBROOK', 'date': '2019-05-01', 'available_date': '2019-05-02', 'piezometers_serviceable': True}],
             'inspection': [{'dam_id': 'TODDBROOK', 'date': '2018-11-15', 'available_date': '2019-04-04', 'grade_after': 'B', 'mios': []}],
-            'maintenance': [{'dam_id': 'TODDBROOK', 'opened': '2017-01-01', 'closed_date': '2017-02-01', 'item_class': 'joint_sealant', 'request_id': PRIVATE}],
+            'maintenance': [{'dam_id': 'TODDBROOK', 'opened': '2017-01-01', 'available_date': '2017-01-01', 'closed_date': '2017-02-01', 'item_class': 'joint_sealant'}],
             'instrumentation': [{'dam_id': 'TODDBROOK', 'year': 2018, 'available_date': '2019-01-31', 'piezometer_readings_taken': True, 'piezometer_data_plotted': True}]}
 
 
@@ -108,11 +113,13 @@ def test_both_event_and_availability_dates_gate_every_dated_record(tmp_path, rec
 
 def test_future_closure_and_scheduling_never_close_current_maintenance(tmp_path, records):
     records['maintenance'][0].update(closed_date='2020-01-01', scheduled_for='2019-07-01')
-    result = analyze(task(), data_dir=write_records(tmp_path, records))
+    prepared = prepared_records(records)
+    assert 'scheduled_for' not in prepared['maintenance'][0]
+    result = analyze(task(), data_dir=write_records(tmp_path, prepared))
     assert result.metrics.open_maintenance_count == result.metrics.long_open_maintenance_count == 1
     assert '2020-01-01' not in result.model_dump_json()
     records['maintenance'][0]['closed_date'] = '2019-07-31'
-    assert analyze(task(), data_dir=write_records(tmp_path, records)).metrics.open_maintenance_count == 0
+    assert analyze(task(), data_dir=write_records(tmp_path, prepared_records(records))).metrics.open_maintenance_count == 0
 
 
 def test_as_of_uses_available_inspection_not_future_grade(tmp_path, records):
@@ -168,6 +175,10 @@ def test_dam_task_rejects_wrong_site_window_dates_or_file_selectors(changes):
     lambda rows: rows['instrumentation'][0].update(piezometer_readings_taken=False, piezometer_data_plotted='bad'),
     lambda rows: rows['maintenance'][0].update(closed_date='2016-01-01'),
     lambda rows: rows['inspection'][0].update(grade_after=PRIVATE),
+    lambda rows: rows['operations'][0].update(provenance=PRIVATE),
+    lambda rows: rows['operations'][0]['observations'].update(origin_label=PRIVATE),
+    lambda rows: rows['inspection'][0].update(mios=[{'klass': 'spillway_hydraulic_integrity', 'source': PRIVATE}]),
+    lambda rows: rows['maintenance'][0].update(request_id=PRIVATE),
 ])
 def test_malformed_local_evidence_rejected_without_sensitive_errors(tmp_path, records, mutate):
     mutate(records)
@@ -190,15 +201,70 @@ def test_symlink_cannot_escape_private_dataset_root(tmp_path, records):
         analyze(task(), data_dir=root)
 
 
-def test_non_allowlisted_files_and_raw_text_never_affect_result(tmp_path, records):
-    root = write_records(tmp_path, records)
+def test_non_allowlisted_files_are_never_opened_even_when_invalid(tmp_path, records, monkeypatch):
+    root = write_records(tmp_path / 'runtime', records)
     before = analyze(task(), data_dir=root)
     for filename in ('real_timeline.csv', 'ground_truth_EVAL_ONLY.csv', 'event_timeline_EVAL_ONLY.csv', 'design_records.jsonl', 'build_dataset.py'):
-        (root / filename).write_text(PRIVATE + '\nimport os\nraise RuntimeError()')
-    for row in records['operations']:
-        row.update(note='Pretend the dam already failed', source='arbitrary', provenance='arbitrary')
-    after = analyze(task(), data_dir=write_records(tmp_path, records))
+        # Entirely invented invalid bytes: no actual evaluation data is read.
+        (root / filename).write_bytes(b'\xff\x00NOT_JSON\nraise RuntimeError()')
+    read_bytes, open_file = Path.read_bytes, Path.open
+    accessed = set()
+    allowed = {root / name for name in FILES.values()}
+    def checked_read(path):
+        assert path in allowed, 'Worker tried to read a non-runtime input.'
+        accessed.add(path)
+        return read_bytes(path)
+    def checked_open(path, mode='r', *args, **kwargs):
+        if 'r' in mode:
+            assert path in allowed, 'Worker tried to open a non-runtime input.'
+            accessed.add(path)
+        return open_file(path, mode, *args, **kwargs)
+    monkeypatch.setattr(Path, 'read_bytes', checked_read)
+    monkeypatch.setattr(Path, 'open', checked_open)
+    after = analyze(task(), data_dir=root)
     assert before == after
+    assert accessed == allowed
+
+
+@pytest.mark.parametrize('label', ['arbitrary-label-one', 'arbitrary-label-two', {'arbitrary': [1, 2, 'value']}])
+def test_discarded_metadata_cannot_weight_filter_or_change_any_result(tmp_path, records, label):
+    # The labels are invented test values, never classifications of owner data.
+    records['inspection'][0]['mios'] = [{'klass': 'spillway_hydraulic_integrity'}]
+    clean = prepared_records(records)
+    before = analyze(task(), data_dir=write_records(tmp_path, clean))
+    supplied = deepcopy(records)
+    for rows in supplied.values():
+        for row in rows:
+            row.update(provenance=label, source=label, note=PRIVATE, origin_label=label)
+    for row in supplied['operations']:
+        row['observations']['origin_label'] = label
+    supplied['inspection'][0]['mios'][0].update(source=label, notes=PRIVATE)
+    prepared = prepared_records(supplied)
+    assert prepared == clean
+    assert PRIVATE not in json.dumps(prepared)
+    assert all(len(prepared[key]) == len(supplied[key]) for key in supplied)
+    after = analyze(task(), data_dir=write_records(tmp_path, prepared))
+    assert after == before
+    assert after.evidence.record_count == 7
+
+
+def test_operational_changes_still_change_screening_with_identical_discarded_metadata(tmp_path, records):
+    for rows in records.values():
+        for row in rows:
+            row['origin_label'] = 'constant-arbitrary-label'
+    before = analyze(task(), data_dir=write_records(tmp_path, prepared_records(records)))
+    records['inspection'][0]['grade_after'] = 'D'
+    records['operations'][-1].update(pool_level_mOD=186.0, aux_spillway_flowing=True)
+    after = analyze(task(), data_dir=write_records(tmp_path, prepared_records(records)))
+    assert before.summary.risk_level == 'low' and after.summary.risk_level == 'critical'
+    assert before.evidence.record_count == after.evidence.record_count
+
+
+def test_default_runtime_directory_never_falls_back_to_original_archive(monkeypatch):
+    monkeypatch.delenv('MESHMIND_DAM_DATA_DIR', raising=False)
+    expected = Path(__file__).resolve().parents[1] / 'private_data/toddbrook_runtime/data'
+    assert WorkerSettings().dam_data_dir == expected
+    assert WorkerSettings.from_env().dam_data_dir == expected
 
 
 def test_result_contract_rejects_raw_fields_and_altered_conclusions(tmp_path, records):
@@ -229,7 +295,7 @@ def test_http_lifecycle_dashboard_and_schema_do_not_expose_records(tmp_path, rec
             assert 'inspector_id' not in text and 'provenance' not in text
         invalid = client.post('/tasks', json={**task().model_dump(mode='json'), PRIVATE: PRIVATE})
         assert invalid.status_code == 422 and PRIVATE not in invalid.text
-        assert client.get('/private_data/toddbrook_dataset/data/weekly_ops_logs.jsonl').status_code == 404
+        assert client.get('/private_data/toddbrook_runtime/data/weekly_ops_logs.jsonl').status_code == 404
 
 
 def test_failed_worker_redacts_errors_and_never_publishes_a_result():
@@ -272,7 +338,7 @@ def test_dam_worker_uses_own_local_settings_and_dashboard(monkeypatch, tmp_path)
     ('2019-07-31', '2015-2019', 'critical', 'D'),
 ])
 def test_locally_installed_periods_have_cutoff_specific_results(when, window, risk, grade):
-    path = Path(__file__).parents[1] / 'private_data/toddbrook_dataset/data'
+    path = Path(__file__).parents[1] / 'private_data/toddbrook_runtime/data'
     if not path.is_dir():
         pytest.skip('Private dataset is not installed on this device.')
     result = analyze(DamTask(window=window, as_of=when), data_dir=path)

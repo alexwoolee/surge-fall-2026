@@ -1,6 +1,7 @@
 """The portable installer never executes archive helpers or exposes record text."""
 
 from pathlib import Path
+import json
 import stat
 import zipfile
 
@@ -9,12 +10,24 @@ import pytest
 from scripts import install_private_dataset as installer
 
 
-RECORD = b'{"dam_id":"TODDBROOK","private_note":"do not print this"}\n'
+ANALYTICAL_RECORDS = {
+    "weekly_ops_logs.jsonl": {"dam_id": "TODDBROOK", "date": "2019-07-31", "available_date": "2019-07-31",
+                             "pool_level_mOD": 185.7, "aux_spillway_flowing": False,
+                             "observations": {"sealant_defects": False, "seepage_at_crest_joint": False, "relief_holes_blocked": False}},
+    "se_reports.jsonl": {"dam_id": "TODDBROOK", "date": "2019-07-01", "available_date": "2019-07-02", "piezometers_serviceable": True},
+    "inspections_s10.jsonl": {"dam_id": "TODDBROOK", "date": "2018-11-15", "available_date": "2019-04-04", "grade_after": "B", "mios": []},
+    "maintenance_requests.jsonl": {"dam_id": "TODDBROOK", "opened": "2017-01-01", "closed_date": None, "item_class": "joint_sealant"},
+    "instrumentation_log.jsonl": {"dam_id": "TODDBROOK", "year": 2018, "available_date": "2019-01-31", "piezometer_readings_taken": True, "piezometer_data_plotted": True},
+}
+CANONICAL = {name: (json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n").encode()
+             for name, row in ANALYTICAL_RECORDS.items()}
+RECORD = CANONICAL["weekly_ops_logs.jsonl"]
 
 
 def archive(tmp_path, *, overrides=None, extras=()):
     path = tmp_path / "owner.zip"
-    entries = {installer.ARCHIVE_PREFIX + name: RECORD for name in installer.DATA_FILES}
+    entries = {installer.ARCHIVE_PREFIX + name: (json.dumps({**row, "private_note": "do not print this"}) + "\n").encode()
+               for name, row in ANALYTICAL_RECORDS.items()}
     entries.update(overrides or {})
     with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as output:
         for name, data in entries.items():
@@ -33,7 +46,7 @@ def repository(tmp_path):
 
 
 def destination(root):
-    return root / "private_data/toddbrook_dataset/data"
+    return root / "private_data/toddbrook_runtime/data"
 
 
 def test_exact_allowlist_installs_atomically_without_helpers_or_evaluation_files(tmp_path, repository, monkeypatch):
@@ -49,7 +62,7 @@ def test_exact_allowlist_installs_atomically_without_helpers_or_evaluation_files
         calls.append((source, target))
         assert not destination(repository).exists()
         assert {item.name for item in Path(source).iterdir()} == installer.DATA_FILES
-        assert all(item.read_bytes() == RECORD for item in Path(source).iterdir())
+        assert all(item.read_bytes() == CANONICAL[item.name] for item in Path(source).iterdir())
         rename(source, target)
     monkeypatch.setattr(installer.os, "rename", publish)
     assert installer.install_dataset(path, repo_root=repository) == "installed"
@@ -101,7 +114,12 @@ def test_archive_symlink_is_rejected_without_extracting_anything(tmp_path, repos
     assert not destination(repository).exists()
 
 
-@pytest.mark.parametrize("bad", [b"not json", b"[]", b'{"dam_id":"OTHER"}', b'{"dam_id":"TODDBROOK","x":NaN}', b'{"dam_id":"TODDBROOK","x":1,"x":2}', b'{"dam_id":"TODDBROOK","x":1e999}', b"\xff"])
+@pytest.mark.parametrize("bad", [
+    b"not json", b"[]", b'{"dam_id":"TODDBROOK"}', b"\xff",
+    RECORD.replace(b'"TODDBROOK"', b'"OTHER"'),
+    RECORD.replace(b'185.7', b'NaN'), RECORD.replace(b'185.7', b'1e999'),
+    RECORD.replace(b'"date":"2019-07-31"', b'"date":"2019-07-31","date":"2019-07-31"'),
+])
 def test_bad_record_format_rejected_before_publish_without_content_in_error(tmp_path, repository, bad):
     path = archive(tmp_path, overrides={installer.ARCHIVE_PREFIX + "weekly_ops_logs.jsonl": bad})
     with pytest.raises(installer.InstallError) as error:
@@ -130,7 +148,7 @@ def test_each_archive_and_record_bound_is_enforced(tmp_path, repository, monkeyp
     assert not destination(repository).exists()
 
 
-@pytest.mark.parametrize("where", ["private_data", "private_data/toddbrook_dataset", "private_data/toddbrook_dataset/data", "private_data/toddbrook_dataset/data/weekly_ops_logs.jsonl"])
+@pytest.mark.parametrize("where", ["private_data", "private_data/toddbrook_runtime", "private_data/toddbrook_runtime/data", "private_data/toddbrook_runtime/data/weekly_ops_logs.jsonl"])
 def test_existing_symlink_destination_is_not_followed(tmp_path, repository, where):
     outside = tmp_path / "outside"
     outside.mkdir()
@@ -179,3 +197,67 @@ def test_cli_reports_only_fixed_outcomes_and_uses_the_supplied_path(monkeypatch,
     monkeypatch.setattr(installer, "install_dataset", fail)
     assert installer.main(["private-owner.zip"]) == 2
     assert "private-owner.zip" not in capsys.readouterr().out
+
+
+def test_unselected_archive_member_contents_are_never_opened(tmp_path, repository, monkeypatch):
+    path = archive(tmp_path, extras=[
+        ('toddbrook_dataset/data/ground_truth_EVAL_ONLY.csv', b'not a data input'),
+        ('toddbrook_dataset/data/event_timeline_EVAL_ONLY.csv', b'not a data input'),
+        ('toddbrook_dataset/data/real_timeline.csv', b'not a data input'),
+        ('toddbrook_dataset/data/design_records.jsonl', b'not a data input'),
+        ('toddbrook_dataset/build_dataset.py', b'raise RuntimeError()'),
+    ])
+    actual, read = zipfile.ZipFile.open, []
+    def only_selected(package, name, *args, **kwargs):
+        filename = name.filename if isinstance(name, zipfile.ZipInfo) else name
+        assert filename in {installer.ARCHIVE_PREFIX + value for value in installer.DATA_FILES}
+        read.append(filename)
+        return actual(package, name, *args, **kwargs)
+    monkeypatch.setattr(zipfile.ZipFile, 'open', only_selected)
+    assert installer.install_dataset(path, repo_root=repository) == 'installed'
+    assert len(read) == 5
+
+
+def test_changed_discarded_metadata_and_formatting_preserve_canonical_install(tmp_path, repository):
+    path = archive(tmp_path)
+    installer.install_dataset(path, repo_root=repository)
+    before = {p.name: (p.stat().st_mtime_ns, p.read_bytes()) for p in destination(repository).iterdir()}
+    overrides = {}
+    for name, row in ANALYTICAL_RECORDS.items():
+        changed = {**row, 'unconsumed': {'anything': ['arbitrary', None, False]}, 'private_note': 'changed completely'}
+        if name == 'weekly_ops_logs.jsonl':
+            changed['observations'] = {**row['observations'], 'unused_flag': 'discarded'}
+        overrides[installer.ARCHIVE_PREFIX + name] = ('\n' + json.dumps(changed, separators=(', ', ': ')) + '\n\n').encode()
+    path = archive(tmp_path, overrides=overrides)
+    assert installer.install_dataset(path, repo_root=repository) == 'unchanged'
+    assert before == {p.name: (p.stat().st_mtime_ns, p.read_bytes()) for p in destination(repository).iterdir()}
+    assert all(p.read_bytes() == CANONICAL[p.name] for p in destination(repository).iterdir())
+
+
+def test_raw_development_folder_is_preserved_without_being_read(tmp_path, repository, monkeypatch):
+    raw = repository / 'private_data/toddbrook_dataset/data'
+    raw.mkdir(parents=True)
+    owner_file = raw / 'weekly_ops_logs.jsonl'
+    owner_file.write_bytes(b'owner development material remains untouched')
+    original_open = Path.open
+    def guarded(path, *args, **kwargs):
+        assert not Path(path).is_relative_to(raw), 'Installer read the development dataset.'
+        return original_open(path, *args, **kwargs)
+    path = archive(tmp_path)
+    with monkeypatch.context() as scope:
+        scope.setattr(Path, 'open', guarded)
+        assert installer.install_dataset(path, repo_root=repository) == 'installed'
+    assert owner_file.read_bytes() == b'owner development material remains untouched'
+    assert destination(repository) != raw
+
+
+def test_nested_metadata_is_removed_before_publishing_runtime_files(tmp_path, repository):
+    row = {**ANALYTICAL_RECORDS['inspections_s10.jsonl'],
+           'mios': [{'klass': 'spillway_hydraulic_integrity', 'private_note': 'discard this'}, {'private_note': 'discard this too'}],
+           'ignored_mapping': {'inner': 'discard all of it'}}
+    path = archive(tmp_path, overrides={installer.ARCHIVE_PREFIX+'inspections_s10.jsonl': json.dumps(row).encode()})
+    assert installer.install_dataset(path, repo_root=repository) == 'installed'
+    prepared = json.loads((destination(repository)/'inspections_s10.jsonl').read_text())
+    assert prepared['mios'] == [{'klass': 'spillway_hydraulic_integrity'}, {}]
+    assert set(prepared) == set(ANALYTICAL_RECORDS['inspections_s10.jsonl'])
+    assert 'discard' not in json.dumps(prepared)

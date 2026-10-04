@@ -31,7 +31,7 @@ NASA still requires its own Earthdata login. Generic prompt resolution and risk
 screening are deterministic and do not require an OpenAI key or a paid model call.
 No Node installation is required on worker laptops.
 
-The private ZIP and extracted owner records belong **only on Karan's device**.
+The private ZIP and sanitized runtime records belong **only on Karan's device**.
 Hydro, Flood and Control must not open, mount, receive or copy those records. They
 receive only the Dam worker's bounded derived response through Control. Do not
 add the ZIP, dataset, evaluation files, or generated private artifacts to Git.
@@ -67,9 +67,9 @@ git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/
 cd surge-fall-2026-toddbrook-worker
 ```
 
-The commands below use this fresh dedicated checkout, leaving the prior `main`
-checkout and UI work in place. If you intentionally reuse a clean existing worker
-checkout, substitute its path without copying private data between devices.
+Alex uses a fresh dedicated checkout below, leaving other projects untouched.
+Karan can reuse his known clean worker checkout and its Python 3.12 environment,
+or choose the fresh-clone alternative. Never copy private data between devices.
 
 Use **Python 3.12** and the existing pinned `requirements.txt`. Create a virtual
 environment only if the checkout does not already have one. Do not upgrade to a
@@ -114,91 +114,186 @@ Start and leave this terminal running:
 The launcher opens Kazi's own Hydro dashboard. It does not submit a job. Do not
 install or inspect the private Toddbrook dataset on this device.
 
-## Alex — Windows Flood, public geospatial acquisition
+## Alex — fresh Windows Flood setup
 
-Use a separate worker checkout rather than overwriting UI work. If cloned in the
-home directory:
+**1. Install Git, Python 3.12 and Tailscale.** Open PowerShell and run:
 
 ```powershell
-cd "$HOME\surge-fall-2026-toddbrook-worker"
+winget install --exact --id Git.Git --source winget
+winget install --exact --id Python.Python.3.12 --source winget
+winget install --exact --id Tailscale.Tailscale --source winget
 ```
 
-For a new environment only:
+If `winget` is missing, install or update **App Installer** from Microsoft Store
+using [Microsoft's WinGet instructions](https://learn.microsoft.com/en-us/windows/package-manager/winget/).
+These exact package IDs are listed in Microsoft's manifests for
+[Git](https://github.com/microsoft/winget-pkgs/blob/master/manifests/g/Git/Git/2.54.0/Git.Git.locale.en-US.yaml),
+[Python 3.12](https://github.com/microsoft/winget-pkgs/blob/master/manifests/p/Python/Python/3/12/3.12.9/Python.Python.3.12.locale.en-US.yaml)
+and [Tailscale](https://github.com/microsoft/winget-pkgs/blob/master/manifests/t/Tailscale/Tailscale/1.102.4/Tailscale.Tailscale.yaml).
+The commands select the available release of each package; they do not pin those
+reference-manifest versions.
+
+**2. Close PowerShell, reopen it, and verify the tools.** Open Tailscale from the
+Start menu and sign in to the team's tailnet; see the
+[official Windows setup](https://tailscale.com/docs/install/windows).
 
 ```powershell
+git --version
+py -3.12 --version
+& "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+```
+
+Python must report `3.12.x`. Alex's Tailscale address should be `100.100.3.3`.
+If it differs, tell Ryan the actual address before using the listener command;
+the bind address and Ryan's worker URL must agree. Do not guess an address.
+
+**3. Clone into a new folder and install the project.** If GitHub asks, sign in
+using Alex's account with repository access. Do not paste credentials into commands.
+If the target folder already exists, preserve it and use the existing-checkout
+instructions above instead of cloning over it.
+
+```powershell
+cd $HOME
+git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
+cd surge-fall-2026-toddbrook-worker
 py -3.12 -m venv .venv
-```
-
-Then:
-
-```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pytest -q
+git rev-parse HEAD
+```
+
+Use the explicit virtual-environment executable as shown; no PowerShell activation
+or execution-policy change is required. No Node, OpenAI key, NASA login or owner ZIP
+is needed on the Flood laptop.
+
+**4. Start Flood and leave this terminal open:**
+
+```powershell
 .\.venv\Scripts\python.exe -m scripts.run_worker flood --host 100.100.3.3 --port 8003
 ```
 
-Flood queries public Sentinel-1, DEM and HAND sources for the resolved area and
-historical request. It needs Internet access. Reusing or copying **nonprivate
-geospatial caches only** is optional; it is not required to start. Do not copy
-`private_data`, the owner ZIP, private record files, or another person's credentials.
-A period before a product's coverage is reported as unavailable. Static terrain is
-context and does not become a historical observation at the requested date.
+The worker opens `http://100.100.3.3:8003/dashboard`. From another PowerShell window,
+check the local listener:
 
-## Karan — Linux Dam, local owner records only
-
-Use the existing worker checkout, or clone the branch separately:
-
-```sh
-cd ~/surge-fall-2026-toddbrook-worker
+```powershell
+Invoke-RestMethod http://100.100.3.3:8003/status
 ```
 
-For a new environment only:
+Report the commit, test summary and whether `/status` reports idle to Ryan. Ryan
+still needs to verify access from his Mac and run the shared investigation.
+
+Flood queries public Sentinel-1, DEM and HAND sources for the requested location
+and historical dates. It needs Internet access. Reusing **nonprivate geospatial
+caches only** is optional. Do not receive or copy `private_data`, the owner ZIP,
+private record files, or another person's credentials. A period before a product's
+coverage is reported as unavailable. Static terrain remains noncontemporaneous
+context. Do not disable the Windows firewall if remote access fails; report the
+specific connection result so the listener, tailnet policy and narrowly scoped
+access can be checked.
+
+## Karan — Linux Dam, existing Python 3.12 setup
+
+**1. Stop the old Flood service.** Wait until its current task finishes, then press
+Ctrl+C in the terminal that runs Karan's old Flood worker. Karan now runs **Dam on
+8004**; Alex runs Flood on 8003. Do not kill unrelated Python processes.
+
+Reuse Karan's known worker checkout. Check for local edits first:
 
 ```sh
+cd ~/surge-fall-2026-worker
+git status --short
+```
+
+If that prints changed or untracked work, preserve and inspect it before switching.
+If clean, update the branch and verify Python/Tailscale:
+
+```sh
+git fetch --prune origin
+git switch codex/toddbrook-private-worker
+git pull --ff-only origin codex/toddbrook-private-worker
+git rev-parse HEAD
+.venv/bin/python --version
+tailscale ip -4
+```
+
+Expect Python `3.12.x` and Tailscale `100.100.3.4`. Do not reset or clean the checkout.
+If the old checkout is not suitable, create a separate one instead:
+
+```sh
+cd ~
+git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-toddbrook-worker
+cd surge-fall-2026-toddbrook-worker
 python3.12 -m venv .venv
 ```
 
-Then install pinned dependencies:
+If `python3.12` is unavailable through Karan's pyenv selection, use the already
+installed `3.12.13` to create the **new** environment:
+
+```sh
+PYENV_VERSION=3.12.13 pyenv exec python -m venv .venv
+.venv/bin/python --version
+```
+
+Choose one environment-creation command, only when `.venv` is absent. Preserve an
+existing environment; do not overwrite it or change the system Python.
+
+**2. Install project dependencies and prepare the local runtime data:**
 
 ```sh
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
+.venv/bin/python -m scripts.install_private_dataset "$HOME/Downloads/todbrook.zip"
+.venv/bin/python -m pytest -q tests/test_install_private_dataset.py tests/test_dam_worker.py
 ```
 
 Transfer the user-supplied ZIP **directly to Karan**, using an approved private
-method. Keep it outside the repository, for example `~/Downloads/todbrook.zip`.
-Do not upload it to GitHub or another worker. Run the repository's installer;
-do not run helpers bundled inside the ZIP:
+method, before running the installer. Adjust only the ZIP pathname if needed.
+Keep the raw archive outside the runtime folder, for example in `~/Downloads/`;
+do not upload it to GitHub, share it with other workers, or execute its helpers.
+
+The installer reads the five approved JSONL members under `toddbrook_dataset/data/`
+and writes **sanitized, model-needed fields only** to the ignored directory:
+
+```text
+private_data/toddbrook_runtime/data/
+```
+
+The runtime files are `weekly_ops_logs.jsonl`, `se_reports.jsonl`,
+`inspections_s10.jsonl`, `maintenance_requests.jsonl` and `instrumentation_log.jsonl`.
+Preparation selects a fixed field allowlist; discarded origin/classification
+metadata is not interpreted or passed into runtime data. Raw notes, identities,
+origin labels, evaluation data, archive scripts, bytecode, documents, design
+records and timelines are excluded. Neither the worker nor the public API/UI
+receives those discarded fields. The original archive is unchanged; fields are removed only from the runtime copy.
+The raw archive remains separate on Karan's device.
+
+The bounded archive and record checks run before publishing the complete runtime
+directory. Identical sanitized data can be installed again. Conflicting existing
+runtime files stop installation; preserve them and investigate locally rather than
+forcing an overwrite. The worker reads the sanitized runtime folder, **not** the
+old raw `private_data/toddbrook_dataset/data/` copy. Do not override its data path to
+point at that old folder. Only bounded derived results may leave the Dam worker.
+
+**3. Start Dam and leave this terminal open:**
 
 ```sh
-.venv/bin/python -m scripts.install_private_dataset "$HOME/Downloads/todbrook.zip"
-.venv/bin/python -m pytest -q tests/test_install_private_dataset.py tests/test_dam_worker.py
+export MESHMIND_DAM_DATA_DIR="$PWD/private_data/toddbrook_runtime/data"
 .venv/bin/python -m scripts.run_worker dam --host 100.100.3.4 --port 8004
 ```
 
-Adjust only the ZIP pathname if its local filename differs. The installer extracts
-exactly these five files from `toddbrook_dataset/data/` into the repository's ignored
-`private_data/toddbrook_dataset/data/`:
+Run that block from the selected repository root. The explicit environment value
+replaces any old data-directory override. The launcher opens
+`http://100.100.3.4:8004/dashboard`. From another terminal:
 
-- `weekly_ops_logs.jsonl`
-- `se_reports.jsonl`
-- `inspections_s10.jsonl`
-- `maintenance_requests.jsonl`
-- `instrumentation_log.jsonl`
+```sh
+curl --fail http://100.100.3.4:8004/status
+```
 
-Archive scripts, bytecode, documents, design records, timelines and evaluation
-files are not extracted. ZIP paths, entry types, sizes, UTF-8 JSON-object lines,
-record IDs, duplicate fields and finite numbers are checked before a complete data
-directory is published. Limits are 32 MiB compressed, 512 entries, 4 MiB per member,
-64 MiB total declared content, 10,000 records per consumed file and 64 KiB per line.
-The worker additionally validates the fields used for the requested assessment.
-
-An identical install is safe to repeat and preserves any pre-existing extra local
-files without reading or replacing them. If required files differ or are missing
-from an existing install, installation stops. Preserve and inspect that local
-folder; do not force an overwrite. An interrupted install may leave a lock; first
-confirm no installer is running before investigating it locally. The archive is
-never executed, and the installer has no network operation.
+Report the commit, test summary, installer outcome and idle status to Ryan, without
+raw records or classification metadata. NASA login, Node and an OpenAI key are
+not required on the Dam device. A local idle response is readiness, not proof that
+the new physical-laptop investigation has passed.
 
 ## Ryan — macOS Control and interface
 
@@ -317,7 +412,7 @@ not a forecast for dates that have not occurred.
 
 **Karan — Dam**
 
-> On my Linux worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve existing work and owner data; do not reset, clean, merge, push or upload private files. Receive the owner ZIP directly on this device only and run scripts.install_private_dataset with its local path; never execute ZIP helpers. If the installer finds conflicting existing data, preserve it and report the fixed diagnostic rather than overwriting. Run the installer and Dam tests using their test fixtures, then start one Dam process with scripts.run_worker on 100.100.3.4:8004. Keep the owner records local; only bounded derived results may leave the worker. Leave the dashboard open and report commit, test summary and readiness without raw records, labels, archive contents or credentials. Wait for Ryan's Toddbrook task and verify a non-Toddbrook task does not reach this worker.
+> On my Linux worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve existing work and owner data; do not reset, clean, merge, push or upload private files. Receive the owner ZIP directly on this device only and run scripts.install_private_dataset with its local path to prepare sanitized fields in private_data/toddbrook_runtime/data; keep the raw ZIP outside that runtime folder and never execute ZIP helpers. If the installer finds conflicting existing data, preserve it and report the fixed diagnostic rather than overwriting. Run the installer and Dam tests using their test fixtures, then set MESHMIND_DAM_DATA_DIR to this checkout's private_data/toddbrook_runtime/data and start one Dam process with scripts.run_worker on 100.100.3.4:8004. Keep owner records local; the worker must use only sanitized runtime fields and emit bounded derived results, with no origin/classification or evaluation data. Leave the dashboard open and report commit, test summary and readiness without raw records, labels, archive contents or credentials. Wait for Ryan's Toddbrook task and verify a non-Toddbrook task does not reach this worker.
 
 **Ryan — Control**
 

@@ -1,22 +1,22 @@
 """Install only the Dam worker's five local data files from an owner-supplied ZIP.
 
-Run on the Dam worker device. Archive code, documents and evaluation files are
-never extracted or executed. No network access or third-party imports are used.
+Run on the Dam worker device. Only analytical fields are written to a separate
+runtime folder; the source archive and development files are preserved. Archive
+code, documents and evaluation files are never extracted or executed.
 """
 
 import argparse
 import json
-import math
 import os
 from pathlib import Path
 import stat
 import tempfile
 import zipfile
 
+from backend.shared.dam_records import DATA_FILES, project_record
+
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_FILES = frozenset({"weekly_ops_logs.jsonl", "se_reports.jsonl", "inspections_s10.jsonl",
-                        "maintenance_requests.jsonl", "instrumentation_log.jsonl"})
 ARCHIVE_PREFIX = "toddbrook_dataset/data/"
 MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
 MAX_MEMBER_BYTES = 4 * 1024 * 1024
@@ -43,30 +43,23 @@ def _pairs(pairs):
     return result
 
 
-def _finite(value):
-    if isinstance(value, float) and not math.isfinite(value):
-        _reject()
-    if isinstance(value, dict):
-        for item in value.values():
-            _finite(item)
-    elif isinstance(value, list):
-        for item in value:
-            _finite(item)
-
-
-def _validate_records(data):
-    rows = 0
+def _prepare_records(filename, data):
+    rows, prepared = 0, []
     for line in data.decode("utf-8").splitlines():
         if not line.strip():
             continue
         rows += 1
         if len(line.encode("utf-8")) > MAX_LINE_BYTES or rows > MAX_ROWS:
             _reject()
-        row = json.loads(line, object_pairs_hook=_pairs, parse_constant=lambda _: _reject())
-        _finite(row)
-        if not isinstance(row, dict) or row.get("dam_id") != "TODDBROOK":
-            _reject()
-    # Empty categories can represent absent records; the worker reports gaps.
+        # Parse the bounded container, then inspect only the analytical fields.
+        # Discarded metadata never enters the canonical runtime files.
+        row = json.loads(line, object_pairs_hook=_pairs)
+        selected = project_record(filename, row)
+        prepared.append(json.dumps(selected, sort_keys=True, separators=(",", ":"), allow_nan=False) + "\n")
+    canonical = "".join(prepared).encode("utf-8")
+    if len(canonical) > MAX_MEMBER_BYTES:
+        _reject()
+    return canonical
 
 
 def _archive_files(archive):
@@ -105,8 +98,7 @@ def _archive_files(archive):
                     data = member.read(MAX_MEMBER_BYTES + 1)
                 if len(data) > MAX_MEMBER_BYTES or len(data) != info.file_size:
                     _reject()
-                _validate_records(data)
-                selected[basename] = data
+                selected[basename] = _prepare_records(basename, data)
     if set(selected) != DATA_FILES:
         _reject()
     return selected
@@ -123,12 +115,12 @@ def _directory(path):
 
 
 def install_dataset(archive, *, repo_root=ROOT):
-    """Validate before publishing; matching installs preserve every existing file."""
+    """Publish canonical analytical records; preserve matching or differing installs."""
     try:
         files = _archive_files(archive)
         root = Path(repo_root).resolve(strict=True)
         private = root / "private_data"
-        package = private / "toddbrook_dataset"
+        package = private / "toddbrook_runtime"
         destination = package / "data"
         _directory(private)
         _directory(package)
@@ -188,7 +180,7 @@ def main(argv=None):
         print(str(error))
         return 2
     print("Required private data files already match; existing files were preserved." if result == "unchanged"
-          else "Installed the five required private data files on this device.")
+          else "Installed the five required analytical data files in the private runtime folder.")
     return 0
 
 

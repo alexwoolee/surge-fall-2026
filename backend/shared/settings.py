@@ -14,7 +14,7 @@ class WorkerSettings:
     smap_dir: Path = ROOT / 'data/cache/smap'
     worker_token: str | None = field(default=None, repr=False)
     max_tasks: int = 128
-    dam_data_dir: Path = ROOT / 'private_data/toddbrook_dataset/data'
+    dam_data_dir: Path = ROOT / 'private_data/toddbrook_runtime/data'
 
     def __post_init__(self):
         object.__setattr__(self, 'gpm_dir', Path(self.gpm_dir).expanduser().resolve())
@@ -35,7 +35,7 @@ class WorkerSettings:
             smap_dir=Path(os.environ.get('MESHMIND_SMAP_DIR') or ROOT / 'data/cache/smap'),
             worker_token=os.environ.get('MESHMIND_WORKER_TOKEN') or None,
             max_tasks=capacity,
-            dam_data_dir=Path(os.environ.get('MESHMIND_DAM_DATA_DIR') or ROOT / 'private_data/toddbrook_dataset/data'),
+            dam_data_dir=Path(os.environ.get('MESHMIND_DAM_DATA_DIR') or ROOT / 'private_data/toddbrook_runtime/data'),
         )
 
 

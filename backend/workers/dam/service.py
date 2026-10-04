@@ -10,6 +10,7 @@ from backend.shared.dam_contracts import (
     DamCounts, DamEvidence, DamMetrics, DamResult, DamRule, DamTask,
     LIMITATIONS, RULE_CRITERIA, WINDOWS, expected_rules, expected_summary,
 )
+from backend.shared.dam_records import project_record
 
 _FILES = {
     'operations': 'weekly_ops_logs.jsonl', 'supervision': 'se_reports.jsonl',
@@ -91,7 +92,10 @@ def _load(data_dir: Path, category: str):
                 _bad()
             row = json.loads(line, parse_constant=lambda _: _bad(), object_pairs_hook=_unique)
             _finite(row)
-            if not isinstance(row, dict) or row.get('dam_id') != 'TODDBROOK':
+            # Runtime accepts only the prepared analytical schema. The installer
+            # strips every unused field before these files reach this process.
+            # Never fall back to the original archive or development package.
+            if project_record(_FILES[category], row) != row:
                 _bad()
             rows.append(row)
         return rows

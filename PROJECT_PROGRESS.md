@@ -78,6 +78,37 @@ local outputs. Worker setup/handoffs and prompts are in the deployment guide.
 The physical four-device run, actual new-date authenticated downloads and user
 review remain pending; do not merge this feature automatically.
 
+## Dam runtime input preparation — October 4, 2026
+
+The user clarified that development may inspect the supplied data, while the
+running analysis must receive neither origin classifications nor evaluation
+data, and must treat records equally. Preparation now selects only the analytical
+fields consumed by the existing rules, recursively dropping all other fields.
+It does not interpret or classify discarded metadata and does not filter records
+by it. Only the five approved archive members are opened; evaluation contents,
+archive code and other documents are not read by the installer.
+
+The installer writes canonical JSONL into the separate ignored
+`private_data/toddbrook_runtime/data/` directory. The source ZIP and earlier raw
+development copy remain unchanged. Runtime defaults now point to the prepared
+directory, and the Dam worker rejects extra fields rather than falling back to
+raw data. The original calculations, cutoff rules and public API remain intact.
+
+Validation: **1,709 Python tests passed**, including metadata-independent
+preparation, malformed analytical inputs, safe repeated installation, strict
+runtime schema and explicit file-open guards. Seven checks against the previously
+retained historical Dam results produced identical metrics, summaries, evidence
+and rule outcomes. Only the five prepared data files were opened during those
+checks; no evaluation file was read. Evidence is retained locally under
+`outputs/debug/dam-runtime-preparation/`. Documentation links and
+`git diff --check` passed. Frontend code did not change.
+
+[The setup guide](docs/TODDBROOK_SETUP.md) now gives fresh Windows installation
+steps for Alex's Flood worker and the exact transition from Karan's old Flood
+service to Dam, including the new runtime path. The feature remains on
+`codex/toddbrook-private-worker`; physical deployment, joint investigation and
+explicit merge approval are still pending.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control
