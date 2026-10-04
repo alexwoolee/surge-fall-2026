@@ -14,6 +14,7 @@ import tempfile
 import zipfile
 
 from backend.shared.dam_records import DATA_FILES, project_record
+from backend.shared.dam_snapshots import iter_snapshots, snapshot_days
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +25,7 @@ MAX_TOTAL_BYTES = 64 * 1024 * 1024
 MAX_ENTRIES = 512
 MAX_LINE_BYTES = 65536
 MAX_ROWS = 10000
+MAX_SNAPSHOT_BYTES = 128 * 1024 * 1024
 
 
 class InstallError(ValueError):
@@ -114,14 +116,43 @@ def _directory(path):
         path.mkdir(mode=0o700)
 
 
+def _existing_directory(path):
+    if path.is_symlink():
+        raise InstallError("The private dataset destination must not use symbolic links.")
+    if path.exists() and not path.is_dir():
+        raise InstallError("The private dataset destination must be a directory.")
+    return path.exists()
+
+
+def _check_files(destination, files):
+    for name, data in files.items():
+        path = destination / name
+        matches = False
+        if not path.is_symlink() and path.is_file() and path.stat().st_size == len(data):
+            with path.open("rb") as stream:
+                matches = stream.read(MAX_MEMBER_BYTES + 1) == data
+        if not matches:
+            raise InstallError("Existing private data differs or is incomplete. Preserve and inspect it locally; nothing was replaced.")
+
+
+def _write_files(destination, files):
+    destination.mkdir(mode=0o700)
+    for name, data in files.items():
+        with (destination / name).open("xb") as stream:
+            os.chmod(destination / name, 0o600)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+
+
 def install_dataset(archive, *, repo_root=ROOT):
-    """Publish canonical analytical records; preserve matching or differing installs."""
+    """Prepare exact-date inputs offline and atomically publish new directories."""
     try:
         files = _archive_files(archive)
         root = Path(repo_root).resolve(strict=True)
         private = root / "private_data"
         package = private / "toddbrook_runtime"
-        destination = package / "data"
+        destination, snapshots = package / "data", package / "as_of"
         _directory(private)
         _directory(package)
         lock = package / ".install.lock"
@@ -131,36 +162,40 @@ def install_dataset(archive, *, repo_root=ROOT):
             raise InstallError("Another install may be active. Inspect the local install lock before retrying.") from None
         os.close(descriptor)
         try:
-            if destination.is_symlink():
-                raise InstallError("The private dataset destination must not use symbolic links.")
-            if destination.exists():
-                if not destination.is_dir():
-                    raise InstallError("The private dataset destination must be a directory.")
-                for name, data in files.items():
-                    path = destination / name
-                    matches = False
-                    if not path.is_symlink() and path.is_file() and path.stat().st_size == len(data):
-                        with path.open("rb") as stream:
-                            matches = stream.read(MAX_MEMBER_BYTES + 1) == data
-                    if not matches:
-                        raise InstallError("Existing private data differs or is incomplete. Preserve and inspect it locally; nothing was replaced.")
-                # Previous owner installations may contain other files. Do not
-                # read, remove or publish them; the worker only opens DATA_FILES.
-                return "unchanged"
+            existing_data = _existing_directory(destination)
+            existing_snapshots = _existing_directory(snapshots)
+            if existing_data:
+                _check_files(destination, files)
             with tempfile.TemporaryDirectory(prefix=".install-", dir=package) as staging:
-                staged = Path(staging) / "data"
-                staged.mkdir(mode=0o700)
-                for name, data in files.items():
-                    with (staged / name).open("xb") as stream:
-                        os.chmod(staged / name, 0o600)
-                        stream.write(data)
-                        stream.flush()
-                        os.fsync(stream.fileno())
-                # All members are checked before the complete directory appears.
-                if destination.exists() or destination.is_symlink():
-                    raise InstallError("The destination changed during installation; nothing was replaced.")
-                os.rename(staged, destination)
-            return "installed"
+                staged = Path(staging)
+                if not existing_data:
+                    _write_files(staged / "data", files)
+                if not existing_snapshots:
+                    (staged / "as_of").mkdir(mode=0o700)
+                total = 0
+                for as_of, prepared in iter_snapshots(files, dates=snapshot_days()):
+                    total += sum(len(data) for data in prepared.values())
+                    if total > MAX_SNAPSHOT_BYTES:
+                        raise InstallError("Prepared historical inputs exceed the bounded installation size.")
+                    if existing_snapshots:
+                        day = snapshots / as_of.isoformat()
+                        if not _existing_directory(day) or not _existing_directory(day / "data"):
+                            raise InstallError("Existing private data differs or is incomplete. Preserve and inspect it locally; nothing was replaced.")
+                        _check_files(day / "data", prepared)
+                    else:
+                        day = staged / "as_of" / as_of.isoformat()
+                        day.mkdir(mode=0o700)
+                        _write_files(day / "data", prepared)
+                # All preparation and comparisons finish before publishing either
+                # directory. Existing source/runtime directories are preserved.
+                for target, source, existing in ((destination, staged / "data", existing_data),
+                                                  (snapshots, staged / "as_of", existing_snapshots)):
+                    if existing:
+                        continue
+                    if target.exists() or target.is_symlink():
+                        raise InstallError("The destination changed during installation; nothing was replaced.")
+                    os.rename(source, target)
+            return "unchanged" if existing_data and existing_snapshots else "installed"
         finally:
             lock.unlink()
     except InstallError:
@@ -180,7 +215,7 @@ def main(argv=None):
         print(str(error))
         return 2
     print("Required private data files already match; existing files were preserved." if result == "unchanged"
-          else "Installed the five required analytical data files in the private runtime folder.")
+          else "Installed the five required analytical files and exact-date historical inputs in the private runtime folder.")
     return 0
 
 

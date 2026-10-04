@@ -46,9 +46,11 @@ python -c "import earthaccess; earthaccess.login(strategy='interactive', persist
 ```
 
 Hydro queries NASA for the requested area and dates when a job runs, downloading
-or reusing exactly matching files. Flood queries public satellite and terrain
-sources. Internet access is required. No fixed input ZIP or preselected recent
-hours are used by this mode. Internal API tokens and an OpenAI key are not required.
+or reusing exactly matching files. Flood queries public satellite observations.
+This dated mode excludes DEM/HAND terrain whose observation dates cannot be
+verified, before discovering or reading it. Internet access is required. No fixed
+input ZIP or preselected recent hours are used by this mode. Internal API tokens
+and an OpenAI key are not required.
 
 ## Run
 
@@ -92,16 +94,23 @@ Paste a request and click **Run Analysis** once:
 
 > Assess flood risk at Abbotsford / Sumas Prairie as of 2021-11-15. Explain the evidence, risk level, confidence and coverage gaps.
 
-Use ISO dates (`YYYY-MM-DD`). One date selects that UTC day; an inclusive date
-range may span up to seven days. Other areas work with an explicit WGS84 box,
+Use ISO dates (`YYYY-MM-DD`). One date selects that UTC day, with an end-of-day
+cutoff; an inclusive date range may span up to seven days. Modern reprocessing of
+historical environmental observations is allowed, but observations after the
+cutoff are excluded. Other areas work with an explicit WGS84 box,
 for example `bbox=[-1.94,53.29,-1.90,53.32]`. Place names without coordinates are
 currently registered for Toddbrook and Abbotsford. Dates before a product existed,
 missing observations and failed downloads remain unavailable.
 
 For Toddbrook, configure Karan's Dam worker using [the deployment guide](docs/TODDBROOK_SETUP.md),
-which includes the exact four-device commands and 2007/2019 prompts. Keep owner
-runtime records under `private_data/toddbrook_runtime/data/` on that worker only;
-the installer keeps only model-needed fields and the raw ZIP stays separate. The local Hydro/Flood setup above
+which includes the exact four-device commands and prompts for **2007-12-09** and
+**2019-08-01**. Karan must rerun the installer to prepare offline date snapshots at
+`private_data/toddbrook_runtime/as_of/YYYY-MM-DD/data/`. Dam opens only the selected
+day's model-needed fields; future records and future maintenance closures are
+absent. Keep these files on that worker only and the raw ZIP separate. Its base
+setting stays `private_data/toddbrook_runtime/data/`. Up to seven days after a
+supported observation period ends, Dam may use its last-known evidence with its
+actual age; recorded coverage is not extended. The local Hydro/Flood setup above
 can still return a partial Toddbrook briefing if no Dam worker is running.
 
 Wait for the briefing, review coverage and risk conditions, and download the report.

@@ -1,15 +1,13 @@
-"""Independent scene and static terrain context for a bounded location/date."""
+"""Scene context bounded by observation dates for a requested location."""
 
 from datetime import datetime, timedelta, timezone
 
 from backend.shared.context_contracts import (
-    ContextComponent, ContextTask, HeightMetrics, WaterMetrics, context_result, unavailable,
+    ContextComponent, ContextTask, WaterMetrics, context_result, unavailable,
 )
 from backend.shared.status import TaskState
-from backend.workers.flood.hand import analyze_hand_tiles, discover_hand_tiles, HAND_COLLECTION, MAX_CATALOG_TILES
-from backend.workers.flood.terrain import analyze_dem_tiles, discover_dem_tiles, DEM_COLLECTION, MAX_TILES
 from backend.workers.flood.sentinel1 import analyze_sentinel1_scene, discover_sentinel1_scene, _timestamp, _validate_scene
-from backend.workers.flood.service import _checked_result, _tiles
+from backend.workers.flood.service import _checked_result
 
 
 # Launch is a conservative lower bound; later empty provider coverage remains unavailable.
@@ -46,24 +44,10 @@ def _water(task):
 
 
 def _terrain(task, component):
-    discover, analyze, collection, maximum = (
-        (discover_dem_tiles, analyze_dem_tiles, DEM_COLLECTION, MAX_TILES) if component == "dem"
-        else (discover_hand_tiles, analyze_hand_tiles, HAND_COLLECTION, MAX_CATALOG_TILES)
-    )
-    try:
-        tiles = _tiles(discover(task.bbox.as_tuple()), collection, maximum)
-    except Exception:
-        return unavailable(component, "source_unavailable")
-    try:
-        raw = analyze(tiles, task.bbox.as_tuple(), max_pixels=10_000_000)
-    except Exception:
-        return unavailable(component, "processing_failed")
-    try:
-        _, summary, _ = _checked_result(component, raw, task.bbox.as_tuple(), tiles, -17.0, 10_000_000)
-        return ContextComponent(component=component, availability="available", reason="static_noncontemporaneous",
-                                temporal_kind="static_context", metrics=HeightMetrics(**summary))
-    except Exception:
-        return unavailable(component, "invalid_result")
+    # RasterTile does not carry a verified observation period. A modern
+    # product's publication/version date cannot establish when its underlying
+    # terrain was observed. Exclude it before discovery or any raster read.
+    return unavailable(component, "observation_date_unverified")
 
 
 def run_flood_context(task: ContextTask, progress) -> dict:
@@ -71,8 +55,9 @@ def run_flood_context(task: ContextTask, progress) -> dict:
     if task.analysis_type != "surface_water_and_terrain":
         raise ValueError("Environmental context task does not match the Flood role.")
     progress(TaskState.PROCESSING)
-    # Discovery and processing are independent: absent satellite coverage cannot
-    # suppress DEM/HAND results, and a DEM provider failure cannot suppress HAND.
+    # Scene coverage is independent of terrain exclusion. Legacy fixed-case
+    # terrain processing is unchanged; this dated investigation requires proof
+    # that every observed input predates its cutoff.
     components = [_water(task), _terrain(task, "dem"), _terrain(task, "hand")]
     progress(TaskState.PREPARING_RESULT)
     return context_result(task, components)

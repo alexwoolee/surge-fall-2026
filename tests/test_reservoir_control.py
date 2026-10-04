@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 import httpx
 import pytest
+from pydantic import ValidationError
 
 from backend.control.context_dispatch import ContextClient
 from backend.control.investigation_plan import EXAMPLES, PlanningError, TODDBROOK_BBOX, resolve_prompt
@@ -20,7 +21,7 @@ from backend.shared.context_contracts import (
 )
 from backend.shared.dam_contracts import (
     DamCounts, DamEvidence, DamMetrics, DamResult, DamRule, DamTask, LIMITATIONS,
-    RULE_CRITERIA, expected_rules, expected_summary,
+    RULE_CRITERIA, WINDOWS, expected_rules, expected_summary, window_for_date,
 )
 from backend.shared.settings import ControlSettings, WorkerEndpoint
 
@@ -33,12 +34,13 @@ PROCESS = '11111111-1111-4111-8111-111111111111'
 
 def dam_result(request):
     known = request.window != 'outside-coverage'
+    last_observation = min(request.as_of, WINDOWS[request.window][1]) if known else None
     counts = DamCounts(operations=3 if known else 0, supervision=1 if known else 0,
                        inspection=1 if known else 0, maintenance=0, instrumentation=1 if known else 0)
     metrics = DamMetrics(recent_visit_count=3 if known else 0, full_pool_visit_count=3 if known else 0,
                          latest_pool_level_mod=186.0 if known else None,
                          latest_pool_departure_m=.33 if known else None,
-                         latest_visit_age_days=0 if known else None,
+                         latest_visit_age_days=(request.as_of - last_observation).days if known else None,
                          latest_supervision_age_days=30 if known else None,
                          latest_instrumentation_age_days=30 if known else None,
                          sealant_defect_fraction=1.0 if known else None,
@@ -50,8 +52,7 @@ def dam_result(request):
                          known_integrity_action=known, monitoring_gap=True)
     evidence = DamEvidence(record_count=6 if known else 0,
                            record_refs=[f'r_{n:024x}' for n in range(6)] if known else [], counts=counts,
-                           first_observation=request.as_of if known else None,
-                           last_observation=request.as_of if known else None)
+                           first_observation=last_observation, last_observation=last_observation)
     support = {'D01': 3, 'D02': 3, 'D03': 3, 'D04': 0, 'D05': 1, 'D06': 1, 'D07': 2} if known else dict.fromkeys(RULE_CRITERIA, 0)
     return DamResult(task_id=request.task_id, window=request.window, as_of=request.as_of,
                      metrics=metrics, evidence=evidence, summary=expected_summary(metrics, counts),
@@ -168,6 +169,57 @@ def test_toddbrook_dispatches_three_workers_for_the_exact_historical_date(prompt
     assert tasks['dam'].site_id == 'toddbrook'
 
 
+@pytest.mark.parametrize('as_of,expected_window', [
+    ('2007-09-02', 'outside-coverage'), ('2007-09-03', '2007-2008'),
+    ('2007-12-09', '2007-2008'), ('2008-02-29', '2007-2008'),
+    ('2008-03-01', '2007-2008'), ('2008-03-07', '2007-2008'),
+    ('2008-03-08', 'outside-coverage'), ('2013-01-01', 'outside-coverage'),
+    ('2015-09-30', 'outside-coverage'), ('2015-10-01', '2015-2019'),
+    ('2019-07-31', '2015-2019'), ('2019-08-01', '2015-2019'),
+    ('2019-08-07', '2015-2019'), ('2019-08-08', 'outside-coverage'),
+])
+def test_prompt_and_dam_contract_agree_on_observed_period_and_seven_day_tail(as_of, expected_window):
+    selected = date.fromisoformat(as_of)
+    plan = resolve_prompt(f'Assess flood risk at Toddbrook Reservoir as of {as_of}.')
+    tasks = plan.tasks('date-boundary')
+    assert window_for_date(selected) == expected_window
+    assert tasks['dam'].window == expected_window
+    assert {task.as_of for task in tasks.values()} == {selected}
+    for role in ('hydro', 'flood'):
+        assert tasks[role].start_time.date() == selected
+        assert tasks[role].end_time - tasks[role].start_time == timedelta(days=1)
+    for wrong in {'2007-2008', '2015-2019', 'outside-coverage'} - {expected_window}:
+        with pytest.raises(ValidationError):
+            DamTask(window=wrong, as_of=as_of)
+
+
+@pytest.mark.parametrize('as_of,observed,age', [
+    ('2008-03-01', '2008-02-29', 1), ('2008-03-07', '2008-02-29', 7),
+    ('2019-08-01', '2019-07-31', 1), ('2019-08-07', '2019-07-31', 7),
+])
+def test_tail_evidence_retains_observed_endpoint_and_true_age(as_of, observed, age):
+    task = resolve_prompt(f'Review Toddbrook Reservoir as of {as_of}.').tasks('aged-records')['dam']
+    result = dam_result(task)
+    assert result.as_of.isoformat() == as_of
+    assert result.evidence.last_observation.isoformat() == observed
+    assert result.metrics.latest_visit_age_days == age
+    assert len(result.limitations) == 8
+    assert any('last-known records' in item for item in result.limitations)
+
+    # A caller cannot relabel the last supplied observation as fresh on the
+    # assessment date, even when the age and coverage fields agree with the lie.
+    fresh = result.model_dump(mode='json')
+    fresh['evidence']['first_observation'] = as_of
+    fresh['evidence']['last_observation'] = as_of
+    fresh['metrics']['latest_visit_age_days'] = 0
+    with pytest.raises(ValidationError, match='Observation coverage'):
+        DamResult.model_validate(fresh)
+    wrong_age = result.model_dump(mode='json')
+    wrong_age['metrics']['latest_visit_age_days'] = 0
+    with pytest.raises(ValidationError, match='Observation age'):
+        DamResult.model_validate(wrong_age)
+
+
 @pytest.mark.parametrize('prompt', [
     'Do not investigate flood risk at Toddbrook Reservoir as of 2019-07-31.',
     'Assess flood risk at Toddbrook Reservoir, California as of 2019-07-31.',
@@ -195,7 +247,11 @@ def test_inclusive_historical_range_is_preserved_instead_of_using_latest_hours()
         assert task.end_time.isoformat() == '1995-04-08T00:00:00+00:00'
 
 
-@pytest.mark.parametrize('prompt,roles', [(TOD, {'hydro','flood','dam'}), (OTHER, {'hydro','flood'})])
+@pytest.mark.parametrize('prompt,roles', [
+    (TOD, {'hydro','flood','dam'}),
+    (EXAMPLES[1], {'hydro','flood','dam'}),
+    (OTHER, {'hydro','flood'}),
+])
 def test_http_dispatch_respects_scope_and_never_reads_private_data(tmp_path, monkeypatch, prompt, roles):
     factory, accepted, requests = factory_with_workers()
     service = ReservoirService(settings(), history_dir=tmp_path, client_factory=factory)

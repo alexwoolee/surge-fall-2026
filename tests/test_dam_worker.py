@@ -12,10 +12,11 @@ import pytest
 from backend.shared.contracts import AnalysisTask
 from backend.shared.dam_contracts import DamResult, DamTask
 from backend.shared.dam_records import project_record
+from backend.shared.dam_snapshots import snapshot_records
 from backend.shared.settings import WorkerEndpoint, WorkerSettings
 from backend.shared.worker_api import create_worker_app
 from backend.workers.dam.main import create_app
-from backend.workers.dam.service import analyze
+from backend.workers.dam.service import analyze, run_dam_task
 from scripts import run_worker
 
 FILES = {'operations': 'weekly_ops_logs.jsonl', 'supervision': 'se_reports.jsonl',
@@ -47,6 +48,16 @@ def write_records(root, rows):
 def prepared_records(rows):
     return {category: [project_record(FILES[category], row) for row in values]
             for category, values in rows.items()}
+
+
+def write_snapshot(root, rows, request):
+    files = {FILES[key]: ''.join(json.dumps(row) + '\n' for row in values).encode()
+             for key, values in prepared_records(rows).items()}
+    selected = root / 'as_of' / request.as_of.isoformat() / 'data'
+    selected.mkdir(parents=True)
+    for name, content in snapshot_records(files, request.as_of).items():
+        (selected / name).write_bytes(content)
+    return root / 'data', selected
 
 
 @pytest.fixture
@@ -156,7 +167,7 @@ def test_outside_coverage_does_not_open_local_files(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize('changes', [
-    {'as_of': '2019-08-01'}, {'as_of': '2019-07-31T00:00:00Z'}, {'as_of': 123},
+    {'as_of': '2019-08-08'}, {'as_of': '2019-07-31T00:00:00Z'}, {'as_of': 123},
     {'window': 'outside-coverage'}, {'site_id': 'another-reservoir'}, {'window': '2007-2008'},
     {'data_dir': '/private/path'}, {'analysis_type': 'surface_water_and_terrain'},
 ])
@@ -267,6 +278,76 @@ def test_default_runtime_directory_never_falls_back_to_original_archive(monkeypa
     assert WorkerSettings.from_env().dam_data_dir == expected
 
 
+def test_http_runtime_reads_only_requested_snapshot_not_master_or_other_days(tmp_path, records, monkeypatch):
+    records['operations'] += [visit('2019-08-02')]
+    records['maintenance'][0]['closed_date'] = '2020-01-01'
+    requested = task('2019-08-01')
+    base, selected = write_snapshot(tmp_path, records, requested)
+    write_records(base, records)
+    write_snapshot(tmp_path, records, task('2019-07-31'))
+    allowed = {selected / name for name in FILES.values()}
+    observed = set()
+    read_bytes, open_file = Path.read_bytes, Path.open
+
+    def guarded_read(path):
+        assert path in allowed, 'Runtime read outside the requested date.'
+        observed.add(path)
+        value = read_bytes(path)
+        assert b'2019-08-02' not in value and b'2020-01-01' not in value
+        return value
+
+    def guarded_open(path, mode='r', *args, **kwargs):
+        if 'r' in mode:
+            assert path in allowed, 'Runtime opened master records or another day.'
+        return open_file(path, mode, *args, **kwargs)
+
+    # Build the app before installing the filesystem trap: only the job's reads
+    # are the subject of this boundary check, not framework/package imports.
+    app = create_app(WorkerSettings(dam_data_dir=base))
+    with TestClient(app) as client:
+        monkeypatch.setattr(Path, 'read_bytes', guarded_read)
+        monkeypatch.setattr(Path, 'open', guarded_open)
+        assert client.post('/tasks', json=requested.model_dump(mode='json')).status_code == 202
+        assert terminal(client)['state'] == 'complete'
+        result = DamResult.model_validate(client.get('/tasks/dam-test/result').json())
+        assert result.evidence.last_observation.isoformat() == '2019-07-31'
+        assert result.metrics.latest_visit_age_days == 1
+        assert result.metrics.open_maintenance_count == 1
+        assert observed == allowed
+
+
+def test_runtime_missing_snapshot_fails_without_reading_master(tmp_path, records, monkeypatch):
+    base = write_records(tmp_path / 'data', records)
+    monkeypatch.setattr(Path, 'read_bytes', lambda *_: pytest.fail('Master fallback attempted.'))
+    with pytest.raises(ValueError, match='^Local evidence could not be validated.$'):
+        run_dam_task(task(), None, settings=WorkerSettings(dam_data_dir=base))
+
+
+@pytest.mark.parametrize('part', ['as_of', 'as_of/2019-07-31', 'as_of/2019-07-31/data'])
+def test_runtime_snapshot_directory_symlinks_are_rejected(tmp_path, records, part):
+    base, _ = write_snapshot(tmp_path, records, task())
+    original = tmp_path / part
+    outside = tmp_path / 'moved'
+    original.rename(outside)
+    try:
+        original.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        if getattr(error, 'winerror', None) == 1314:
+            pytest.skip('Windows account lacks symlink privilege.')
+        raise
+    with pytest.raises(ValueError, match='^Local evidence could not be validated.$'):
+        run_dam_task(task(), None, settings=WorkerSettings(dam_data_dir=base))
+
+
+def test_runtime_outside_coverage_does_not_access_any_private_path(tmp_path, monkeypatch):
+    settings = WorkerSettings(dam_data_dir=tmp_path / 'missing')
+    monkeypatch.setattr(Path, 'resolve', lambda *_args, **_kwargs: pytest.fail('Private path accessed.'))
+    monkeypatch.setattr(Path, 'read_bytes', lambda *_: pytest.fail('Private file read.'))
+    result = run_dam_task(DamTask(window='outside-coverage', as_of='2020-07-31'), None,
+                          settings=settings)
+    assert result['summary']['risk_level'] == 'unknown'
+
+
 def test_result_contract_rejects_raw_fields_and_altered_conclusions(tmp_path, records):
     raw = analyze(task(), data_dir=write_records(tmp_path, records)).model_dump(mode='json')
     for value in (dict(raw, records=[PRIVATE]), {**raw, 'summary': {**raw['summary'], 'risk_level': 'critical'}},
@@ -276,7 +357,8 @@ def test_result_contract_rejects_raw_fields_and_altered_conclusions(tmp_path, re
 
 
 def test_http_lifecycle_dashboard_and_schema_do_not_expose_records(tmp_path, records):
-    app = create_app(WorkerSettings(dam_data_dir=write_records(tmp_path, records)))
+    base, _ = write_snapshot(tmp_path, records, task())
+    app = create_app(WorkerSettings(dam_data_dir=base))
     with TestClient(app) as client:
         assert client.get('/dashboard/state').json()['risk'] is None
         assert client.get('/clock').json()['worker_id'] == 'dam-worker'
@@ -336,9 +418,10 @@ def test_dam_worker_uses_own_local_settings_and_dashboard(monkeypatch, tmp_path)
     ('2007-12-04', '2007-2008', 'moderate', 'B'), ('2007-12-09', '2007-2008', 'moderate', 'B'),
     ('2019-03-01', '2015-2019', 'high', 'C'), ('2019-07-26', '2015-2019', 'high', 'D'),
     ('2019-07-31', '2015-2019', 'critical', 'D'),
+    ('2019-08-01', '2015-2019', 'critical', 'D'),
 ])
 def test_locally_installed_periods_have_cutoff_specific_results(when, window, risk, grade):
-    path = Path(__file__).parents[1] / 'private_data/toddbrook_runtime/data'
+    path = Path(__file__).parents[1] / 'private_data/toddbrook_runtime/as_of' / when / 'data'
     if not path.is_dir():
         pytest.skip('Private dataset is not installed on this device.')
     result = analyze(DamTask(window=window, as_of=when), data_dir=path)

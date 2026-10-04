@@ -18,6 +18,7 @@ REASONS = {
     'measured': 'Observed within the requested interval.',
     'partial_temporal_coverage': 'Only part of the requested rainfall interval is available.',
     'static_noncontemporaneous': 'Static terrain context; not a measurement at the historical assessment date.',
+    'observation_date_unverified': 'Terrain excluded because its observation date cannot be verified against the historical cutoff.',
     'missing_local_data': 'Matching input files are unavailable on the assigned worker.',
     'before_product_coverage': 'The requested period predates this product.',
     'source_unavailable': 'The source could not provide suitable data.',

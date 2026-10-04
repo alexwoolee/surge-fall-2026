@@ -1,6 +1,7 @@
 """The portable installer never executes archive helpers or exposes record text."""
 
 from pathlib import Path
+from datetime import date
 import json
 import stat
 import zipfile
@@ -38,6 +39,13 @@ def archive(tmp_path, *, overrides=None, extras=()):
     return path
 
 
+@pytest.fixture(autouse=True)
+def small_preparation_period(monkeypatch):
+    # Installer tests exercise publication; calendar coverage is tested in the
+    # snapshot helper suite without repeatedly creating thousands of files.
+    monkeypatch.setattr(installer, 'snapshot_days', lambda: iter((date(2019, 7, 31), date(2019, 8, 1))))
+
+
 @pytest.fixture
 def repository(tmp_path):
     root = tmp_path / "repo"
@@ -60,13 +68,18 @@ def test_exact_allowlist_installs_atomically_without_helpers_or_evaluation_files
     calls = []
     def publish(source, target):
         calls.append((source, target))
-        assert not destination(repository).exists()
-        assert {item.name for item in Path(source).iterdir()} == installer.DATA_FILES
-        assert all(item.read_bytes() == CANONICAL[item.name] for item in Path(source).iterdir())
+        assert not Path(target).exists()
+        if Path(target).name == 'data':
+            assert {item.name for item in Path(source).iterdir()} == installer.DATA_FILES
+            assert all(item.read_bytes() == CANONICAL[item.name] for item in Path(source).iterdir())
+        else:
+            assert Path(target).name == 'as_of'
+            assert {item.name for item in Path(source).iterdir()} == {'2019-07-31', '2019-08-01'}
+            assert all({p.name for p in (day/'data').iterdir()} == installer.DATA_FILES for day in Path(source).iterdir())
         rename(source, target)
     monkeypatch.setattr(installer.os, "rename", publish)
     assert installer.install_dataset(path, repo_root=repository) == "installed"
-    assert len(calls) == 1
+    assert len(calls) == 2
     assert {item.name for item in destination(repository).iterdir()} == installer.DATA_FILES
     assert not (destination(repository).parent / ".install.lock").exists()
     assert not list(destination(repository).parent.glob(".install-*"))
@@ -139,7 +152,7 @@ def test_missing_duplicate_and_alternate_root_members_are_not_accepted(tmp_path,
         installer.install_dataset(path, repo_root=repository)
 
 
-@pytest.mark.parametrize("limit,value", [("MAX_ARCHIVE_BYTES", 1), ("MAX_MEMBER_BYTES", 1), ("MAX_TOTAL_BYTES", 100), ("MAX_ENTRIES", 4), ("MAX_LINE_BYTES", 10), ("MAX_ROWS", 0)])
+@pytest.mark.parametrize("limit,value", [("MAX_ARCHIVE_BYTES", 1), ("MAX_MEMBER_BYTES", 1), ("MAX_TOTAL_BYTES", 100), ("MAX_ENTRIES", 4), ("MAX_LINE_BYTES", 10), ("MAX_ROWS", 0), ("MAX_SNAPSHOT_BYTES", 1)])
 def test_each_archive_and_record_bound_is_enforced(tmp_path, repository, monkeypatch, limit, value):
     path = archive(tmp_path)
     monkeypatch.setattr(installer, limit, value)
@@ -261,3 +274,48 @@ def test_nested_metadata_is_removed_before_publishing_runtime_files(tmp_path, re
     assert prepared['mios'] == [{'klass': 'spillway_hydraulic_integrity'}, {}]
     assert set(prepared) == set(ANALYTICAL_RECORDS['inspections_s10.jsonl'])
     assert 'discard' not in json.dumps(prepared)
+
+
+def test_snapshot_upgrade_preserves_previous_prepared_data(tmp_path, repository):
+    original = destination(repository)
+    original.mkdir(parents=True)
+    for name, data in CANONICAL.items():
+        (original/name).write_bytes(data)
+    before = {p.name: (p.stat().st_mtime_ns, p.read_bytes()) for p in original.iterdir()}
+    assert installer.install_dataset(archive(tmp_path), repo_root=repository) == 'installed'
+    assert before == {p.name: (p.stat().st_mtime_ns, p.read_bytes()) for p in original.iterdir()}
+    assert (original.parent/'as_of/2019-08-01/data').is_dir()
+
+
+@pytest.mark.parametrize('incomplete', [False, True])
+def test_existing_different_or_incomplete_date_snapshot_is_protected(tmp_path, repository, incomplete):
+    path = archive(tmp_path)
+    installer.install_dataset(path, repo_root=repository)
+    day = destination(repository).parent/'as_of/2019-08-01/data'
+    file = day/'weekly_ops_logs.jsonl'
+    if incomplete:
+        file.unlink()
+    else:
+        file.write_bytes(b'existing owner snapshot')
+    before = {p.name: p.read_bytes() for p in day.iterdir()}
+    with pytest.raises(installer.InstallError, match='Preserve and inspect'):
+        installer.install_dataset(path, repo_root=repository)
+    assert before == {p.name: p.read_bytes() for p in day.iterdir()}
+
+
+@pytest.mark.parametrize('relative', ['as_of', 'as_of/2019-08-01', 'as_of/2019-08-01/data'])
+def test_snapshot_directory_symlinks_are_not_followed(tmp_path, repository, relative):
+    package = destination(repository).parent
+    target = package/relative
+    target.parent.mkdir(parents=True, exist_ok=True)
+    outside = tmp_path/'snapshot-outside'
+    outside.mkdir()
+    try:
+        target.symlink_to(outside, target_is_directory=True)
+    except OSError as error:
+        if getattr(error, 'winerror', None) == 1314:
+            pytest.skip('Windows account cannot create symbolic links.')
+        raise
+    with pytest.raises(installer.InstallError):
+        installer.install_dataset(archive(tmp_path), repo_root=repository)
+    assert list(outside.iterdir()) == []

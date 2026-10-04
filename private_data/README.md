@@ -6,16 +6,29 @@ local development copy, not a reason to distribute records to other devices.
 
 Run `python -m scripts.install_private_dataset /path/to/todbrook.zip` on that
 worker. Keep the raw archive outside the runtime folder, such as in Downloads.
-The installer selects the approved JSONL members and a fixed allowlist of fields
-needed for calculations, then publishes only sanitized runtime files under
-the following path. The original archive is unchanged; only the runtime copy
-omits discarded fields:
+**Rerun the installer after updating to the date-snapshot version**, even if the
+five prepared files already exist. It selects the approved JSONL members and a
+fixed allowlist of calculation fields, then prepares every supported assessment
+day offline. The original archive is unchanged. Prepared copies live under:
 
 ```text
-toddbrook_runtime/data/
+toddbrook_runtime/data/                       # prepared source; base setting
+toddbrook_runtime/as_of/YYYY-MM-DD/data/       # exact-date worker input
 ```
 
-The Dam worker reads that runtime directory. Raw notes, identities,
+Keep `MESHMIND_DAM_DATA_DIR` pointing to `private_data/toddbrook_runtime/data/`.
+For a task, the Dam worker opens only the sibling snapshot matching its `as_of`
+date, never the full prepared source or another day's files. A snapshot contains
+only records observed and available by the end of that UTC day; maintenance
+closures after the cutoff are removed from that copy. Missing snapshots require
+offline preparation, not a runtime fallback to the full dataset.
+
+Observed operational coverage remains 2007-09-03–2008-02-29 and
+2015-10-01–2019-07-31. Snapshots permit at most seven extra assessment days using
+last-known observations with their actual age. This does not create observations
+after either period ends; other dates return unknown private coverage.
+
+Raw notes, identities,
 origin/classification metadata, evaluation records and archive helpers are not
 part of runtime input. Preparation does not interpret discarded classifications.
 It does not execute archive code. Origin/evaluation metadata must not reach the

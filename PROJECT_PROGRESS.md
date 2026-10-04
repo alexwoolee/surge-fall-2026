@@ -109,6 +109,46 @@ service to Dam, including the new runtime path. The feature remains on
 `codex/toddbrook-private-worker`; physical deployment, joint investigation and
 explicit merge approval are still pending.
 
+## Exact historical observation cutoffs — October 4, 2026
+
+The user clarified that later observations must be excluded while current
+reprocessed estimates of historical observations are allowed. This is an
+observation cutoff, not a requirement to use only product versions published by
+the assessment date. A date-only request ends at the following midnight UTC,
+exclusive.
+
+Offline installation now also prepares 1,594 exact-date input folders under
+`private_data/toddbrook_runtime/as_of/YYYY-MM-DD/data/` on the owner device. Each
+contains only the five analytical files, with both event and record-availability
+dates bounded by that day and future maintenance closures removed. Preparation
+uses no evaluation contents or archive code. The running Dam worker opens only
+the selected day's files; it never scans other dates or loads the full master.
+Missing snapshots fail without a fallback. The existing master and raw archive
+remain preserved; Karan must rerun the installer before restarting the worker.
+
+Original observation periods remain unchanged. An explicit seven-day tail allows
+recent last-known evidence to be assessed with its actual age: August 1, 2019 can
+use July 31 observations, while August 8 remains outside private coverage. No new
+observations are invented. Dated Flood investigations exclude DEM/HAND before
+discovery or raster reads because the current sources do not provide a verifiable
+observation period. Control rejects older dated results containing undated terrain.
+The existing configured-case terrain flow is unchanged.
+
+Validation: **1,758 Python tests passed**. Boundary checks cover future events,
+record availability, maintenance closure masking, exact-day file isolation,
+missing snapshots, symlinks, public observation intervals and stale-worker terrain
+rejection. Independent code review found no remaining actionable issue. Local
+Dam runtime checks opened exactly five selected-day files for each requested
+assessment: August 1, 2019 returned critical concern (90, evidence confidence
+0.75, last observation July 31); December 9, 2007 returned moderate concern (35,
+evidence confidence 0.75, last observation December 9). These are Dam-only
+checks, not completed combined remote assessments.
+
+All three physical worker status endpoints returned HTTP 200 and idle from the
+Mac when bound to `100.100.3.5`. The cutoff update still needs to be pulled and
+restarted on the workers before submitting the two joint investigations. Local
+evidence is in `outputs/debug/historical-cutoff/`; the feature remains unmerged.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control

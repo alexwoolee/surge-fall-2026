@@ -8,10 +8,15 @@ from uuid import uuid4
 from pydantic import BeforeValidator, Field, StrictBool, model_validator
 
 from backend.shared.contracts import Contract, Count, Finite, Fraction, TaskID
+from backend.shared.dam_snapshots import OBSERVATION_WINDOWS, period_for
 
 Window = Literal['2007-2008', '2015-2019', 'outside-coverage']
-WINDOWS = {'2007-2008': (date(2007, 9, 3), date(2008, 2, 29)),
-           '2015-2019': (date(2015, 10, 1), date(2019, 7, 31))}
+WINDOWS = OBSERVATION_WINDOWS
+
+
+def window_for_date(as_of: date) -> Window:
+    """Select observed records, including at most seven days of aged lookback."""
+    return period_for(as_of) or 'outside-coverage'
 
 
 def _date(value):
@@ -27,7 +32,7 @@ LIMITATIONS = (
     'Historical screening rules indicate concern, not a calibrated probability of dam failure or a flood forecast.',
     'Confidence measures evidence coverage and freshness; it is not the probability that flooding will occur.',
     'No breach hydraulics, inundation extent, downstream exposure or flood depth is calculated.',
-    'Only observations available on or before the selected date are used; gaps between supported periods are not evidence of safety.',
+    'Only observations available on or before the selected date are used; up to seven days after a supported period ends, its last-known records are used with their actual age. Other gaps are not evidence of safety.',
     'Maintenance opening dates are treated as first availability where no separate availability date is recorded.',
     'A top water level of 185.67 mOD and a 0.03 m full-pool tolerance are fixed screening assumptions.',
     'Undated design information and retrospective event summaries are excluded from risk calculations.',
@@ -47,12 +52,8 @@ class DamTask(Contract):
     def bounded_date(self) -> Self:
         if not 1900 <= self.as_of.year <= 2100:
             raise ValueError('Screening dates must be between 1900 and 2100.')
-        inside = any(start <= self.as_of <= end for start, end in WINDOWS.values())
-        if self.window == 'outside-coverage':
-            if inside:
-                raise ValueError('Select the supported period for this date.')
-        elif not WINDOWS[self.window][0] <= self.as_of <= WINDOWS[self.window][1]:
-            raise ValueError('Date must be inside the selected supported period.')
+        if self.window != window_for_date(self.as_of):
+            raise ValueError('Select the supported period, including its seven-day lookback tail, for this date.')
         return self
 
 
@@ -219,7 +220,7 @@ class DamResult(Contract):
             raise ValueError('Required screening limitations must be retained.')
         if self.window == 'outside-coverage' and self.evidence.record_count:
             raise ValueError('Outside-coverage results cannot claim observed private evidence.')
-        if self.evidence.last_observation and not WINDOWS[self.window][0] <= self.evidence.first_observation <= self.evidence.last_observation <= self.as_of:
+        if self.evidence.last_observation and not WINDOWS[self.window][0] <= self.evidence.first_observation <= self.evidence.last_observation <= min(self.as_of, WINDOWS[self.window][1]):
             raise ValueError('Observation coverage must stay inside the requested period and cutoff.')
         metrics, counts = self.metrics, self.evidence.counts
         if metrics.recent_visit_count > counts.operations or metrics.open_maintenance_count > counts.maintenance:

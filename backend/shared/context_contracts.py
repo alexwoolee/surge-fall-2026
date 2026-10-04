@@ -113,6 +113,7 @@ ContextReason = Literal[
     "missing_local_data", "before_product_coverage", "source_unavailable",
     "processing_failed", "invalid_result", "resource_limit",
     "authentication_unavailable", "provider_timeout", "download_limit",
+    "observation_date_unverified",
 ]
 
 
@@ -172,6 +173,8 @@ class ContextResult(ContextTask):
             if item.availability == "unavailable":
                 complete = False
                 continue
+            if item.component in {"dem", "hand"}:
+                raise ValueError("Dated investigations cannot accept terrain without a verified observation period.")
             if item.temporal_kind == "observation":
                 if not self.start_time <= item.observed_start <= item.observed_end <= self.end_time:
                     raise ValueError("Observations must remain inside the requested interval.")

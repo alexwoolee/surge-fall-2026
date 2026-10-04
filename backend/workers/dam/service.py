@@ -123,7 +123,7 @@ def _visible(data_dir, task):
                     observed, available = _day(raw['date']), _day(raw['available_date'])
                 if observed > task.as_of or available > task.as_of:
                     continue
-                if category == 'operations' and observed < WINDOWS[task.window][0]:
+                if category == 'operations' and not WINDOWS[task.window][0] <= observed <= WINDOWS[task.window][1]:
                     continue
                 row = {'date': observed, 'available': available}
                 if category == 'operations':
@@ -219,5 +219,21 @@ def analyze(task: DamTask, *, data_dir: Path, progress=None) -> DamResult:
 
 
 def run_dam_task(task: DamTask, progress, *, settings):
-    result = analyze(task, data_dir=settings.dam_data_dir, progress=progress)
+    # Preparation happens separately on the owner's device. Runtime selects one
+    # exact day without reading the full master records or enumerating other days.
+    # Missing snapshots fail closed; there is deliberately no archive fallback.
+    data_dir = Path(settings.dam_data_dir).expanduser()
+    if task.window != 'outside-coverage':
+        try:
+            owner_root = data_dir.parent.resolve(strict=True)
+            parts = (owner_root / 'as_of', owner_root / 'as_of' / task.as_of.isoformat())
+            snapshot = parts[-1] / 'data'
+            if any(path.is_symlink() or not path.is_dir() for path in (*parts, snapshot)):
+                _bad()
+            if not snapshot.resolve(strict=True).is_relative_to(owner_root):
+                _bad()
+            data_dir = snapshot
+        except (OSError, ValueError):
+            raise ValueError(_ERROR) from None
+    result = analyze(task, data_dir=data_dir, progress=progress)
     return result.model_dump(mode='json')

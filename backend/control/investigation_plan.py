@@ -11,14 +11,14 @@ import re
 
 from backend.shared.contracts import BoundingBox
 from backend.shared.context_contracts import ContextTask
-from backend.shared.dam_contracts import DamTask, WINDOWS
+from backend.shared.dam_contracts import DamTask, window_for_date
 
 
 TODDBROOK_BBOX = (-2.10, 53.25, -1.85, 53.40)
 TODDBROOK_NAME = 'Toddbrook Reservoir, Whaley Bridge, Derbyshire, England'
 EXAMPLES = [
     f'Assess flood risk at {TODDBROOK_NAME} as of 2007-12-09. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps.',
-    f'Assess flood risk at {TODDBROOK_NAME} as of 2019-07-31. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps.',
+    f'Assess flood risk at {TODDBROOK_NAME} as of 2019-08-01. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps.',
 ]
 _DATE = re.compile(r'(?<!\d)\d{4}-\d{2}-\d{2}(?!\d)')
 _BOX = re.compile(r'\bbbox\s*[:=]\s*\[([^\]]+)\]', re.I)
@@ -118,7 +118,6 @@ def resolve_prompt(prompt: str, *, today=None) -> InvestigationPlan:
     bbox = BoundingBox(**dict(zip(('west', 'south', 'east', 'north'), coordinates)))
     if bbox.east - bbox.west > 2 or bbox.north - bbox.south > 2:
         raise PlanningError('Keep the investigation area within two degrees of longitude and latitude.')
-    window = next((key for key, (first, last) in WINDOWS.items() if first <= as_of <= last), None)
     plan = InvestigationPlan(location_id, name, bbox, as_of, start, end,
-                             (window or 'outside-coverage') if location_id == 'toddbrook' else None)
+                             window_for_date(as_of) if location_id == 'toddbrook' else None)
     return plan

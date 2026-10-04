@@ -183,25 +183,39 @@ def _raster(tmp_path, name, values, collection):
     return RasterTile(name, str(path), collection), bounds
 
 
-def test_flood_2007_attempts_static_terrain_when_satellite_did_not_exist(tmp_path, monkeypatch):
-    dem, bbox = _raster(tmp_path, "dem", [[10, 20], [30, 40]], "cop-dem-glo-30")
-    hand, _ = _raster(tmp_path, "hand", [[0, 1], [2, 3]], "glo-30-hand")
-    monkeypatch.setattr(flood, "discover_sentinel1_scene", lambda *a, **k: pytest.fail("Pre-launch satellite discovery"))
-    monkeypatch.setattr(flood, "discover_dem_tiles", lambda _: [dem])
-    monkeypatch.setattr(flood, "discover_hand_tiles", lambda _: [hand])
-    value = task("surface_water_and_terrain", bbox=dict(zip(("west", "south", "east", "north"), bbox)),
-                 as_of="2007-12-09", start_time="2007-12-09T00:00:00Z", end_time="2007-12-10T00:00:00Z")
+@pytest.fixture
+def forbid_undated_terrain(monkeypatch):
+    from backend.workers.flood import hand, terrain
+    def forbidden(*args, **kwargs):
+        pytest.fail("Unverified terrain dates must be rejected before discovery or reading.")
+    for module, names in ((terrain, ("discover_dem_tiles", "analyze_dem_tiles")),
+                          (hand, ("discover_hand_tiles", "analyze_hand_tiles"))):
+        for name in names:
+            monkeypatch.setattr(module, name, forbidden)
+
+
+@pytest.mark.parametrize("day,end", [("2007-12-09", "2007-12-10"),
+                                      ("2019-08-01", "2019-08-02"),
+                                      ("2026-08-01", "2026-08-02")])
+def test_undated_terrain_excluded_before_any_catalog_or_asset_read(day, end, monkeypatch, forbid_undated_terrain):
+    def discover(*args, **kwargs):
+        assert day != "2007-12-09", "Pre-launch satellite discovery is not allowed."
+        raise RuntimeError("No matching satellite scene.")
+    monkeypatch.setattr(flood, "discover_sentinel1_scene", discover)
+    monkeypatch.setattr(rasterio, "open", lambda *a, **k: pytest.fail("Excluded assets must not be read."))
+    value = task("surface_water_and_terrain", as_of=day,
+                 start_time=f"{day}T00:00:00Z", end_time=f"{end}T00:00:00Z")
     seen = []
     result = components(run_flood_task(value, seen.append, settings=WorkerSettings()))
     assert seen == [TaskState.PROCESSING, TaskState.PREPARING_RESULT]
-    assert result["sentinel1"].reason == "before_product_coverage"
-    assert result["dem"].metrics.mean_m == 25
-    assert result["hand"].metrics.mean_m == 1.5
-    assert result["dem"].reason == "static_noncontemporaneous"
-    assert result["dem"].observed_start is None
+    assert result["sentinel1"].reason == ("before_product_coverage" if day.startswith("2007") else "source_unavailable")
+    for name in ("dem", "hand"):
+        assert result[name].reason == "observation_date_unverified"
+        assert result[name].availability == "unavailable"
+        assert result[name].metrics is result[name].observed_start is result[name].observed_end is None
 
 
-def test_future_scene_rejected_and_terrain_still_attempted(tmp_path, monkeypatch):
+def test_future_scene_rejected_without_reading_assets(monkeypatch, forbid_undated_terrain):
     calls = []
     def discover(*args, **kwargs):
         calls.append((args, kwargs))
@@ -209,12 +223,24 @@ def test_future_scene_rejected_and_terrain_still_attempted(tmp_path, monkeypatch
                               acquired_at="2019-07-26T00:00:00Z", bbox=BOUNDS)
     monkeypatch.setattr(flood, "discover_sentinel1_scene", discover)
     monkeypatch.setattr(flood, "analyze_sentinel1_scene", lambda *a, **k: pytest.fail("Future scene must not be read"))
-    monkeypatch.setattr(flood, "discover_dem_tiles", lambda _: [])
-    monkeypatch.setattr(flood, "discover_hand_tiles", lambda _: [])
     rows = components(run_flood_task(task("surface_water_and_terrain"), lambda _: None, settings=WorkerSettings()))
     assert rows["sentinel1"].reason == "invalid_result"
-    assert rows["dem"].reason == rows["hand"].reason == "source_unavailable"
+    assert rows["dem"].reason == rows["hand"].reason == "observation_date_unverified"
     assert calls[0][0][2] < task().end_time
+
+
+def test_verified_satellite_observation_still_processed_when_terrain_excluded(tmp_path, monkeypatch, forbid_undated_terrain):
+    tile, bbox = _raster(tmp_path, "scene", [[.01, .01], [.5, .5]], "sentinel-1-rtc")
+    scene = Sentinel1Scene(scene_id="observed-before-cutoff", href=tile.href,
+                           acquired_at="2019-07-25T12:00:00Z", bbox=bbox)
+    monkeypatch.setattr(flood, "discover_sentinel1_scene", lambda *a, **k: scene)
+    value = task("surface_water_and_terrain", bbox=dict(zip(("west", "south", "east", "north"), bbox)))
+    result = run_flood_task(value, lambda _: None, settings=WorkerSettings())
+    rows = components(result)
+    assert result["status"] == "partial"
+    assert rows["sentinel1"].availability == "available"
+    assert rows["sentinel1"].metrics.candidate_fraction_valid == .5
+    assert rows["dem"].reason == rows["hand"].reason == "observation_date_unverified"
 
 
 def test_result_cannot_change_identity_or_invent_measurements():
@@ -224,6 +250,20 @@ def test_result_cannot_change_identity_or_invent_measurements():
         with pytest.raises(ValidationError): ContextResult.model_validate(altered)
     altered = deepcopy(result); altered["components"][0]["metrics"] = {"risk": 0}
     with pytest.raises(ValidationError): ContextResult.model_validate(altered)
+
+
+@pytest.mark.parametrize("name", ["dem", "hand"])
+def test_stale_worker_cannot_return_undated_terrain_measurements(name):
+    value = task("surface_water_and_terrain")
+    result = context_result(value, [unavailable("sentinel1", "source_unavailable"),
+                                   unavailable("dem", "observation_date_unverified"),
+                                   unavailable("hand", "observation_date_unverified")])
+    stale = next(row for row in result["components"] if row["component"] == name)
+    stale.update(availability="available", reason="static_noncontemporaneous",
+                 metrics={"mean_m": 1., "min_m": 0., "max_m": 2., "median_m": 1.,
+                          "valid_fraction": 1., "valid_pixels": 4, "tile_count": 1})
+    with pytest.raises(ValidationError, match="verified observation period"):
+        ContextResult.model_validate(result)
 
 
 def test_file_symlinks_are_never_opened(tmp_path, monkeypatch):

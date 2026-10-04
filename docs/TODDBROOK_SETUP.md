@@ -183,14 +183,14 @@ Invoke-RestMethod http://100.100.3.3:8003/status
 Report the commit, test summary and whether `/status` reports idle to Ryan. Ryan
 still needs to verify access from his Mac and run the shared investigation.
 
-Flood queries public Sentinel-1, DEM and HAND sources for the requested location
-and historical dates. It needs Internet access. Reusing **nonprivate geospatial
-caches only** is optional. Do not receive or copy `private_data`, the owner ZIP,
-private record files, or another person's credentials. A period before a product's
-coverage is reported as unavailable. Static terrain remains noncontemporaneous
-context. Do not disable the Windows firewall if remote access fails; report the
-specific connection result so the listener, tailnet policy and narrowly scoped
-access can be checked.
+Flood queries public Sentinel-1 observations for the requested location and dates.
+This generic dated mode excludes undated DEM/HAND before discovery or file reads,
+reporting `observation_date_unverified`; the legacy configured flow is unchanged.
+It needs Internet access. Reusing **nonprivate geospatial caches only** is optional.
+Do not receive or copy `private_data`, the owner ZIP, private records, or another
+person's credentials. A period before a product's coverage is unavailable. Do not
+disable the Windows firewall if remote access fails; report the connection result
+so the listener, tailnet policy and narrowly scoped access can be checked.
 
 ## Karan — Linux Dam, existing Python 3.12 setup
 
@@ -238,13 +238,14 @@ PYENV_VERSION=3.12.13 pyenv exec python -m venv .venv
 Choose one environment-creation command, only when `.venv` is absent. Preserve an
 existing environment; do not overwrite it or change the system Python.
 
-**2. Install project dependencies and prepare the local runtime data:**
+**2. Install dependencies and rerun offline data preparation.** This installer
+rerun is required even when the earlier five runtime files already exist:
 
 ```sh
 .venv/bin/python -m pip install -r requirements.txt
 .venv/bin/python -m pip check
 .venv/bin/python -m scripts.install_private_dataset "$HOME/Downloads/todbrook.zip"
-.venv/bin/python -m pytest -q tests/test_install_private_dataset.py tests/test_dam_worker.py
+.venv/bin/python -m pytest -q tests/test_install_private_dataset.py tests/test_dam_snapshots.py tests/test_dam_worker.py
 ```
 
 Transfer the user-supplied ZIP **directly to Karan**, using an approved private
@@ -253,10 +254,11 @@ Keep the raw archive outside the runtime folder, for example in `~/Downloads/`;
 do not upload it to GitHub, share it with other workers, or execute its helpers.
 
 The installer reads the five approved JSONL members under `toddbrook_dataset/data/`
-and writes **sanitized, model-needed fields only** to the ignored directory:
+and prepares **sanitized, model-needed fields only** in ignored directories:
 
 ```text
-private_data/toddbrook_runtime/data/
+private_data/toddbrook_runtime/data/                      # prepared source
+private_data/toddbrook_runtime/as_of/YYYY-MM-DD/data/      # exact-date inputs
 ```
 
 The runtime files are `weekly_ops_logs.jsonl`, `se_reports.jsonl`,
@@ -265,15 +267,24 @@ Preparation selects a fixed field allowlist; discarded origin/classification
 metadata is not interpreted or passed into runtime data. Raw notes, identities,
 origin labels, evaluation data, archive scripts, bytecode, documents, design
 records and timelines are excluded. Neither the worker nor the public API/UI
-receives those discarded fields. The original archive is unchanged; fields are removed only from the runtime copy.
-The raw archive remains separate on Karan's device.
+receives those discarded fields. The original archive is unchanged; fields are
+removed only from prepared copies. The raw archive remains separate on Karan's
+device.
+
+Preparation builds the date snapshots offline. Each contains only records both
+observed and available by the end of its UTC assessment day. Later maintenance
+closures are absent from that snapshot. At job time, Dam opens **only the selected
+day's five files**, never the full prepared source or another date's snapshot.
+Missing snapshots fail explicitly; the worker cannot rebuild them from all records
+or fall back to the full source during a task.
 
 The bounded archive and record checks run before publishing the complete runtime
-directory. Identical sanitized data can be installed again. Conflicting existing
-runtime files stop installation; preserve them and investigate locally rather than
-forcing an overwrite. The worker reads the sanitized runtime folder, **not** the
-old raw `private_data/toddbrook_dataset/data/` copy. Do not override its data path to
-point at that old folder. Only bounded derived results may leave the Dam worker.
+directories. Identical prepared data can be installed again, and the rerun adds
+missing snapshots to a matching earlier installation. Conflicting or incomplete
+existing snapshot sets stop installation; preserve them and investigate locally
+rather than forcing an overwrite. Do not point the worker at the old raw
+`private_data/toddbrook_dataset/data/` copy. Only bounded derived results may leave
+the Dam worker.
 
 **3. Start Dam and leave this terminal open:**
 
@@ -282,8 +293,9 @@ export MESHMIND_DAM_DATA_DIR="$PWD/private_data/toddbrook_runtime/data"
 .venv/bin/python -m scripts.run_worker dam --host 100.100.3.4 --port 8004
 ```
 
-Run that block from the selected repository root. The explicit environment value
-replaces any old data-directory override. The launcher opens
+Run that block from the selected repository root. Keep the base setting ending in
+`runtime/data`; the worker derives its sibling `as_of/<requested-date>/data` path.
+The explicit value replaces any old data-directory override. The launcher opens
 `http://100.100.3.4:8004/dashboard`. From another terminal:
 
 ```sh
@@ -320,7 +332,7 @@ credentials or internal tokens. Keep existing legacy `.env` files intact.
 Start Control in one terminal:
 
 ```sh
-.venv/bin/python -m backend.control.serve --generic --worker-env-file .env.reservoir.local --history-dir outputs/debug/reservoir/history
+.venv/bin/python -m backend.control.serve --generic --worker-env-file .env.reservoir.local --history-dir outputs/debug/reservoir-cutoff/history
 ```
 
 Start the interface in another terminal after stopping any old UI listener:
@@ -337,6 +349,9 @@ UI process only if its production build contains this branch's changes. Leave
 Control's own listener on loopback. This generic command needs neither a fixed
 GPM/SMAP file list nor OpenAI configuration. Control must not read the ZIP or
 private dataset; Karan's worker performs that analysis.
+Use this new history directory for the cutoff-aware runs. Preserve earlier
+`outputs/debug/reservoir/history` results as historical evidence; do not load them
+into this run's store because the strict Dam result contract has changed.
 
 ## Joint historical checks
 
@@ -350,27 +365,31 @@ Ryan's UI and wait for its terminal result. Do not resubmit simply because a wor
 finishes between browser polls. Hydro downloads may take longer for an uncached
 date; missed data remains a coverage limitation rather than zero rainfall.
 
-Use this prompt, replacing only the ISO date for each requested comparison:
+Run these two requested assessments separately:
 
-> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2007-12-04. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps.
+> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2019-08-01. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps. Use observations through the end of that UTC day only.
 
-Dates to compare:
-
-| Period | As-of dates |
-| --- | --- |
-| 2007 | `2007-12-04`, `2007-12-09`, `2007-12-16` |
-| 2019 | `2019-03-01`, `2019-07-26`, `2019-07-31` |
+> Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2007-12-09. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps. Use observations through the end of that UTC day only.
 
 A single ISO date requests that **UTC calendar day** from Hydro/Flood. An explicit
 ordered range is inclusive, bounded to at most seven days. The final date is the
-historical cutoff. The Dam worker uses only records both observed and available
-by that cutoff; recurring operational indicators use an inclusive preceding
-90-day window, bounded by the supported private period. Private operational
-coverage is **2007-09-03 through 2008-02-29** and **2015-10-01 through 2019-07-31**.
-Other historical dates can still run Hydro/Flood; Toddbrook's Dam result outside
-those windows must show unknown/unavailable private evidence, not borrow later
-records. SMAP and Sentinel-1 do not cover the 2007 dates, so missing products there
-are expected and must remain explicit.
+**end-of-day cutoff** (the following midnight is an exclusive endpoint). Modern
+reprocessed estimates of historical environmental observations are allowed; this
+is not a recreation of the public products available on that date. Observations
+after the cutoff must not enter the results. Undated DEM/HAND remain unavailable
+with `observation_date_unverified` in this generic flow.
+
+Dam uses its prepared snapshot containing only records both observed and available
+by the cutoff, without future maintenance closures. Recurring operational
+indicators use an inclusive preceding 90-day window, bounded by the observed
+period. Private operational coverage remains **2007-09-03 through 2008-02-29** and
+**2015-10-01 through 2019-07-31**. Assessment dates may extend at most seven days
+beyond either endpoint, using last-known evidence with its actual age. Thus
+**2019-08-01 uses July 31 or earlier observations**, not newly invented August 1
+records. The final tail days are 2008-03-07 and 2019-08-07; other gaps must show
+unknown/unavailable private coverage. Hydro/Flood still query their requested
+dates. SMAP and Sentinel-1 do not cover 2007, so those missing products are expected
+and must remain explicit.
 
 Confirm shared task/session identity, independently completed or explicitly
 unavailable worker evidence, matching location/dates, actual product coverage,
@@ -404,16 +423,16 @@ not a forecast for dates that have not occurred.
 
 **Kazi — Hydro**
 
-> In my separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve all UI work, credentials, caches and local edits; do not reset, clean, merge or push. Confirm Python 3.12, install the pinned requirements, and run the appropriate offline tests. Help me save Earthdata login interactively on this device without printing credentials. Hydro must query NASA at runtime for Control's requested location/dates; do not use the old fixed input ZIP as generic coverage. Do not receive, inspect or mount any private Toddbrook records. Start one Hydro process with scripts.run_worker on 100.100.3.2:8002 and leave its own dashboard open. Report commit, test summary and readiness only; wait for Ryan to submit the joint task.
+> In my separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve all UI work, credentials, caches and local edits; do not reset, clean, merge or push. Confirm Python 3.12, install the pinned requirements, and run the appropriate offline tests. Help me save Earthdata login interactively on this device without printing credentials. Hydro must query NASA at runtime for Control's requested location/dates; do not use the old fixed input ZIP as generic coverage. Modern reprocessed historical estimates are allowed, but observations after the requested UTC day's cutoff are excluded. Do not receive, inspect or mount any private Toddbrook records. Start one Hydro process with scripts.run_worker on 100.100.3.2:8002 and leave its own dashboard open. Report commit, test summary and readiness only; wait for Ryan to submit the joint task.
 
 **Alex — Flood**
 
-> In a separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve my other work and local settings; do not reset, clean, merge or push. Confirm Python 3.12, install pinned requirements and run the appropriate offline tests. Flood uses public live acquisition for the requested historical location/dates and static terrain context. Only nonprivate geospatial caches may be reused; do not receive, inspect or mount the private Toddbrook ZIP or records. Start one Flood process with scripts.run_worker on 100.100.3.3:8003 and leave its own dashboard open. Report commit, test summary and readiness; do not submit extra tasks or claim a joint run passed yet.
+> In a separate Windows worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve my other work and local settings; do not reset, clean, merge or push. Confirm Python 3.12, install pinned requirements and run the appropriate offline tests. Flood queries public historical satellite observations at runtime; generic dated tasks exclude undated DEM/HAND before discovery or file reads. Modern reprocessing is allowed, but observations after the requested UTC day's cutoff are excluded. Only nonprivate geospatial caches may be reused; do not receive, inspect or mount the private Toddbrook ZIP or records. Start one Flood process with scripts.run_worker on 100.100.3.3:8003 and leave its own dashboard open. Report commit, test summary and readiness; do not submit extra tasks or claim a joint run passed yet.
 
 **Karan — Dam**
 
-> On my Linux worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve existing work and owner data; do not reset, clean, merge, push or upload private files. Receive the owner ZIP directly on this device only and run scripts.install_private_dataset with its local path to prepare sanitized fields in private_data/toddbrook_runtime/data; keep the raw ZIP outside that runtime folder and never execute ZIP helpers. If the installer finds conflicting existing data, preserve it and report the fixed diagnostic rather than overwriting. Run the installer and Dam tests using their test fixtures, then set MESHMIND_DAM_DATA_DIR to this checkout's private_data/toddbrook_runtime/data and start one Dam process with scripts.run_worker on 100.100.3.4:8004. Keep owner records local; the worker must use only sanitized runtime fields and emit bounded derived results, with no origin/classification or evaluation data. Leave the dashboard open and report commit, test summary and readiness without raw records, labels, archive contents or credentials. Wait for Ryan's Toddbrook task and verify a non-Toddbrook task does not reach this worker.
+> On my Linux worker checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker. Preserve existing work and owner data; do not reset, clean, merge, push or upload private files. Rerun scripts.install_private_dataset with the owner ZIP's local path even if the previous sanitized files exist: it must prepare offline exact-date inputs in private_data/toddbrook_runtime/as_of/YYYY-MM-DD/data. Keep the raw ZIP separate and never execute its helpers. Preserve and report any conflicting data rather than overwriting it. Run installer, snapshot and Dam tests using fixtures, then keep MESHMIND_DAM_DATA_DIR at this checkout's private_data/toddbrook_runtime/data and start one Dam process with scripts.run_worker on 100.100.3.4:8004. At runtime, the worker must open only the requested day's snapshot, with no future records or future closures and no fallback to the full prepared source. Keep owner records local and emit bounded derived results without origin/classification or evaluation data. Leave the dashboard open and report commit, test summary, installer outcome and readiness without raw records or credentials. Wait for Ryan's agreed August 1, 2019 and December 9, 2007 tasks; verify other locations never reach this worker.
 
 **Ryan — Control**
 
-> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker without merging or pushing. Preserve other work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, start backend.control.serve with --generic and the separate reservoir history directory, and build/start the UI on loopback. This deterministic mode needs no OpenAI key or paid call. Do not open, mount or copy the private ZIP/dataset on Control, Hydro or Flood. Wait for all owners to confirm the same commit and readiness before submitting one agreed historical request. Validate returned aggregate evidence, conditional Dam routing, honest coverage, risk/confidence wording and the standalone download. Keep the branch unmerged until I explicitly approve.
+> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use codex/toddbrook-private-worker without merging or pushing. Preserve other work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, start backend.control.serve with --generic and --history-dir outputs/debug/reservoir-cutoff/history, and build/start the UI on loopback. Preserve earlier history separately. This deterministic mode needs no OpenAI key or paid call. Do not open, mount or copy the private ZIP/dataset on Control, Hydro or Flood. Wait for matching commits and readiness, including Karan's completed snapshot preparation, before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Validate aggregate evidence, no observations after the cutoff, conditional Dam routing, honest coverage/age, risk/confidence wording and the standalone download. Keep the branch unmerged until I explicitly approve.
