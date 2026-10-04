@@ -1,7 +1,8 @@
 # Phase 7 — Structured evidence and deterministic analyst review
 
 Branch: `codex/fusion-review`, from accepted Phase 6 baseline
-`b8a74b698ce476a90b5418aab65f4fd53678e61d`. Phase 7 human acceptance is pending.
+`b8a74b698ce476a90b5418aab65f4fd53678e61d`. Phase 7 human acceptance was
+recorded October 4 after the Mac review (see the final checkpoint below).
 The existing `kazi/frontend-ui` checkout and running Windows Hydro checkout are
 separate and unchanged. Do not update them to run this offline review.
 
@@ -211,3 +212,35 @@ this development checkpoint. No HTML review is needed: the actual downloadable
 HTML briefing and browser verification are Phase 9 work.
 
 Pause for human acceptance before an accepted phase merge or any Phase 8 work.
+
+## October 4 Mac review and accepted human checkpoint
+
+At `8049cd22f27ae6b9dfb63cfdf4b15a121578a768`, native macOS Python 3.12.14:
+
+- `.venv/bin/python -m pytest -q`: **907 passed**, zero failures/skips, 14.71 s.
+- `.venv/bin/python -m pip check`: **PASS**, no broken requirements.
+- `git diff --check`: **PASS**.
+- Independent code review: no actionable findings.
+- Offline replay of the accepted Phase 6 physical-worker report: **PASS**,
+  four triggered, one not triggered, zero not assessable. All original typed
+  source results matched exactly and the input bytes were unchanged.
+
+Replay command:
+
+```sh
+.venv/bin/python -m scripts.validate.validate_fusion --input outputs/debug/parallel-workers/physical-7bde416/result.json --rules config/rules.example.json --requested-start 2021-11-14T00:00:00Z --requested-end 2021-11-16T23:59:59Z --output outputs/debug/phase7/mac-review-8049cd2-20261004T071457Z/review.json
+```
+
+Input SHA-256: `493bc176185c05142e0511438bfa106deeef6a5515f225228b11fd3778ecc75d`.
+The local folder also contains `verification.json` with commands and results.
+This replay used Ryan’s preserved physical Phase 6 evidence, not Kazi’s separate
+local Phase 7 acquisition, and performed no new remote execution or data processing.
+Existing dependency deprecation warnings remain.
+
+After the review presented all five measurements/outcomes and the one-hour GPM,
+partial-SAR and candidate-water limits, the user explicitly instructed **“proceed”**.
+That instruction accepts this Phase 7 checkpoint and authorizes the accepted
+phase merge and Phase 8. It records the current user’s approval without asserting
+a separate named worker-owner confirmation. Historical raw `PENDING_USER` reports
+are preserved. PR #1 must target `codex/parallel-dispatch`; Phase 8 requires its
+own validation and human checkpoint.

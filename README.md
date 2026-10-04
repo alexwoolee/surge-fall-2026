@@ -13,15 +13,17 @@ MeshMind runs bounded environmental investigations on separate workstations and 
 **Handoff updated October 4, 2026 (America/Vancouver).** Kazi Boni Amin is moving
 development to a friend's laptop/Codex session. This README is the continuation
 brief; inspect the actual code and applicable `AGENTS.md` files before editing.
-The handoff request does **not** itself accept Phase 7 or authorize beginning
-Phase 8 before the existing human checkpoint.
+The original handoff did not accept Phase 7. After the Mac review below, the
+user explicitly instructed **“proceed”** on October 4, accepting this checkpoint
+and authorizing the accepted phase merge and Phase 8. Historical raw reports
+retain their original `PENDING_USER` status.
 
 ## Exact checkpoint and branches
 
 | Work | Verified state at handoff | Where to find it |
 | --- | --- | --- |
 | Phases 1–6 backend | Implemented, real-data validated, human accepted | `origin/codex/parallel-dispatch` at `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
-| Phase 7 implementation | Implemented and validated; human acceptance pending | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
+| Phase 7 implementation | Implemented, validated and human accepted October 4 | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
 | Phase 7 pull request | **Draft, open, not merged**; base `codex/parallel-dispatch`, head `codex/fusion-review` | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
 | Existing frontend | Next.js/TypeScript/Tailwind demonstration implemented; integration pending | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d` |
 | `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
@@ -210,11 +212,11 @@ development checkout moved laptops.
 
 ## Next actions and remaining phases
 
-1. **Finish the Phase 7 human checkpoint.** Kazi approved using demonstration
-   thresholds, but has not yet accepted Phase 7. Review its evidence, then obtain
-   explicit acceptance from Kazi Boni Amin (or changes he requests). Record that
-   acceptance in the README/phase record without rewriting historical raw reports.
-   Once accepted, mark PR #1 ready and merge it into **`codex/parallel-dispatch`**.
+1. **Phase 7 human checkpoint accepted October 4.** Following the Mac review
+   (907 passing tests, preserved real evidence and all five demonstration outcomes),
+   the user instructed “proceed.” This records the current user’s approval; it does
+   not invent a separate named worker-owner confirmation. Original raw reports
+   remain unchanged. Mark PR #1 ready and merge it into **`codex/parallel-dispatch`**.
    Recheck the PR target and head before merging. Do not merge it into `main`.
 2. **Phase 8 — OpenAI agent integration.** Fetch the accepted merge, then create a
    new `codex/*` branch from the verified accepted commit. Consult current official
@@ -279,11 +281,10 @@ Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the lates
 README on codex/fusion-review, starting with "Continue on Another Laptop".
 Preserve existing checkouts, private environment files, data and running workers.
 Phases 1–6 are accepted. Phase 7 implementation ea4f322 passed validation; PR #1
-is a draft targeting codex/parallel-dispatch. Phase 7 human acceptance is still
-pending; this handoff is not approval. Establish the current Git/PR state and
-complete that checkpoint first. Once Kazi accepts, record acceptance, merge the
-phase into its accepted development branch, and begin Phase 8 on a fresh codex/*
-branch from that verified merge. Continue phases one at a time with the human
+targets codex/parallel-dispatch. Phase 7 human acceptance was recorded after
+the Mac review when the user instructed “proceed” on October 4. Establish the
+current Git/PR state, verify the accepted phase merge, and begin Phase 8 on a
+fresh codex/* branch from that verified merge. Continue phases one at a time with the human
 checkpoints and validation in this README. Inspect origin/kazi/frontend-ui before
 Phase 9; preserve and connect the existing UI. Do not start from main, redo
 accepted Phases 1–6, invent measurements, expose secrets or claim fixture/local
@@ -297,7 +298,7 @@ while continuing independent work.
 
 ## Current Phase
 
-**Phase 7 — Evidence Combination and Deterministic Review: validation PASS; human acceptance pending**
+**Phase 7 — Evidence Combination and Deterministic Review: validation PASS; human accepted October 4**
 
 Completed so far:
 
@@ -326,7 +327,7 @@ Completed so far:
 
 Current focus:
 
-**Phase 7 extends accepted baseline `b8a74b6` on `codex/fusion-review`. It combines validated evidence and evaluates explicitly configured demonstration review conditions. Phase 6 remains accepted: implementation `7bde416` proved 0.227333 seconds of guaranteed overlap. Phase 8 waits for the separate Phase 7 human checkpoint.**
+**Phase 7 extends accepted baseline `b8a74b6` on `codex/fusion-review`. It combines validated evidence and evaluates explicitly configured demonstration review conditions. Phase 6 remains accepted: implementation `7bde416` proved 0.227333 seconds of guaranteed overlap. The user accepted the Phase 7 checkpoint after the Mac review; Phase 8 follows the accepted merge.**
 
 ## Status Matrix
 
@@ -354,7 +355,7 @@ Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
-Control Fusion          PHASE 7 PASS; HUMAN ACCEPTANCE PENDING
+Control Fusion          PHASE 7 PASS; HUMAN ACCEPTED OCTOBER 4
 Agent Integration       NOT STARTED
 Frontend                DEMONSTRATION UI ON kazi/frontend-ui; LIVE INTEGRATION PENDING
 Final Report            STRUCTURED JSON IMPLEMENTED; LIVE HTML BRIEFING PENDING
@@ -362,9 +363,9 @@ Final Report            STRUCTURED JSON IMPLEMENTED; LIVE HTML BRIEFING PENDING
 
 ## Immediate Next Steps
 
-Review the Phase 7 structured evidence and explicitly labeled demonstration
-policy, then accept or request changes at the human checkpoint. Do not begin
-Phase 8 or merge this phase based solely on automated evaluation.
+The user accepted the Phase 7 checkpoint after review. Merge PR #1 into
+`codex/parallel-dispatch`, then start Phase 8 on a new `codex/*` branch from
+the verified accepted merge. Phase 8 requires its own validation and human gate.
 
 [Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
 offline replay, optional Control CLI integration, real-data evidence and limits.
@@ -1567,7 +1568,7 @@ Required validation:
 
 ## Phase 7 — Fusion and Review Rules
 
-Implemented and validated on this phase branch; human acceptance remains pending:
+Implemented, validated and human accepted October 4 after the Mac review:
 
 - validate both worker results
 - combine evidence
@@ -1583,7 +1584,7 @@ The LLM does not decide whether numerical thresholds were crossed.
 
 ## Phase 8 — OpenAI Agent Integration
 
-Not started. Begin only after Phase 7 human acceptance and the accepted phase merge.
+Authorized after the accepted Phase 7 merge; implementation begins on a separate branch.
 
 The AI layer may:
 
@@ -2041,17 +2042,22 @@ complete. The raw validator report retains its original `PASS / PENDING_USER`;
 the later human confirmation is recorded separately. Phase 7 now extends this
 accepted baseline on a separate branch.
 
-## PHASE 7 VALIDATED — ACCEPTANCE PENDING
+## PHASE 7 ACCEPTED
 
 Implementation `ea4f322` passed the automated, real local-data, preservation and
 independent review checks described in `docs/phase7-validation.md`. The policy
-uses Kazi's explicitly selected demonstration thresholds. PR #1 is a draft into
-`codex/parallel-dispatch`; it has not been merged. Transferring development to
-another laptop does not change this pending human checkpoint.
+uses Kazi's explicitly selected demonstration thresholds. A Mac review at `8049cd2`
+passed 907 tests, dependency/diff checks, independent review and offline replay
+of the accepted Phase 6 evidence (four triggered, one not triggered). The original
+evidence and exact typed results remained unchanged. After presentation of the
+measurements, policy and scientific limits, the user instructed **“proceed”**,
+accepting this checkpoint and authorizing PR #1’s merge into
+`codex/parallel-dispatch` and Phase 8. This is the current user’s approval, not
+a separately claimed confirmation from a named worker owner.
 
 ## NEXT
 
-**Finish the Phase 7 review checkpoint before beginning Phase 8.**
+**Verify the accepted Phase 7 merge, then implement Phase 8 on a new branch.**
 
 ## CUT FOR NOW
 
