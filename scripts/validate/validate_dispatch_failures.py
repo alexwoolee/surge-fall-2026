@@ -15,6 +15,7 @@ import secrets
 import socket
 import tempfile
 from threading import Event, Lock, Thread
+import time
 from uuid import uuid4
 
 from backend.control.coordinator import WorkerClient, run_analysis
@@ -30,6 +31,11 @@ _SCOPE = (
     "Local loopback TCP using synthetic HDF5 and controlled fault endpoints. "
     "This does not validate remote laptops, live environmental data or parallel execution."
 )
+_PARALLEL_SCOPE = (
+    "Local loopback TCP using synthetic HDF5 and concurrent Control calls to a Hydro worker "
+    "and a controlled Flood fault endpoint. This does not validate remote laptops, live "
+    "environmental data or overlapping numerical processing on two workers."
+)
 
 
 def _now():
@@ -44,18 +50,25 @@ class _FaultState:
         self.requests = []
         self.accepted_count = 0
         self.task_status = None
+        self.connection_opened_at = None
+        self.connection_dropped_at = None
+        self.hydro_completed_at_observation = None
+        self.hydro_terminal_status = None
+        self.completion_probe_failed = False
 
 
 @contextmanager
-def _fault_endpoint(mode, token):
+def _fault_endpoint(mode, token, *, completion_probe=None):
     """Bind an ephemeral loopback port for a delayed POST or dropped TCP reply.
 
     The delayed fixture marks acceptance before waiting for the test to release
     it. This deterministically proves that a client timeout does not stop the
     accepted operation. No environmental measurements are fabricated here.
     """
-    if mode not in {"delayed_post", "disconnect"}:
+    if mode not in {"delayed_post", "disconnect", "disconnect_after_hydro"}:
         raise ValueError("Unsupported fault fixture.")
+    if mode == "disconnect_after_hydro" and completion_probe is None:
+        raise ValueError("The deferred disconnect requires a Hydro completion probe.")
     state = _FaultState()
     worker_id = "hydro-worker" if mode == "delayed_post" else "flood-worker"
     analysis_type = "hydrometeorology" if mode == "delayed_post" else "surface_water_and_terrain"
@@ -89,13 +102,29 @@ def _fault_endpoint(mode, token):
         def do_GET(self):
             if not self._begin():
                 return
-            if mode == "disconnect":
+            if mode in {"disconnect", "disconnect_after_hydro"}:
+                with state.lock:
+                    state.connection_opened_at = _now()
+                if mode == "disconnect_after_hydro":
+                    try:
+                        terminal = completion_probe(state.release)
+                        with state.lock:
+                            state.hydro_terminal_status = terminal
+                            state.hydro_completed_at_observation = _now()
+                    except Exception:
+                        # The final gate fails; never publish exception text,
+                        # which could contain authenticated request details.
+                        with state.lock:
+                            state.completion_probe_failed = True
                 # A real accepted TCP connection ends without an HTTP response.
+                with state.lock:
+                    state.connection_dropped_at = _now()
                 self.close_connection = True
                 try:
                     self.connection.shutdown(socket.SHUT_RDWR)
                 except OSError:
                     pass
+                state.completed.set()
                 return
             if self.path != "/status":
                 return self._reply(404, {"detail": "Fixture endpoint not found."})
@@ -148,6 +177,28 @@ def _fault_endpoint(mode, token):
         thread.join(timeout=2)
 
 
+def _observe_hydro_completion(client, task_id, stop):
+    """Probe actual worker status over TCP; the fault waits on observed work.
+
+    Every iteration performs an HTTP exchange rather than inserting a delay to
+    simulate overlap. The separate probe never submits or cancels a task.
+    """
+    deadline = time.monotonic() + 4
+    while not stop.is_set() and time.monotonic() < deadline:
+        response = client.get(f"/tasks/{task_id}", timeout=1)
+        if response.status_code == 404:
+            continue  # Concurrent Control has not submitted Hydro yet.
+        response.raise_for_status()
+        status = TaskStatus.model_validate_json(response.content)
+        if status.task_id != task_id or status.worker_id != "hydro-worker":
+            raise RuntimeError("Unexpected task identity in the local completion probe.")
+        if status.state == TaskState.COMPLETE and status.completed_at is not None:
+            return status
+        if status.state in {TaskState.FAILED, TaskState.PARTIAL}:
+            raise RuntimeError("The local Hydro fixture did not complete successfully.")
+    raise TimeoutError("No completed Hydro task was observed before releasing the fault.")
+
+
 def _tasks(gpm_resources, smap_resource):
     task_id = "negative-http-" + str(uuid4())
     bbox = dict(zip(("west", "south", "east", "north"), _BBOX))
@@ -159,8 +210,10 @@ def _tasks(gpm_resources, smap_resource):
     )
 
 
-def run_checks(folder, token):
+def run_checks(folder, token, *, execution_mode="sequential"):
     """Run all three failure scenarios without catalogs, credentials or HTML."""
+    if execution_mode not in ("sequential", "parallel"):
+        raise ValueError("Execution mode must be 'sequential' or 'parallel'.")
     settings, gpm, smap = _synthetic_hydro(folder, _BBOX)
     cases = {}
 
@@ -186,6 +239,7 @@ def run_checks(folder, token):
         )
         cases["accepted_post_response_timeout"] = {
             "validation": "PASS" if passed else "FAIL", "dispatch": record.model_dump(mode="json"),
+            "execution_scope": "Single-client timeout check; this case does not prove concurrency.",
             "fixture_accepted_once": accepted_before_timeout,
             "fixture_running_when_control_stopped": still_running and no_completion_at_timeout,
             "fixture_completed_after_control_timeout": continued,
@@ -195,13 +249,22 @@ def run_checks(folder, token):
 
     with _server("hydro", settings, token, folder) as client:
         hydro_endpoint = WorkerEndpoint(str(client.base_url), "hydro-worker", token)
-        with _fault_endpoint("disconnect", token) as (flood_endpoint, state):
-            tasks = _tasks(gpm, smap)
-            control = ControlSettings(hydro_endpoint, flood_endpoint, request_timeout=2,
+        tasks = _tasks(gpm, smap)
+        parallel = execution_mode == "parallel"
+        fault_mode = "disconnect_after_hydro" if parallel else "disconnect"
+        with _fault_endpoint(fault_mode, token, completion_probe=lambda stop: _observe_hydro_completion(
+            client, tasks[0].task_id, stop,
+        )) as (flood_endpoint, state):
+            control = ControlSettings(hydro_endpoint, flood_endpoint, request_timeout=5 if parallel else 2,
                                       task_timeout=10, poll_interval=0.01)
-            run = asyncio.run(run_analysis(*tasks, control))
+            run = asyncio.run(run_analysis(*tasks, control, execution_mode=execution_mode))
             with state.lock:
                 request_log = list(state.requests)
+                terminal = state.hydro_terminal_status
+                opened = state.connection_opened_at
+                observed = state.hydro_completed_at_observation
+                dropped = state.connection_dropped_at
+                probe_failed = state.completion_probe_failed
             hydro = run.hydro.result
             passed = (
                 run.hydro.outcome == "complete" and hydro is not None
@@ -210,10 +273,33 @@ def run_checks(folder, token):
                 and run.combined.hydro == hydro and run.combined.flood is None
                 and bool(run.combined.errors) and request_log == [("GET", "/status")]
             )
+            parallel_checks = {}
+            if parallel:
+                parallel_checks = {
+                    "control_intervals_overlap": (
+                        max(run.hydro.control_started_at, run.flood.control_started_at)
+                        < min(run.hydro.control_completed_at, run.flood.control_completed_at)
+                    ),
+                    "hydro_completed_before_flood_drop": (
+                        not probe_failed and terminal is not None and terminal.state == TaskState.COMPLETE
+                        and terminal.completed_at is not None and observed is not None and dropped is not None
+                        and terminal.completed_at <= observed <= dropped
+                    ),
+                    "flood_connection_opened_before_hydro_collection_finished": (
+                        opened is not None and opened < run.hydro.control_completed_at
+                    ),
+                    "completion_probe_matches_collected_worker_status": terminal == run.hydro.task_status,
+                }
+                passed = passed and all(parallel_checks.values())
             cases["hydro_preserved_when_flood_connection_drops"] = {
                 "validation": "PASS" if passed else "FAIL", "dispatch": run.model_dump(mode="json"),
                 "data_source": "synthetic_HDF5_with_known_5_mm_rainfall",
                 "fault_endpoint_requests": request_log,
+                "parallel_checks": parallel_checks,
+                "flood_connection_opened_at": opened.isoformat() if opened else None,
+                "hydro_completion_observed_at": observed.isoformat() if observed else None,
+                "flood_connection_dropped_at": dropped.isoformat() if dropped else None,
+                "hydro_status_before_flood_drop": terminal.model_dump(mode="json") if terminal else None,
             }
 
         missing, _ = _tasks(["missing-fixture-resource.HDF5"], smap)
@@ -228,6 +314,7 @@ def run_checks(folder, token):
         )
         cases["worker_reported_missing_resource_failure"] = {
             "validation": "PASS" if passed else "FAIL", "dispatch": failed.model_dump(mode="json"),
+            "execution_scope": "Single-worker failure check; this case does not prove concurrency.",
             "trigger": "A valid basename is deliberately absent from the temporary Hydro resource folder.",
         }
     return cases
@@ -236,13 +323,18 @@ def run_checks(folder, token):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, default=ROOT / "outputs/debug/dispatch-failures/result.json")
+    parser.add_argument("--execution-mode", choices=("sequential", "parallel"), default="sequential")
     args = parser.parse_args(argv)
-    report = {"phase": "5", "validation": "RUNNING", "phase_gate": "PENDING_REMOTE_LAPTOPS",
-              "execution_scope": _SCOPE, "cases": {}}
+    parallel = args.execution_mode == "parallel"
+    phase = "6" if parallel else "5"
+    report = {"phase": phase, "validation": "RUNNING",
+              "phase_gate": "PENDING_REMOTE_PARALLEL_EXECUTION" if parallel else "PENDING_REMOTE_LAPTOPS",
+              "execution_mode": args.execution_mode,
+              "execution_scope": _PARALLEL_SCOPE if parallel else _SCOPE, "cases": {}}
     save_json(args.output, report)
     try:
         with tempfile.TemporaryDirectory(prefix="meshmind-negative-http-") as temporary:
-            report["cases"] = run_checks(Path(temporary), secrets.token_urlsafe(32))
+            report["cases"] = run_checks(Path(temporary), secrets.token_urlsafe(32), execution_mode=args.execution_mode)
         report["validation"] = "PASS" if all(
             case["validation"] == "PASS" for case in report["cases"].values()
         ) and len(report["cases"]) == 3 else "FAIL"
@@ -253,7 +345,7 @@ def main(argv=None):
     save_json(args.output, report)
     for name, case in report["cases"].items():
         print(f"{name}: {case['validation']}", flush=True)
-    print(f"Phase 5 negative HTTP checks: {report['validation']} (local fixtures only).", flush=True)
+    print(f"Phase {phase} negative HTTP checks: {report['validation']} (local fixtures only).", flush=True)
     print("Remote laptop and real-data phase gates are unchanged.", flush=True)
     print(f"Terminal evidence: {args.output}", flush=True)
     return 0 if report["validation"] == "PASS" else 1

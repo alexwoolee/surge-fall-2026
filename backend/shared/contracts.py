@@ -413,6 +413,26 @@ class WorkerStatus(Contract):
         return self
 
 
+class WorkerClock(Contract):
+    """A fresh worker clock observation tied to its active process identity."""
+
+    execution_host: ExecutionHost
+    process_instance_id: ProcessInstance
+    worker_id: WorkerID
+    analysis_type: AnalysisType
+    sampled_at: Timestamp
+
+    @field_validator("sampled_at")
+    @classmethod
+    def utc_timestamp(cls, value):
+        return value.astimezone(timezone.utc)
+
+    @model_validator(mode="after")
+    def consistent(self) -> Self:
+        _identity(self.worker_id, self.analysis_type)
+        return self
+
+
 class CombinedAnalysis(Contract):
     """Collection envelope only; fusion and review rules belong to later phases."""
 

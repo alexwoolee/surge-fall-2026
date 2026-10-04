@@ -101,7 +101,7 @@ class DispatchRecord(Contract):
 
 class DispatchRun(Contract):
     task_id: TaskID
-    execution_mode: Literal["sequential"] = "sequential"
+    execution_mode: Literal["sequential", "parallel"] = "sequential"
     control_started_at: Timestamp
     control_completed_at: Timestamp
     hydro: DispatchRecord
@@ -116,9 +116,11 @@ class DispatchRun(Contract):
             raise ValueError("Both specialist worker branches must be retained.")
         if self.control_completed_at < self.control_started_at:
             raise ValueError("Control observation times must be ordered.")
-        if not (self.control_started_at <= self.hydro.control_started_at <= self.hydro.control_completed_at
-                <= self.flood.control_started_at <= self.flood.control_completed_at <= self.control_completed_at):
-            raise ValueError("Sequential branch intervals must be ordered inside the Control run.")
+        if any(not self.control_started_at <= record.control_started_at <= record.control_completed_at
+               <= self.control_completed_at for record in (self.hydro, self.flood)):
+            raise ValueError("Each branch interval must lie inside the Control run.")
+        if self.execution_mode == "sequential" and self.hydro.control_completed_at > self.flood.control_started_at:
+            raise ValueError("Sequential branch intervals must be ordered Hydro then Flood.")
         if self.combined.hydro != self.hydro.result or self.combined.flood != self.flood.result:
             raise ValueError("The collection must preserve exactly the validated branch results.")
         return self

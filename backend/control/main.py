@@ -1,4 +1,4 @@
-"""Terminal entry point for sequential Control dispatch (Phase 5).
+"""Terminal entry point for concurrent Control dispatch (Phase 6).
 
 Only HTTP runs here. Numerical processors and their datasets stay on workers.
 """
@@ -45,6 +45,8 @@ def main(argv=None):
     parser.add_argument('--gpm-resources', nargs='+', required=True)
     parser.add_argument('--smap-resource', required=True)
     parser.add_argument('--task-id', help='Reuse only with the identical request to retrieve/reconcile a prior task.')
+    parser.add_argument('--execution-mode', choices=('parallel', 'sequential'), default='parallel',
+                        help='Launch both workers concurrently (default), or reproduce sequential Phase 5 dispatch.')
     args = parser.parse_args(argv)
     try:
         settings = ControlSettings.from_env()
@@ -53,11 +55,13 @@ def main(argv=None):
     except (ValueError, KeyError, TypeError, OSError):
         print('Invalid Control configuration; check worker URLs, tokens, bounds and resource names.')
         return 2
-    print(f'Task {hydro.task_id}: dispatching Hydro then Flood over HTTP.', flush=True)
+    order = 'Hydro and Flood concurrently' if args.execution_mode == 'parallel' else 'Hydro then Flood sequentially'
+    print(f'Task {hydro.task_id}: dispatching {order} over HTTP.', flush=True)
     # Persist the ID and exact bounded requests before any possibly ambiguous POST.
     save_json(args.output, {'validation': 'RUNNING', 'task_id': hydro.task_id,
+                           'execution_mode': args.execution_mode,
                            'requests': [task.model_dump(mode='json') for task in (hydro, flood)]})
-    run = asyncio.run(run_analysis(hydro, flood, settings))
+    run = asyncio.run(run_analysis(hydro, flood, settings, execution_mode=args.execution_mode))
     save_json(args.output, {'requests': [task.model_dump(mode='json') for task in (hydro, flood)],
                            'dispatch': run.model_dump(mode='json')})
     for record in (run.hydro, run.flood):

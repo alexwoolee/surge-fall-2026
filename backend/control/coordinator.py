@@ -1,8 +1,8 @@
 """Bounded HTTP dispatch from Control to independently running workers.
 
-Phase 5 deliberately dispatches Hydro then Flood. No local environmental
-processor is called, and this code does not claim parallel execution or prove
-that endpoint processes reside on physically different computers.
+Control can dispatch Hydro and Flood sequentially or concurrently. No local
+environmental processor is called. Concurrent HTTP calls alone do not prove
+overlapping computation or execution on physically different computers.
 """
 
 import asyncio
@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 import json
 import math
 import time
+from typing import Literal
 
 import httpx
 from pydantic import ValidationError
@@ -275,29 +276,46 @@ class WorkerClient:
 
 async def run_analysis(
     hydro_task: AnalysisTask, flood_task: AnalysisTask, settings: ControlSettings,
-    *, transport_factory: Callable[[WorkerEndpoint], httpx.AsyncBaseTransport] | None = None,
+    *, execution_mode: Literal["sequential", "parallel"] = "sequential",
+    transport_factory: Callable[[WorkerEndpoint], httpx.AsyncBaseTransport] | None = None,
 ) -> DispatchRun:
-    """Collect both workers sequentially while preserving independent results."""
+    """Collect both workers in the requested mode, retaining independent results.
+
+    Each client converts expected failures and timeouts into its own record, so
+    one unsuccessful branch does not cancel or erase the other branch's work.
+    Sequential remains the default for callers reproducing Phase 5 evidence.
+    """
+    if not isinstance(execution_mode, str) or execution_mode not in ("sequential", "parallel"):
+        raise ValueError("Execution mode must be 'sequential' or 'parallel'.")
     hydro_task = AnalysisTask.model_validate(hydro_task.model_dump(mode="json"))
     flood_task = AnalysisTask.model_validate(flood_task.model_dump(mode="json"))
     if (hydro_task.analysis_type != "hydrometeorology" or flood_task.analysis_type != "surface_water_and_terrain"
             or hydro_task.task_id != flood_task.task_id or hydro_task.bbox != flood_task.bbox):
         raise ValueError("Hydro and Flood tasks must share an investigation ID and AOI with their correct analysis types.")
     started = _now()
-    records = []
-    for task, endpoint in ((hydro_task, settings.hydro), (flood_task, settings.flood)):
+
+    async def dispatch(task, endpoint):
         client = WorkerClient(
             endpoint, request_timeout=settings.request_timeout, task_timeout=settings.task_timeout,
             poll_interval=settings.poll_interval, max_response_bytes=settings.max_response_bytes,
             local_address=settings.local_address,
             transport=transport_factory(endpoint) if transport_factory is not None else None,
         )
-        records.append(await client.run(task))
-    hydro, flood = records
+        return await client.run(task)
+
+    if execution_mode == "parallel":
+        hydro, flood = await asyncio.gather(
+            dispatch(hydro_task, settings.hydro), dispatch(flood_task, settings.flood),
+        )
+    else:
+        hydro = await dispatch(hydro_task, settings.hydro)
+        flood = await dispatch(flood_task, settings.flood)
+    records = (hydro, flood)
     errors = [f"{record.worker_id}: {record.error.message}" for record in records if record.error is not None]
     errors.extend(f"{record.worker_id}: Partial evidence was returned." for record in records if record.outcome == "partial")
     combined = CombinedAnalysis(task_id=hydro_task.task_id, hydro=hydro.result, flood=flood.result, errors=errors)
     return DispatchRun(
-        task_id=hydro_task.task_id, control_started_at=started, control_completed_at=_now(),
+        task_id=hydro_task.task_id, execution_mode=execution_mode,
+        control_started_at=started, control_completed_at=_now(),
         hydro=hydro, flood=flood, combined=combined,
     )

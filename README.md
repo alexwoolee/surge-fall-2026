@@ -12,7 +12,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 5 — Remote Worker Communication**
+**Phase 6 — Real Parallel Execution**
 
 Completed so far:
 
@@ -29,13 +29,15 @@ Completed so far:
 - Hydro and Flood HTTP APIs validated with real data on loopback
 - bounded Control dispatch with task/result checks, deadlines and independent branch records
 - worker hostname/startup identity and cross-platform deployment instructions
-- automated test suite: **618 passing tests on macOS**
-- Windows verification: **617 passed, 1 expected symlink-privilege skip**
+- automated test suite: **758 passing tests on macOS**
+- accepted Phase 5 Windows verification: **617 passed, 1 expected symlink-privilege skip**
 - real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; Phase 5 accepted**
+- concurrent Control dispatch, authenticated clock samples and conservative overlap proof
+- Phase 6 local real-data overlap and actual TCP failure checks: **PASS; remote run pending**
 
 Current focus:
 
-**Phase 5 is accepted: all required automated, real-data, remote-deployment and human checks passed. Proceed to Phase 6 clock agreement and real parallel execution.**
+**Phase 5 is accepted. Phase 6 local real-data validation proves 0.321560 seconds of processing overlap with matching results. Update both remote workers to `codex/parallel-dispatch`, then verify remote clock bounds and physical overlap.**
 
 ## Status Matrix
 
@@ -62,7 +64,7 @@ DISTRIBUTED SYSTEM
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
-Parallel Execution      NOT STARTED
+Parallel Execution      LOCAL PASS; REMOTE LAPTOP CHECK PENDING
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
 Frontend                NOT STARTED
@@ -71,12 +73,14 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Begin Phase 6 on its own implementation branch after the accepted Phase 5 merge.
-2. Verify clock agreement following Kazi's reported resync.
-3. Prove real parallel execution and overlap while preserving independent results.
+1. Pull `codex/parallel-dispatch` on both worker laptops, rerun tests and restart the workers with existing tokens.
+2. Run the Phase 6 clock preflight and physical-laptop parallel validator from Control.
+3. Compare numerical results and pause for the Phase 6 human checkpoint.
 
-Current cross-platform setup commands, network requirements and phase gate are in
-[Phase 5 validation](docs/phase5-validation.md). The accepted
+Current cross-platform update commands and overlap requirements are in
+[Phase 6 validation](docs/phase6-validation.md). The accepted
+[Phase 5 validation](docs/phase5-validation.md) records physical remote execution.
+The accepted
 [Phase 4 validation](docs/phase4-validation.md) remains available. The earlier
 [combined Flood](docs/phase3c-validation.md),
 [terrain](docs/manual-test-checklist.md) and
@@ -1196,7 +1200,7 @@ Flood on Karan's Linux laptop over Tailscale. All three used implementation comm
 Authentication, duplicate submission, host/process continuity and physical
 deployment checks passed. Numerical summaries and sources exactly match the
 accepted Phase 4 baseline. See [the evidence and human checkpoint](docs/phase5-validation.md#physical-laptop-validation--pending-human-acceptance).
-Control currently dispatches sequentially and preserves completed evidence on
+Phase 5 validated sequential dispatch and preservation of completed evidence on
 other-branch failure. Timeouts stop waiting without cancelling remote work.
 
 Required:
@@ -1208,6 +1212,17 @@ Required:
 - failure/timeout handling
 
 ## Phase 6 — Real Parallel Execution
+
+**Implementation and local real-data checks PASS; physical remote overlap and
+human acceptance pending.**
+
+The `codex/parallel-dispatch` branch launches both bounded HTTP clients
+concurrently. Expected branch failures/timeouts retain the other result. Workers
+expose authenticated clock samples, and the validator conservatively accounts
+for clock uncertainty before asserting actual processing overlap. The local
+real-data run proved 0.321560 seconds of overlap; its complete results match
+accepted Phase 5 except for the fresh task ID. Local servers do not pass the
+physical-laptop gate. Follow [Phase 6 validation](docs/phase6-validation.md).
 
 Required:
 
@@ -1771,7 +1786,8 @@ The cloud AI layer and physical worker execution must not be confused.
 - shared task/result/status contracts
 - both worker HTTP APIs with local real-data validation
 - Control HTTP dispatch, bounded timeouts, host/process continuity and independent failure records
-- 618 automated tests passing on macOS
+- 758 automated tests passing on macOS
+- concurrent Control clients, authenticated clock observations and conservative overlap checks
 
 ## TESTED
 
@@ -1810,9 +1826,14 @@ has been satisfied: the physical run, numerical comparisons, local TCP
 failure/timeout tests, automated suites and worker confirmations all passed.
 Phase 5 is accepted; clock agreement and overlap belong to Phase 6.
 
-## NEXT
+## PENDING PHASE 6 CHECKPOINT
 
-**Phase 5 — Remote Worker Communication**
+Local real-data overlap, independent-result preservation, clock-bound failure
+checks and all automated tests pass. Both remote workers still need the Phase 6
+branch and a restart to expose `/clock`. A successful three-laptop run and human
+acceptance are required before Phase 6 is complete. No later phase has started.
+
+## NEXT
 
 **Phase 6 — Real Parallel Execution**
 

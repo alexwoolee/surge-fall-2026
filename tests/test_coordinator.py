@@ -396,6 +396,168 @@ def test_both_unavailable_workers_return_collection_with_two_explicit_failures(h
     assert len(run.combined.errors) == 2
 
 
+def matching_tasks(hydro_result, flood_result, bounds):
+    """Only successful fixture evidence uses its original bounds."""
+    return tuple(AnalysisTask.model_validate({**task_for(result).model_dump(mode="json"), "bbox": bounds})
+                 for result in (hydro_result, flood_result))
+
+
+def test_parallel_calls_reach_a_shared_barrier_before_either_returns(hydro_result, flood_result):
+    tasks = matching_tasks(hydro_result, flood_result, hydro_result["bbox"])
+    settings = ControlSettings(WorkerEndpoint("http://hydro.invalid", "hydro-worker"),
+                               WorkerEndpoint("http://flood.invalid", "flood-worker"), task_timeout=5)
+
+    async def verify():
+        arrived = set()
+        both_started = asyncio.Event()
+
+        async def unavailable(request):
+            arrived.add(request.url.host)
+            if len(arrived) == 2:
+                both_started.set()
+            await both_started.wait()
+            raise httpx.ConnectError("Unavailable", request=request)
+
+        run = await asyncio.wait_for(run_analysis(
+            *tasks, settings, execution_mode="parallel",
+            transport_factory=lambda endpoint: httpx.MockTransport(unavailable),
+        ), timeout=2)
+        assert arrived == {"hydro.invalid", "flood.invalid"}
+        assert run.execution_mode == "parallel"
+        assert run.hydro.outcome == run.flood.outcome == "transport_error"
+        assert run.flood.control_started_at < run.hydro.control_completed_at
+        assert DispatchRun.model_validate_json(run.model_dump_json()) == run
+        return run
+
+    run = asyncio.run(verify())
+    sequential = run.model_dump(mode="json")
+    sequential["execution_mode"] = "sequential"
+    with pytest.raises(ValidationError, match="Sequential branch intervals"):
+        DispatchRun.model_validate(sequential)
+
+
+@pytest.mark.parametrize("successful_role", ["hydro-worker", "flood-worker"])
+@pytest.mark.parametrize("fault", ["worker_failed", "transport_error", "protocol_error", "timed_out"])
+@pytest.mark.parametrize("success_first", [True, False])
+def test_parallel_preserves_complete_branch_in_either_completion_order(
+    hydro_result, flood_result, monkeypatch, successful_role, fault, success_first,
+):
+    successful = hydro_result if successful_role == "hydro-worker" else flood_result
+    failed = flood_result if successful_role == "hydro-worker" else hydro_result
+    tasks = matching_tasks(hydro_result, flood_result, successful["bbox"])
+    settings = ControlSettings(WorkerEndpoint("http://hydro.invalid", "hydro-worker"),
+                               WorkerEndpoint("http://flood.invalid", "flood-worker"),
+                               request_timeout=0.1, task_timeout=2, poll_interval=0.01)
+    original_run = WorkerClient.run
+
+    async def verify():
+        arrived, completed = set(), {}
+        both_started, first_completed, never_completed = asyncio.Event(), asyncio.Event(), asyncio.Event()
+        first_role = successful_role if success_first else failed["worker_id"]
+
+        async def observe_completion(client, task):
+            record = await original_run(client, task)
+            completed[client.settings.expected_worker_id] = record
+            if client.settings.expected_worker_id == first_role:
+                assert len(completed) == 1
+                first_completed.set()
+            return record
+
+        monkeypatch.setattr(WorkerClient, "run", observe_completion)
+
+        async def override(request, role):
+            if request.url.path == "/status":
+                arrived.add(role)
+                if len(arrived) == 2:
+                    both_started.set()
+                await both_started.wait()
+                if role != first_role:
+                    await first_completed.wait()
+                    assert completed[first_role].outcome == ("complete" if success_first else fault)
+                if role != successful_role:
+                    if fault == "transport_error":
+                        raise httpx.ConnectError("Unavailable", request=request)
+                    if fault == "protocol_error":
+                        return httpx.Response(200, json={"invalid": "status"})
+                    if fault == "timed_out":
+                        if success_first:
+                            # Exercise the real request deadline after retaining
+                            # the other branch's complete record.
+                            await never_completed.wait()
+                        # A transport read timeout can arrive before the other
+                        # request's own deadline; it must not cancel that work.
+                        raise httpx.ReadTimeout("Worker read timed out", request=request)
+            if role != successful_role and request.url.path.endswith("/result"):
+                return httpx.Response(409, json={"detail": "Task failed"})
+
+        async def successful_override(request):
+            return await override(request, successful_role)
+
+        async def failed_override(request):
+            return await override(request, failed["worker_id"])
+
+        workers = {
+            successful_role: ScriptedWorker(successful, statuses=[status(successful, "complete")],
+                                              override=successful_override),
+            failed["worker_id"]: ScriptedWorker(failed, statuses=[status(failed, "failed")],
+                                                 override=failed_override),
+        }
+        run = await asyncio.wait_for(run_analysis(
+            *tasks, settings, execution_mode="parallel",
+            transport_factory=lambda endpoint: httpx.MockTransport(workers[endpoint.expected_worker_id].handle),
+        ), timeout=3)
+        assert list(completed)[0] == first_role
+        success = run.hydro if successful_role == "hydro-worker" else run.flood
+        failure = run.flood if successful_role == "hydro-worker" else run.hydro
+        assert success is completed[successful_role]
+        assert success.outcome == "complete" and success.result.model_dump(mode="json") == successful
+        assert failure.outcome == fault and failure.error.code == fault
+        assert failure.result is None
+        assert run.combined.hydro is run.hydro.result and run.combined.flood is run.flood.result
+        assert len(run.combined.errors) == 1
+        for worker in workers.values():
+            assert sum(method == "POST" for method, _, _ in worker.calls) <= 1
+            assert all(method in {"GET", "POST"} and "cancel" not in path for method, path, _ in worker.calls)
+        assert DispatchRun.model_validate_json(run.model_dump_json()) == run
+
+    asyncio.run(verify())
+
+
+@pytest.mark.parametrize("mode", [None, True, 1, [], "concurrent", "Parallel"])
+def test_invalid_execution_mode_is_rejected_before_transport_creation(hydro_result, flood_result, mode):
+    tasks = matching_tasks(hydro_result, flood_result, hydro_result["bbox"])
+    settings = ControlSettings(WorkerEndpoint("http://hydro.invalid", "hydro-worker"),
+                               WorkerEndpoint("http://flood.invalid", "flood-worker"))
+
+    def unexpected_transport(endpoint):
+        pytest.fail("Invalid execution mode must be rejected before opening transports.")
+
+    with pytest.raises(ValueError, match="Execution mode"):
+        asyncio.run(run_analysis(*tasks, settings, execution_mode=mode, transport_factory=unexpected_transport))
+
+
+@pytest.mark.parametrize("mode", ["sequential", "parallel"])
+@pytest.mark.parametrize("role", ["hydro", "flood"])
+@pytest.mark.parametrize("edge", ["start", "end"])
+def test_dispatch_branch_intervals_must_fit_inside_run(hydro_result, flood_result, mode, role, edge):
+    tasks = matching_tasks(hydro_result, flood_result, hydro_result["bbox"])
+    settings = ControlSettings(WorkerEndpoint("http://hydro.invalid", "hydro-worker"),
+                               WorkerEndpoint("http://flood.invalid", "flood-worker"))
+
+    async def unavailable(request):
+        raise httpx.ConnectError("Unavailable", request=request)
+
+    run = asyncio.run(run_analysis(*tasks, settings, execution_mode=mode,
+                                   transport_factory=lambda endpoint: httpx.MockTransport(unavailable)))
+    value = run.model_dump(mode="json")
+    if edge == "start":
+        value[role]["control_started_at"] = (run.control_started_at - timedelta(seconds=1)).isoformat()
+    else:
+        value[role]["control_completed_at"] = (run.control_completed_at + timedelta(seconds=1)).isoformat()
+    with pytest.raises(ValidationError, match="Each branch interval"):
+        DispatchRun.model_validate(value)
+
+
 def test_wrong_task_role_and_investigation_identity_are_rejected_before_http(hydro_result, flood_result):
     client = ScriptedWorker(hydro_result).client()
     with pytest.raises(ValueError, match="analysis type"):

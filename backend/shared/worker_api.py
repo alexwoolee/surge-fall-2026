@@ -26,7 +26,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from backend.shared.contracts import (
-    AnalysisTask, FloodResult, HydroResult, TaskStatus, WorkerStatus,
+    AnalysisTask, FloodResult, HydroResult, TaskStatus, WorkerClock, WorkerStatus,
 )
 from backend.shared.status import TaskState
 from backend.shared.settings import validate_token
@@ -300,6 +300,16 @@ def create_worker_app(
                 status="busy" if active_task_id is not None else "idle",
                 active_task_id=active_task_id, retained_tasks=len(records), capacity=capacity,
                 execution_host=execution_host, process_instance_id=process_instance_id,
+            )
+
+    @app.get("/clock", response_model=WorkerClock)
+    async def worker_clock():
+        with lock:
+            if execution_host is None or process_instance_id is None:
+                raise HTTPException(status_code=503, detail="Worker clock is not ready.")
+            return WorkerClock(
+                execution_host=execution_host, process_instance_id=process_instance_id,
+                worker_id=worker_id, analysis_type=analysis_type, sampled_at=_now(),
             )
 
     @app.get("/tasks/{task_id}", response_model=TaskStatus)

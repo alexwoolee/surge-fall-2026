@@ -83,16 +83,26 @@ def test_local_check_cannot_accept_physical_confirmation():
         checkpoint.main(['--local-check', '--confirm-separate-laptops'])
 
 
-def test_final_control_report_keeps_exact_requests_for_ambiguous_retry(monkeypatch, tmp_path):
+@pytest.mark.parametrize('arguments, expected_mode, message', [
+    ([], 'parallel', 'Hydro and Flood concurrently'),
+    (['--execution-mode', 'parallel'], 'parallel', 'Hydro and Flood concurrently'),
+    (['--execution-mode', 'sequential'], 'sequential', 'Hydro then Flood sequentially'),
+])
+def test_final_control_report_keeps_exact_requests_for_ambiguous_retry(
+    monkeypatch, tmp_path, capsys, arguments, expected_mode, message,
+):
     class Run:
         hydro = SimpleNamespace(worker_id='hydro-worker', outcome='timed_out', error=None)
         flood = SimpleNamespace(worker_id='flood-worker', outcome='rejected', error=None)
 
         def model_dump(self, **kwargs):
-            return {'task_id': 'recoverable-id', 'acceptance_unknown': True}
+            return {'task_id': 'recoverable-id', 'execution_mode': expected_mode, 'acceptance_unknown': True}
 
-    async def dispatch(hydro, flood, configured):
+    async def dispatch(hydro, flood, configured, *, execution_mode):
         assert hydro.task_id == flood.task_id == 'recoverable-id'
+        assert execution_mode == expected_mode
+        pending = json.loads(output.read_text())
+        assert pending['validation'] == 'RUNNING' and pending['execution_mode'] == expected_mode
         return Run()
 
     monkeypatch.setattr(control_cli, 'run_analysis', dispatch)
@@ -100,9 +110,22 @@ def test_final_control_report_keeps_exact_requests_for_ambiguous_retry(monkeypat
     output = tmp_path / 'control.json'
     assert control_cli.main(['--output', str(output), '--task-id', 'recoverable-id',
                              '--gpm-resources', *checkpoint.GPM_RESOURCES,
-                             '--smap-resource', checkpoint.SMAP_RESOURCE]) == 1
+                             '--smap-resource', checkpoint.SMAP_RESOURCE, *arguments]) == 1
     report = json.loads(output.read_text())
     assert report['dispatch']['acceptance_unknown']
+    assert report['dispatch']['execution_mode'] == expected_mode
+    assert message in capsys.readouterr().out
     assert report['requests'][0]['gpm_resources'] == checkpoint.GPM_RESOURCES
     assert report['requests'][1]['start_time'] == '2021-11-13T00:00:00Z'
     assert {task['task_id'] for task in report['requests']} == {'recoverable-id'}
+
+
+def test_invalid_cli_execution_mode_cannot_dispatch(monkeypatch):
+    def unexpected_configuration():
+        pytest.fail('Argument validation must happen before worker configuration or dispatch.')
+
+    monkeypatch.setattr(ControlSettings, 'from_env', unexpected_configuration)
+    with pytest.raises(SystemExit) as exc:
+        control_cli.main(['--execution-mode', 'unsupported', '--gpm-resources', *checkpoint.GPM_RESOURCES,
+                          '--smap-resource', checkpoint.SMAP_RESOURCE])
+    assert exc.value.code == 2
