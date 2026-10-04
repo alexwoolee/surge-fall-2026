@@ -55,7 +55,12 @@ Source IDs use `Copernicus_DSM_COG_10_` plus `N48_00` / `N49_00`,
 `W122_00` / `W123_00`, and the `_DEM` / `_HAND` suffix. The full provenance,
 coverage, transform, CRS, and limitations are recorded in `result.json`.
 
-## User manual gate — PENDING
+## User manual gate — APPROVED
+
+The user approved advancing to the next phase on 2026-10-03 after running the
+real-data checks and all 87 tests. Phase 3A is accepted for this configured AOI.
+The instructions below remain available for repeat validation; generated reports
+always start with `manual_review: PENDING` and do not automatically approve a run.
 
 Open `outputs/debug/terrain/review.html` and inspect both previews. Use the
 GeoTIFF links in the review if you need full-resolution GIS inspection.
