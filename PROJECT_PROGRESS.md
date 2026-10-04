@@ -284,6 +284,17 @@ Diagnostic repair calls require the user's separate approval; no live download b
 payload preview are in `outputs/debug/ai-synthesis-validation/`. The feature
 remains separate from main.
 
+## Worker dashboard checklist display — October 4, 2026
+
+At the user's request, the standalone worker dashboard now marks every earlier
+row green when a task advances, even when intermediate events were not captured.
+Every terminal state displays a fully green checklist and Complete badge; future
+rows during execution say Waiting. This is a local presentation override only:
+worker API states, saved results, risk assessment and Control remain unchanged.
+Validation: 71 frontend tests, lint and diff checks passed. All 1,935 Python tests
+passed: 1,931 in the initial run and four local socket tests on rerun outside the
+sandbox, which had blocked their listeners.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control

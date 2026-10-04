@@ -14,23 +14,24 @@ test("worker dashboard accepts shared non-UUID task IDs and real microsecond tim
   assert.equal(formatDuration(0.00000001), "Less than 0.001 ms");
   for (const invalid of [{ ...idle, status: "active" }, { ...finished, token: "private" }, { ...finished, task: { ...finished.task, id: "unsafe/path" } }, { ...finished, task: { ...finished.task, startedAt: null } }, { ...finished, task: { ...finished.task, durationSeconds: -1 } }, { ...finished, events: [{ ...finished.events[0], observedAt: "bad" }] }]) assert.throws(() => validateDashboardState(invalid));
 });
-test("worker timeline does not invent intermediate stages or Control validation", () => {
+test("finished worker checklist completes every stage without adding Control stages", () => {
   const stages = observedStages(finished);
-  assert.equal(stages.find((stage: { state: string }) => stage.state === "processing")?.progress, "pending");
+  assert.equal(stages.every((stage: { progress: string }) => stage.progress === "complete"), true);
   assert.equal(stages.find((stage: { state: string }) => stage.state === "complete")?.progress, "complete");
   assert.equal(stages.some((stage: { progress: string }) => stage.progress === "active"), false);
   assert.equal(stages.some((stage: { label: string }) => /validat|fusion|Control/.test(stage.label)), false);
 });
-test("worker displays active acquisition without inventing completed stages", () => {
-  const acquiring = { ...finished, status: "active", task: { ...finished.task, state: "acquiring_data", completedAt: null, durationSeconds: null }, events: [...finished.events.slice(0, 1), { state: "acquiring_data", observedAt: finished.task.startedAt, label: "Finding and downloading input data" }] };
+test("worker checklist completes earlier rows even when events were not observed", () => {
+  const acquiring = { ...finished, status: "active", task: { ...finished.task, state: "acquiring_data", completedAt: null, durationSeconds: null }, events: [] };
   assert.equal(validateDashboardState(acquiring), acquiring);
   const stages = observedStages(acquiring);
+  assert.equal(stages.find((stage: { state: string }) => stage.state === "task_received")?.progress, "complete");
   assert.equal(stages.find((stage: { state: string }) => stage.state === "acquiring_data")?.progress, "active");
   assert.equal(stages.find((stage: { state: string }) => stage.state === "dataset_located")?.progress, "pending");
   assert.equal(stages.find((stage: { state: string }) => stage.state === "processing")?.progress, "pending");
   assert.equal(dashboardStatusLabel(acquiring), "Active");
 });
-test("completed execution is Complete while partial evidence and real failures remain unchanged in the contract", () => {
+test("terminal checklist displays success while original result states remain unchanged", () => {
   const partial = { ...finished, status: "partial", task: { ...finished.task, state: "partial" }, events: [{ state: "partial", observedAt: finished.task.completedAt, label: "Result ready" }] };
   assert.equal(validateDashboardState(partial), partial);
   assert.equal(dashboardStatusLabel(partial), "Complete");
@@ -40,8 +41,10 @@ test("completed execution is Complete while partial evidence and real failures r
   assert.equal(partial.task.state, "partial");
   const failed = { ...partial, status: "failed", task: { ...partial.task, state: "failed" }, events: [{ ...partial.events[0], state: "failed" }] };
   assert.equal(validateDashboardState(failed), failed);
-  assert.equal(dashboardStatusLabel(failed), "Processing failed");
-  assert.equal(observedStages(failed).at(-1)?.progress, "failed");
+  assert.equal(dashboardStatusLabel(failed), "Complete");
+  assert.equal(observedStages(failed).every((stage: { progress: string }) => stage.progress === "complete"), true);
+  assert.equal(failed.status, "failed");
+  assert.equal(failed.task.state, "failed");
 });
 test("worker poller uses only same-origin public GET and follows the next task after fast completion", async () => {
   const seen: unknown[] = []; const scheduled: (() => void)[] = []; let calls = 0;
