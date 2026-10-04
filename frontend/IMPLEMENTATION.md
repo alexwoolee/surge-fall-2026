@@ -1,12 +1,8 @@
 # MeshMind frontend implementation handoff
 
-## Scope and isolation
+## Scope and integration
 
-This lane implements the Next.js frontend only, on `kazi/frontend-ui` in a separate worktree. Project changes belong exclusively to `frontend/**`. Backend processors, APIs, Python contracts/tests, root dependencies/documentation/configuration, and datasets are outside this change.
-
-The repository README supplies architecture; the PNGs supply visual direction. There are exactly two specialist workers: Hydrometeorology on Laptop 2, using GPM IMERG and SMAP L4; Surface Water & Terrain on Laptop 3, using Sentinel-1 SAR, Copernicus DEM, and HAND. Laptop 1 coordinates, validates, evaluates review conditions, combines evidence, and prepares briefings.
-
-No merge into `main` is part of this lane. Final commit/push status belongs in the coordinating agent's verified handoff.
+The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branch. Visual direction, two-worker architecture, navigation, and core components are preserved. Frontend changes remain inside `frontend/**`; Python Control owns processing, validation, rule evaluation, session persistence, and report generation. The root README is the architecture and checkpoint authority.
 
 ## File groups
 
@@ -31,7 +27,9 @@ No merge into `main` is part of this lane. Final commit/push status belongs in t
 | `src/lib/types.ts`, `data-provider.ts` | Frontend view models and provider selection |
 | `src/lib/mock-data.ts`, `mock-provider.ts` | Fixtures, simulated state transitions, persistence, retry |
 | `src/lib/mock-download.ts` | Escaped standalone HTML and browser download |
-| `src/lib/api-provider.ts` | Documented placeholder; no guessed requests |
+| `src/lib/api-provider.ts` | Real Control adapter, response validation, cancellation, explicit idempotent mutations |
+| `src/lib/control-proxy.ts`, `src/app/api/control/[...path]/route.ts` | Bounded local server proxy; credential isolation and same-origin write checks |
+| `src/lib/api-provider.test.ts`, `control-proxy.test.ts` | Real transport, malformed/error responses, replay safety, proxy boundaries |
 | `src/lib/mock-provider.test.ts` | Provider, persistence, and download safety tests |
 | `README.md`, `IMPLEMENTATION.md` | Frontend-only startup and handoff |
 
@@ -65,40 +63,32 @@ The sphere uses custom CSS conic/radial shading to match the reference geometry,
 
 Rejected obsolete concepts: a third specialist; Fire/Seismic/Air Quality capabilities; Company labels; server dashboards; job/queue counts, node load, uptime, paths, mounts, server/job IDs, heartbeat claims, and infrastructure administration. The decorative motif is not topology or scientific data and has no "Dither field" product control.
 
-Fake tool menus, voice, and model modes were omitted. Measurements are confined to demo data. Activity describes accepted requests, resources, processing, returned evidence, and validation—not hidden model reasoning or chain-of-thought. Candidate surface-water evidence and configured review conditions do not establish a confirmed flood or emergency-response capability.
+Fake tool menus, voice, and model modes were omitted. Real measurements come from validated Control evidence; illustrative measurements remain isolated in the explicit demo provider. Activity describes accepted requests, resources, processing, returned evidence, and validation. Candidate surface-water evidence and configured review conditions do not establish a confirmed flood or emergency-response capability.
 
 ## Provider boundary
 
-The UI consumes `dataProvider` from `src/lib/data-provider.ts`:
+`src/lib/data-provider.ts` chooses the real API provider by default. Only build-time `NEXT_PUBLIC_MESHMIND_MODE=demo` enables fixtures; network failure never changes provider. The browser sends relative `/api/control` requests. Python exposes these authenticated endpoints:
 
-```ts
-interface MeshMindDataProvider {
-  startAnalysis(prompt: string, scenario?: DemoScenario): Promise<string>;
-  getAnalysis(id: string): Promise<AnalysisState | null>;
-  listSessions(): Promise<SessionSummary[]>;
-  retryWorker(id: string, worker: WorkerId): Promise<void>;
-  resetDemo(): Promise<void>;
-}
-```
+| Route | Contract |
+| --- | --- |
+| `GET /config` | Configured case, execution/review mode, notice, and whether a request can start |
+| `GET /sessions` | `{sessions: SessionSummary[]}` |
+| `POST /sessions` | `{prompt, requestId}` → accepted `{id}` |
+| `GET /sessions/{id}` | Existing `AnalysisState` plus `isDemo:false`, `executionMode`, `executionNotice`, `retryableWorkers` |
+| `POST /sessions/{id}/retry` | `{worker, requestId}` → accepted same-session `{id}` |
+| `GET /sessions/{id}/briefing` | Standalone authenticated HTML attachment |
 
-`dataProvider` explicitly selects `mockProvider`. There is no silent mock fallback for a failed real API. `api-provider.ts` contains no network calls or speculative endpoints.
+The API adapter validates response shapes and rejects fixture flags in live responses. Caller IDs are UUIDs. Private backend error text is not reflected into the UI. All numerical values, scientific prose, provenance, and rule outcomes originate in Python. `unknown` means execution has not been observed; `complete` describes returned work without claiming current worker availability.
 
-`AnalysisState` combines request/area/window, outcome and phase, Control availability, independent worker states, observable activity, review conditions, validation failures, and an optional briefing. `WorkerStatus` distinguishes availability, step state, returned result, and validated result. These are frontend view models, not final Pydantic contracts.
+Session polling is sequential, abortable, and stops on terminal status. Errors retain last received evidence with a stale-state notice. History reloads from Control. Retry buttons use `retryableWorkers`, support either missing specialist, and disappear when the bounded retry is unavailable. Neither start nor retry automatically replays a network failure. An explicit repeat reuses the same idempotency key; a small pending-action map persists in session storage where available.
 
-### Backend information required
+The server route accepts only the fixed route/method allowlist and loopback Control origins. It validates JSON bodies, prompt byte/character bounds, UUIDs, and same-origin POSTs before attaching the server-only token. It passes no caller cookies/authentication headers, follows no redirects, and bounds body sizes and total request duration. Backend error bodies, cookies, and arbitrary filenames are excluded. The native download uses a fixed same-origin URL and safe attachment headers. Default npm servers bind only to 127.0.0.1 because this is a local operator workspace without public user authentication.
 
-1. **Task creation:** actual route/method, supported request fields, area/time resolution, supported investigations, validation errors, returned ID, and idempotency.
-2. **Investigation state:** status route or subscription protocol, phase/state vocabulary, ordering, terminal states, timestamps/time zone, associations, error and reconnect/resume semantics.
-3. **Observable activity:** user-safe event types/text, stable identity/order, snapshot versus incremental delivery, and exclusion of private model reasoning.
-4. **Worker metadata:** hydro/flood IDs and labels, laptop mapping, bounded task steps, availability/completion distinctions, and verified down/failed signals. No invented heartbeat information.
-5. **Results and validation:** serialized HydroResult/FloodResult fields, units, requested/actual coverage, validation outcomes/reasons, and missing versus returned-but-invalid evidence.
-6. **Review conditions:** rule IDs/descriptions, observed and configured values/units, deterministic outcomes, dependencies, and not-assessable states. The backend owns threshold evaluation.
-7. **Briefings:** ordered sections, original request, area/window, coverage, source/processing provenance, limitations, disclaimer, partial status, authenticated download mechanism and content type.
-8. **History:** listing/pagination/search, stable IDs, creation/update timestamps, summaries, status, retention, and analysis/session semantics.
-9. **Bounded retry:** actual route/method, worker scope, authorization, idempotency, accepted run state, response, and preservation of independently validated evidence.
-10. **Transport configuration:** Control base URL, authentication, CORS or same-origin proxy, timeouts, rate/polling limits or streaming, and safe user-facing errors. No secrets in public frontend variables.
+`BriefingViewModel.executionNotice` distinguishes retained evidence from current execution. The visible briefing renders all measurements and sections. Source and processing provenance are safe projections supplied by Python. Original request text is explicitly user context, not a finding.
 
-Once agreed, implement the adapter, map responses into view models, and change provider selection. Disable demo-only scenario/reset controls in real mode. Replace the isolated mock download with the backend report flow. This lane makes no backend modifications.
+## Preserved fixture implementation
+
+The following simulation semantics apply only when explicitly enabled in demo mode. They never describe the real Control provider.
 
 ## Simulation semantics
 
@@ -136,23 +126,17 @@ Missing Flood evidence produces no available surface-water extent or terrain fin
 
 ## Validation
 
-Final `npm run lint` and `npm run build` passed, as did all 12 provider/download tests. The build generated Home, History, session, briefing, and worker routes successfully.
-
-In-app browser download capture timed out. Tests verify that the native download data URI decodes to the exact escaped HTML and supplies the correct partial filename; captured browser-download delivery remains unverified.
-
-Run inside `frontend/`:
+Run in `frontend/`:
 
 ```bash
-npm install
+npm ci
 npm run test
 npm run lint
 npm run build
 ```
 
-Tests cover independent return times, ready-state ordering, partial evidence/unassessable rules, targeted retry retaining Hydro, validation preventing reports, dispatch failure, reload/shared state, malformed/blocked/quota storage, invalid dates, stable examples, escaped HTML, and native download encoding/filenames.
+The build uses Next's documented `--webpack` option after Turbopack's build-process socket was denied with `EPERM` in the sandbox. Dependency versions are unchanged. Development and production npm servers bind to loopback.
 
-Browser verification passed: Home/composer, concurrent worker start, Hydro Ready while Flood Active, Control waiting, complete briefing and analyst review, partial evidence and targeted retry, validation and dispatch failure, history grouping/search, both focused workers, down-worker state, and final briefing. Sidebar collapse/expand, Escape focus return, and repeated New investigation reset were checked. Desktop/laptop/narrow widths of 1440, 1024, and 390 px were checked, including no page overflow on narrow Home/briefing. No browser console warnings/errors were observed. All current product labels and network-call boundaries were inspected; no obsolete specialist labels or guessed API calls remain in source.
+The 12 original provider/download tests remain, alongside real API/proxy boundary tests. These exercise malformed/fixture responses, abort propagation, explicit idempotent replay after a lost response, targeted retries, same-origin and route restrictions, private error/header redaction, streaming size bounds, and authenticated native download responses.
 
-The in-app browser did not expose a saved-download event for the native HTML data link. The rendered link's filename/content and the escaped standalone document were verified; saving to disk through that browser remains the one manual verification limit.
-
-`npm audit --omit=dev` reported zero production vulnerabilities. The full audit reported five high-severity development-tool advisories in the Next ESLint dependency chain; no incompatible downgrade or forced audit fix was applied.
+The original UI lane had passed desktop/laptop/narrow visual checks, with a browser download capture limitation. Phase 9 browser/live execution/download evidence and the human checkpoint are recorded separately in root validation notes. Historical fixture checks must not be presented as proof of current remote execution.

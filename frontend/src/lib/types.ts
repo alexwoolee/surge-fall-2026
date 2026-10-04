@@ -1,6 +1,6 @@
 /** Frontend view models only; these are not backend/Pydantic contracts. */
 export type StepState = "pending" | "active" | "complete" | "failed";
-export type AgentAvailability = "ready" | "active" | "down" | "failed";
+export type AgentAvailability = "ready" | "active" | "down" | "failed" | "unknown" | "complete";
 export type WorkerId = "hydro" | "flood";
 export type DemoScenario = "happy" | "partial" | "validation-failed" | "failed";
 export type AnalysisStatus = "running" | "briefing-ready" | "partial" | "checks-failed" | "failed";
@@ -67,6 +67,7 @@ export interface BriefingViewModel {
   limitations: string[];
   disclaimer: string;
   demoNotice: string;
+  executionNotice?: string;
 }
 
 export interface SessionSummary {
@@ -89,6 +90,16 @@ export interface AnalysisState extends SessionSummary {
   reviewConditions: ReviewCondition[];
   validationFailures: ValidationFailure[];
   briefing: BriefingViewModel | null;
-  isDemo: true;
+  isDemo: boolean;
+  executionMode?: "execute" | "review";
+  executionNotice?: string;
+  retryableWorkers?: WorkerId[];
   retrying: boolean;
+}
+
+export interface ControlConfig {
+  mode: "execute" | "review";
+  case: { case_id: string; name: string; bbox: Record<string, number>; requested_window: { start: string; end: string } };
+  canStart: boolean;
+  notice: string;
 }

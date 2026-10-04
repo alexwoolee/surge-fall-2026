@@ -20,22 +20,23 @@ export function BriefingView({ id }: { id: string }) {
   return (
     <>
       <header className="view-topbar briefing-topbar">
-        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : "Final briefing"}</span><span className="demo-label">Demo evidence</span></div>
-        <div className="topbar-actions"><Button asChild variant="outline"><Link href={`/session/${id}`}><ArrowLeft size={14} aria-hidden="true" />Back to investigation</Link></Button><DownloadBriefingButton briefing={briefing} /></div>
+        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : "Final briefing"}</span><span className="demo-label">{analysis?.isDemo ? "Demo evidence" : analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span></div>
+        <div className="topbar-actions"><Button asChild variant="outline"><Link href={`/session/${id}`}><ArrowLeft size={14} aria-hidden="true" />Back to investigation</Link></Button><DownloadBriefingButton briefing={briefing} sessionId={id} /></div>
       </header>
       <div className="briefing-content">
         <article className="briefing-document">
           <header className="briefing-document-header">
             <p className="eyebrow">MeshMind briefing · prepared by Control on Laptop 1</p>
             <h1>{briefing.title}</h1>
-            <p className="briefing-demo-notice">{briefing.demoNotice}</p>
+            <p className="briefing-demo-notice">{briefing.executionNotice || briefing.demoNotice}</p>
           </header>
           <dl className="briefing-meta">
-            <div><dt>Original request</dt><dd>“{briefing.originalRequest}”</dd></div>
+            <div><dt>Original request · user context, not a finding</dt><dd>“{briefing.originalRequest}”</dd></div>
             <div><dt>Study area</dt><dd>{briefing.studyArea}</dd></div>
             <div><dt>Requested window</dt><dd>{briefing.requestedWindow}</dd></div>
             <div><dt>Actual data coverage</dt><dd>{briefing.actualCoverage}</dd></div>
           </dl>
+          <section className="briefing-section" aria-labelledby="briefing-measurements"><h2 id="briefing-measurements">Validated measurements</h2><dl className="briefing-metrics">{briefing.metrics.map((metric) => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl></section>
           {briefing.sections.map((section) => <section key={section.id} className="briefing-section" aria-labelledby={`briefing-${section.id}`}><h2 id={`briefing-${section.id}`}>{section.title}</h2>{section.paragraphs.map((paragraph, index) => <p key={`${section.id}-${index}`}>{paragraph}</p>)}</section>)}
           <section className="briefing-section" aria-labelledby="briefing-review">
             <h2 id="briefing-review">Analyst-review conditions — {triggered} of {briefing.reviewConditions.length} triggered</h2>
@@ -59,11 +60,11 @@ export function BriefingView({ id }: { id: string }) {
           <section className="briefing-section" aria-labelledby="briefing-processing">
             <h2 id="briefing-processing">Processing provenance</h2>
             <div className="table-scroll"><table className="data-table">
-              <caption className="sr-only">Investigation processing provenance in this demonstration</caption>
+              <caption className="sr-only">Investigation processing provenance</caption>
               <thead><tr><th scope="col">Investigation</th><th scope="col">Executed on</th><th scope="col">Method</th><th scope="col">Duration</th></tr></thead>
               <tbody>{briefing.processingProvenance.map((process) => <tr key={process.investigation}><td>{process.investigation}</td><td>{process.location}</td><td className="mono">{process.method}</td><td className="mono">{process.duration}</td></tr>)}</tbody>
             </table></div>
-            <p className="briefing-note">Execution labels and durations are simulated for this frontend demonstration. They do not attest to work performed on remote laptops.</p>
+            <p className="briefing-note">{analysis?.isDemo ? "Execution labels and durations are simulated for this frontend demonstration. They do not attest to work performed on remote laptops." : briefing.executionNotice || analysis?.executionNotice}</p>
           </section>
           <section className="briefing-section" aria-labelledby="briefing-limitations"><h2 id="briefing-limitations">Limitations</h2><ul className="briefing-limitations">{briefing.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></section>
           <footer className="disclaimer">{briefing.disclaimer}</footer>

@@ -23,11 +23,11 @@ export function BriefingCard({ analysis }: { analysis: AnalysisState }) {
         <dl className="briefing-metrics">{briefing.metrics.slice(0, 4).map((metric) => <div key={metric.label}><dt>{metric.label}</dt><dd>{metric.value}</dd></div>)}</dl>
         <AnalystReviewBanner conditions={analysis.reviewConditions} />
         <div className="result-actions">
-          <DownloadBriefingButton briefing={briefing} label="Download briefing" />
+          <DownloadBriefingButton briefing={briefing} sessionId={analysis.id} label="Download briefing" />
           <Button asChild variant="outline"><Link href={`/session/${analysis.id}/briefing`}>Open full briefing <ArrowUpRight size={15} aria-hidden="true" /></Link></Button>
         </div>
       </div>
-      <footer className="result-footer">{briefing.demoNotice}</footer>
+      <footer className="result-footer">{briefing.executionNotice || briefing.demoNotice}</footer>
     </section>
   );
 }

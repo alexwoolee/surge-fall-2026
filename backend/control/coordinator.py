@@ -7,6 +7,7 @@ overlapping computation or execution on physically different computers.
 
 import asyncio
 from collections.abc import Callable
+from copy import deepcopy
 from datetime import datetime, timezone
 import json
 import math
@@ -14,11 +15,11 @@ import time
 from typing import Literal
 
 import httpx
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from backend.control.state import DispatchError, DispatchRecord, DispatchRun, StatusObservation
 from backend.shared.contracts import (
-    AnalysisTask, CombinedAnalysis, FloodResult, HydroResult, TaskStatus, WorkerStatus,
+    AnalysisTask, CombinedAnalysis, ExecutionHost, FloodResult, HydroResult, ProcessInstance, TaskStatus, WorkerStatus,
 )
 from backend.shared.settings import ControlSettings, WorkerEndpoint, validate_local_address
 from backend.shared.status import TERMINAL_STATES, TaskState
@@ -159,7 +160,17 @@ class WorkerClient:
                     raise TimeoutError
                 return value
 
-    async def run(self, task: AnalysisTask) -> DispatchRecord:
+    async def run(self, task: AnalysisTask, *, on_progress: Callable[[dict], None] | None = None,
+                  expected_process_instance_id: str | None = None,
+                  expected_execution_host: str | None = None) -> DispatchRecord:
+        if on_progress is not None and not callable(on_progress):
+            raise ValueError("Progress persistence must be a callable.")
+        for value, model in ((expected_process_instance_id, ProcessInstance), (expected_execution_host, ExecutionHost)):
+            if value is not None:
+                try:
+                    TypeAdapter(model).validate_python(value)
+                except ValidationError:
+                    raise ValueError("Expected worker identity must satisfy its contract.") from None
         task = AnalysisTask.model_validate(task.model_dump(mode="json"))
         worker_id = self.settings.expected_worker_id
         if task.analysis_type != _ANALYSIS[worker_id]:
@@ -170,7 +181,21 @@ class WorkerClient:
             "accepted": False, "acceptance_unknown": False,
             "worker_status": None, "task_status": None, "observations": [], "result": None,
         }
-        identity = {"execution_host": None, "process_instance_id": None}
+        identity = {"execution_host": expected_execution_host,
+                    "process_instance_id": expected_process_instance_id}
+
+        def emit(stage, *, status=None, finished=None):
+            if on_progress is not None:
+                snapshot = {"worker": "hydro" if worker_id == "hydro-worker" else "flood",
+                            "stage": stage,
+                            "status": None if status is None else status.model_dump(mode="json"),
+                            "record": None if finished is None else finished.model_dump(mode="json")}
+                try:
+                    on_progress(deepcopy(snapshot))
+                except Exception:
+                    # A failed persistence callback must stop dispatch, not be
+                    # misclassified as a worker/protocol failure and continued.
+                    raise RuntimeError("Control could not persist worker progress.") from None
 
         def check_identity(status):
             if status.worker_id != worker_id or status.analysis_type != task.analysis_type:
@@ -201,6 +226,7 @@ class WorkerClient:
                 status = status.model_copy(update={"error": "The worker reported processing failure."})
             if previous != status:
                 record["observations"].append(StatusObservation(observed_at=_now(), status=status))
+                emit("polling", status=status)
             record["task_status"] = status
             return status
 
@@ -210,6 +236,7 @@ class WorkerClient:
         headers = {"Accept": "application/json"}
         if self.settings.token is not None:
             headers["Authorization"] = f"Bearer {self.settings.token}"
+        emit("preflight")
         try:
             async with asyncio.timeout(self.task_timeout):
                 transport = self.transport
@@ -225,6 +252,7 @@ class WorkerClient:
                     stage = "submission"
                     record["submitted_at"] = _now()
                     record["acceptance_unknown"] = True
+                    emit("submission")
                     status = observe(await self._json(
                         client, "POST", "/tasks", deadline, body=task.model_dump(mode="json"), expected=202,
                     ))
@@ -234,6 +262,7 @@ class WorkerClient:
                         await asyncio.sleep(min(self.poll_interval, max(0, deadline - time.monotonic())))
                         status = observe(await self._json(client, "GET", f"/tasks/{task.task_id}", deadline))
                     stage = "result"
+                    emit("result", status=status)
                     try:
                         raw_result = await self._json(client, "GET", f"/tasks/{task.task_id}/result", deadline)
                     except _ResponseCode as exc:
@@ -271,13 +300,16 @@ class WorkerClient:
         record["control_completed_at"] = _now()
         record["outcome"] = outcome
         record["error"] = None if outcome in {"complete", "partial"} else DispatchError(code=outcome, message=_ERRORS[outcome])
-        return DispatchRecord.model_validate(record)
+        finished = DispatchRecord.model_validate(record)
+        emit("finished", status=finished.task_status, finished=finished)
+        return finished
 
 
 async def run_analysis(
     hydro_task: AnalysisTask, flood_task: AnalysisTask, settings: ControlSettings,
     *, execution_mode: Literal["sequential", "parallel"] = "sequential",
     transport_factory: Callable[[WorkerEndpoint], httpx.AsyncBaseTransport] | None = None,
+    on_progress: Callable[[dict], None] | None = None,
 ) -> DispatchRun:
     """Collect both workers in the requested mode, retaining independent results.
 
@@ -287,6 +319,8 @@ async def run_analysis(
     """
     if not isinstance(execution_mode, str) or execution_mode not in ("sequential", "parallel"):
         raise ValueError("Execution mode must be 'sequential' or 'parallel'.")
+    if on_progress is not None and not callable(on_progress):
+        raise ValueError("Progress persistence must be a callable.")
     hydro_task = AnalysisTask.model_validate(hydro_task.model_dump(mode="json"))
     flood_task = AnalysisTask.model_validate(flood_task.model_dump(mode="json"))
     if (hydro_task.analysis_type != "hydrometeorology" or flood_task.analysis_type != "surface_water_and_terrain"
@@ -301,12 +335,20 @@ async def run_analysis(
             local_address=settings.local_address,
             transport=transport_factory(endpoint) if transport_factory is not None else None,
         )
-        return await client.run(task)
+        return await client.run(task, **({"on_progress": on_progress} if on_progress is not None else {}))
 
     if execution_mode == "parallel":
-        hydro, flood = await asyncio.gather(
-            dispatch(hydro_task, settings.hydro), dispatch(flood_task, settings.flood),
-        )
+        pending = [asyncio.create_task(dispatch(hydro_task, settings.hydro)),
+                   asyncio.create_task(dispatch(flood_task, settings.flood))]
+        try:
+            hydro, flood = await asyncio.gather(*pending)
+        except BaseException:
+            # Persistence/caller cancellation stops local collection. Remote
+            # tasks are not cancelled or silently resubmitted; retain their IDs.
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
+            raise
     else:
         hydro = await dispatch(hydro_task, settings.hydro)
         flood = await dispatch(flood_task, settings.flood)

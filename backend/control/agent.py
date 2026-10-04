@@ -171,7 +171,8 @@ def _bound_review(evidence, case, policy):
 
 async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, client, *,
                     evidence=None, execute=False, control_settings: ControlSettings | None = None,
-                    persist: Callable[[dict], None] | None = None, include_request: bool = False):
+                    persist: Callable[[dict], None] | None = None, include_request: bool = False,
+                    on_progress: Callable[[dict], None] | None = None):
     """At most two model calls and one authorized combined dispatch.
 
     A replay first revalidates its deterministic result and preserves it even if
@@ -183,6 +184,8 @@ async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, cl
     """
     if type(include_request) is not bool:
         raise ValueError('Including original request text requires an explicit boolean opt-in.')
+    if on_progress is not None and not callable(on_progress):
+        raise ValueError('Progress persistence must be a callable.')
     if (type(execute) is not bool or (execute and evidence is not None)
             or (not execute and evidence is None)):
         raise ValueError('Select either retained-evidence review or explicit new execution.')
@@ -237,7 +240,8 @@ async def run_agent(request: str, case: ConfiguredCase, policy: ReviewPolicy, cl
     if execute:
         report.update(dispatch_attempted=True, execution_repeated=True)
         save()  # Exact task IDs survive an ambiguous POST or interrupted wait.
-        run = await run_analysis(case.hydro, case.flood, control_settings, execution_mode='parallel')
+        run = await run_analysis(case.hydro, case.flood, control_settings, execution_mode='parallel',
+                                 **({'on_progress': on_progress} if on_progress is not None else {}))
         report['worker_evidence'] = {
             'requests': report['requests'], 'dispatch': run.model_dump(mode='json'),
             'requested_window': case.requested_window.model_dump(mode='json'),

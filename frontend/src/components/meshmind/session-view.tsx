@@ -5,6 +5,8 @@ import { useState } from "react";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
+import { ControlApiError } from "@/lib/api-provider";
+import type { WorkerId } from "@/lib/types";
 import { dataProvider } from "@/lib/data-provider";
 import { AgentStatus } from "./agent-status";
 import { ActivityCard } from "./activity-card";
@@ -19,28 +21,28 @@ export function SessionView({ id }: { id: string }) {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
 
-  async function retryFlood() {
+  async function retryWorker(worker: WorkerId) {
     setRetrying(true);
     setRetryError(null);
     try {
-      await dataProvider.retryWorker(id, "flood");
+      await dataProvider.retryWorker(id, worker);
       await refresh();
-    } catch {
-      setRetryError("The investigation could not be retried. Please try again.");
+    } catch (error) {
+      setRetryError(error instanceof ControlApiError ? error.message : "The investigation could not be retried.");
     } finally {
       setRetrying(false);
     }
   }
 
   if (loading) return <div className="view-empty-state" role="status">Opening investigation…</div>;
-  if (!analysis) return <div className="view-empty-state"><h1>{error ? "Unable to open this investigation" : "Investigation not found"}</h1><p>{error || "This investigation is not saved in this browser’s demo history."}</p><Button asChild variant="outline"><Link href="/">Back to Home</Link></Button></div>;
+  if (!analysis) return <div className="view-empty-state"><h1>{error ? "Unable to open this investigation" : "Investigation not found"}</h1><p>{error || "This investigation is not available in the current Control history."}</p><Button asChild variant="outline"><Link href="/">Back to Home</Link></Button></div>;
 
-  const phaseLabel = analysis.status === "briefing-ready" ? "Briefing ready" : analysis.status === "partial" ? "Partial result" : analysis.status === "checks-failed" ? "Checks failed" : analysis.status === "failed" ? "Investigation failed" : analysis.phase === "validating" ? "Control is validating returned evidence" : analysis.phase === "reviewing" ? "Control is evaluating review conditions" : "Specialist investigations in progress";
+  const phaseLabel = analysis.status === "briefing-ready" ? "Briefing ready" : analysis.status === "partial" ? "Partial result" : analysis.status === "checks-failed" ? "Checks failed" : analysis.status === "failed" ? "Investigation failed" : !analysis.isDemo ? analysis.description : analysis.phase === "validating" ? "Control is validating returned evidence" : analysis.phase === "reviewing" ? "Control is evaluating review conditions" : "Specialist investigations in progress";
 
   return (
     <>
       <header className="view-topbar session-topbar">
-        <span className="demo-label">Demo · simulated workflow</span>
+        <span className="demo-label">{analysis.isDemo ? "Demo · simulated workflow" : analysis.executionMode === "review" ? "Retained evidence review" : "Worker investigation"}</span>
         <div className="agent-status-row">
           <AgentStatus name="Control" location="Laptop 1" status={analysis.control} />
           {Object.values(analysis.workers).map((worker) => <AgentStatus key={worker.id} name={worker.name} location={worker.location} status={worker.status} />)}
@@ -48,6 +50,8 @@ export function SessionView({ id }: { id: string }) {
       </header>
       <div className="session-content">
         <h1 className="sr-only">{analysis.title}</h1>
+        {error && <p role="alert" className="inline-error">{error} Displaying the last received state. <button onClick={refresh}>Refresh</button></p>}
+        {analysis.executionNotice && <p className="execution-notice">{analysis.executionNotice}</p>}
         <p className="sr-only" role="status" aria-live="polite">{phaseLabel}</p>
         <div className="prompt-bubble"><p>{analysis.prompt}</p></div>
         <div className="context-pills"><span className="context-pill">{analysis.studyArea}</span><span className="context-pill">{analysis.requestedWindow}</span></div>
@@ -59,7 +63,8 @@ export function SessionView({ id }: { id: string }) {
         </div>
         {analysis.status === "running" && <div className="session-run-note"><span className="run-note-dot" aria-hidden="true" /><span>{phaseLabel}</span><span className="muted">Workers update independently</span></div>}
         {analysis.status === "briefing-ready" && <Reveal><BriefingCard analysis={analysis} /></Reveal>}
-        {analysis.status === "partial" && <Reveal><PartialResultCard analysis={analysis} onRetry={retryFlood} retrying={retrying || analysis.retrying} /></Reveal>}
+        {analysis.status === "partial" && <Reveal><PartialResultCard analysis={analysis} onRetry={retryWorker} retrying={retrying || analysis.retrying} /></Reveal>}
+        {analysis.status !== "partial" && !analysis.retrying && analysis.retryableWorkers?.map((worker) => <Button key={worker} variant="outline" onClick={() => void retryWorker(worker)} disabled={retrying}>Retry {analysis.workers[worker].name}</Button>)}
         {retryError && <p className="inline-error" role="alert">{retryError}</p>}
         {analysis.status === "checks-failed" && <ValidationFailureCard failures={analysis.validationFailures} />}
         {analysis.status === "failed" && <section className="result-card result-card--red"><header className="result-header"><span className="outcome-badge badge-red">Failed</span></header><div className="result-body"><h2>This investigation could not be completed.</h2><p>No validated combined briefing is available for this run. The activity above records where execution stopped.</p><Button asChild variant="outline"><Link href="/"><RefreshCw size={15} aria-hidden="true" />Start another investigation</Link></Button></div></section>}

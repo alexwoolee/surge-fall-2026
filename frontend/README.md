@@ -1,80 +1,67 @@
 # MeshMind frontend
 
-Kazi's isolated frontend lane for MeshMind: Control on Laptop 1, Hydrometeorology on Laptop 2, and Surface Water & Terrain on Laptop 3. The application follows the supplied environmental-analysis PNG designs while replacing their obsolete Fire, Seismic, Air Quality, and Company concepts.
-
-**This is an explicitly labeled frontend demonstration.** Activity, timings, measurements, provenance, and review outcomes are deterministic fixtures. No environmental data source or remote worker is contacted. No backend endpoint is assumed.
+The existing environmental-analysis interface now connects to Control by default. Control coordinates Hydrometeorology on Laptop 2 and Surface Water & Terrain on Laptop 3, validates their independent evidence, and provides a grounded HTML briefing. The approved visual design is preserved.
 
 ## Run locally
 
-Use a current Node.js version compatible with Next.js 16 and npm. Run all commands inside `frontend/`:
+Use Node.js compatible with the pinned Next.js version and npm. From `frontend/`:
 
 ```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000). The lockfile is included; `npm ci` can be used for repeatable installation.
-
-```bash
+npm ci
 npm run test
 npm run lint
 npm run build
 npm run start
 ```
 
-`npm run start` serves the production build after `npm run build`. No Python dependencies, backend services, API keys, or environment variables are needed for the demo.
+The production server binds **127.0.0.1:3000**. Open [http://127.0.0.1:3000](http://127.0.0.1:3000). `npm run dev` also binds only to loopback. Keep this operator workspace local; it has no public user-login layer. Worker services remain separately authenticated and are reached by Python Control, not by the browser.
 
-## Explore the demo
+Before starting, run the Python Control service using the root README's Phase 9 instructions. Configure these **server-only** values in ignored `frontend/.env.local`:
 
-Enter a question on Home, choose a demo scenario, and select **Run Analysis**. Enter submits; Shift+Enter adds a line. The original question is retained, while new demo runs use the fixed Abbotsford / Sumas Prairie example area and observation window. The demo does not parse arbitrary locations or retrieve current observations.
+```dotenv
+MESHMIND_CONTROL_API_URL=http://127.0.0.1:8001
+MESHMIND_CONTROL_API_TOKEN=replace-with-the-same-private-control-token
+```
+
+Use a token of at least 32 characters. Never put worker tokens, the Control token, or OpenAI credentials into a `NEXT_PUBLIC_` variable. The browser calls `/api/control/*`; the server route attaches the Control token. Source URLs and worker addresses are not exposed through browser requests. API failure displays an error and never substitutes demo measurements.
+
+`npm run build` uses Next's documented Webpack option. Turbopack's local build-process socket was blocked with `EPERM` in the development sandbox; the equivalent Webpack production build succeeded without changing dependency versions.
+
+## Workflow
+
+Home displays the configured study area, historical dates, and whether Control is executing new worker tasks or reviewing retained evidence. Requests must match that configured case. Control's bounded model interpretation decides whether to accept a request. The UI does not silently apply arbitrary locations or dates to the fixed case.
+
+The session view polls server state without overlapping requests. Worker availability starts **Not observed**. Returned work is **Complete**, distinct from current availability. Cards update independently, and failed polling retains the last received state with a visible warning. Polling stops after a terminal session state. History is loaded from Control, including after reload.
+
+Review mode is prominently labeled **Retained evidence review** and never claims new remote execution. The briefing includes the original request as user context, every validated measurement, review conditions, source/processing provenance, limitations, and the required analyst-support disclaimer.
+
+Partial results retain independently validated Hydro or Flood evidence. Missing observations remain unavailable, and dependent rules remain not assessable. Retry buttons appear only for workers explicitly allowed by Control; its bounded retry preserves the other worker. Uncertain POST responses are never replayed automatically. An explicit repeat of the same request reuses its idempotency key, including after a browser reload when session storage is available.
+
+Downloads use a native same-origin link through the authenticated server route. The server returns the actual standalone HTML briefing with an attachment filename; no live report is assembled from frontend fixtures.
+
+## Routes
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Home, composer, current architecture, recent investigations |
-| `/history` | Searchable investigation history grouped by time |
-| `/history?search=1` | History with search focused |
-| `/session/[id]` | Investigation activity and outcome |
-| `/session/[id]/briefing` | Complete or partial briefing |
-| `/worker/hydro` | Hydrometeorology execution view; defaults to the running example |
-| `/worker/flood` | Surface Water & Terrain execution view; defaults to the running example |
-| `/worker/flood?session=partial` | Laptop 3 unavailable example |
+| `/` | Configured request composer and recent investigations |
+| `/history` | Searchable server-backed history |
+| `/session/[id]` | Independent worker activity and result |
+| `/session/[id]/briefing` | Full or partial grounded briefing |
+| `/worker/hydro?session=[id]` | Hydrometeorology activity for the selected session |
+| `/worker/flood?session=[id]` | Surface Water & Terrain activity for the selected session |
 
-Stable seeded session IDs:
+A worker page without a selected session does not invent an active investigation. Sidebar worker links use the most recent known session.
 
-| ID | Demonstrated state |
-| --- | --- |
-| `ready` | Complete investigation, analyst-review conditions, downloadable briefing |
-| `running` | Both workers processing; frozen example for inspection |
-| `partial` | Validated hydro evidence retained; surface-water and terrain evidence missing |
-| `checks-failed` | Returned surface-water evidence fails validation and is excluded |
-| `failed` | Dispatch failure; neither specialist returns evidence |
+## Explicit fixture demo
 
-Examples: `/session/ready/briefing`, `/session/partial`, `/worker/hydro?session=ready`. Control-facing pages have the main sidebar; worker pages use focused execution views. Search is available through the sidebar and Ctrl/Cmd+K.
+For isolated UI exploration only, set `NEXT_PUBLIC_MESHMIND_MODE=demo` **before building or starting development**. This is a public build-time switch, not a secret. Rebuild when switching modes. In demo mode only, the scenario picker, seeded examples, browser-local history, simulated timelines, and fixture HTML downloads are enabled. No backend request is made by the mock provider.
 
-## Workflow and persistence
+Seeded IDs: `ready`, `running`, `partial`, `checks-failed`, and `failed`. Demo storage is `meshmind.frontend-demo.v1`; the running example is frozen for inspection. All demo activity, timing, measurements, and review conditions are illustrative fixtures. Demo retry targets Flood and preserves Hydro, as in the original interface implementation.
 
-A newly started complete demo takes 12 simulated seconds. Both workers begin together. Hydro returns at 7 seconds, Flood at 9 seconds, validation occurs at 10 seconds, review conditions at 11 seconds, and the briefing at 12 seconds. These times illustrate independent states; they are not measured remote execution or proof of physical parallelism.
+## Validation and ownership
 
-The partial scenario makes Laptop 3 unreachable during processing. Its missing evidence remains unavailable, and dependent review rules say **Not assessable**. Retry dispatches only the missing Surface Water & Terrain investigation while retaining validated hydrometeorology.
+Frontend tests cover the original fixture provider plus real API adaptation, unknown/malformed responses, cancellation, idempotency across interrupted responses/reload, bounded targeted retry requests, fixed proxy destinations, same-origin writes, credential/error redaction, bounded bodies, and native HTML delivery headers. Browser verification and the Phase 9 human checkpoint are recorded in the root validation notes; automated frontend tests alone do not establish physical worker execution.
 
-Sessions use browser local storage key `meshmind.frontend-demo.v1`. Reloading or opening another worker view resumes the same simulated run from its saved start time. This is local browser persistence, not shared multi-laptop state. If storage is blocked or full, the provider falls back to memory. The provider exposes `resetDemo()` for development; it is not an infrastructure-administration action.
-
-Downloads use native HTML links with encoded data URLs and descriptive `.html` filenames. The standalone document contains the same briefing model, demo notice, provenance, limitations, and disclaimer. User text is escaped. Failed validation never produces a downloadable combined briefing.
-
-## Integration and ownership
-
-See [IMPLEMENTATION.md](./IMPLEMENTATION.md) for file groups, design mapping, dependencies, provider semantics, and the exact backend information needed for integration.
-
-The frontend uses shadcn's `radix-nova` setup with Button, Input, and Textarea. Animate UI Fade and its in-view hook are adapted to a stable div wrapper without `asChild`; custom conic CSS spheres preserve the supplied status-orb design.
-
-All project changes for this lane belong to `frontend/**`, on `kazi/frontend-ui` in an isolated worktree. The root README remains the architecture authority. Backend code, shared contracts, Python tests, data, and root configuration are outside this lane.
-
-## Validation
-
-Final `npm run lint`, `npm run build`, and all 12 provider/download tests passed. Browser checks covered the live workflow, all outcomes, focused workers, retry, history/search, sidebar keyboard focus, and desktop/laptop/narrow layouts (1440, 1024, and 390 px).
-
-The in-app browser's download capture timed out. The native download link and encoded HTML are covered by tests; a captured browser download has not been verified.
-
-The provider tests cover independent worker completion, partial evidence, targeted retry, invalid evidence exclusion, dispatch failure, reload/shared browser state, malformed/blocked/quota-limited storage, invalid dates, deterministic examples, and safe HTML generation.
+The implementation remains inside `frontend/**`. See [IMPLEMENTATION.md](./IMPLEMENTATION.md) for the preserved design mapping and integration boundary. The root README remains the project and phase authority.
 
 > MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.

@@ -3,7 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import type { ActivityGroup } from "@/lib/types";
 import { StatusOrb } from "./agent-status";
 
-const statusLabels = { ready: "Ready", active: "Active", down: "Down", failed: "Failed" };
+const statusLabels = { ready: "Ready", active: "Active", down: "Down", failed: "Failed", unknown: "Not observed", complete: "Complete" };
 
 export function ActivityCard({ activity, workerHref }: { activity: ActivityGroup; workerHref?: string }) {
   return (
