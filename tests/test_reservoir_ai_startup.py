@@ -40,15 +40,16 @@ def startup(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize('check_only', [True, False])
-def test_explicit_ai_file_enables_one_client_without_startup_requests(startup, tmp_path, capsys, check_only):
+@pytest.mark.parametrize('model', ['gpt-5.4-mini', 'gpt-6.1-sol'])
+def test_explicit_ai_file_enables_one_client_without_startup_requests(startup, tmp_path, capsys, check_only, model):
     args, apps, servers, history = startup
     config = tmp_path / 'model.env'
-    config.write_text(f'OPENAI_API_KEY={SECRET}\nOPENAI_MODEL=gpt-5.4-mini\n')
+    config.write_text(f'OPENAI_API_KEY={SECRET}\nOPENAI_MODEL={model}\n')
     assert serve.main([*args, '--openai-env-file', str(config), *(['--check-config'] if check_only else [])]) == 0
     assert len(apps) == 1
     service = apps[0].state.control_service
     assert isinstance(service.synthesis_client, serve.ResponsesClient)
-    assert service.synthesis_client.settings.model == 'gpt-5.4-mini'
+    assert service.synthesis_client.settings.model == model
     assert service.synthesis_client.settings.api_key == SECRET
     assert service.sessions == {} and service.job is None and not service.started
     assert not history.exists()

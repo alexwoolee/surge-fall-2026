@@ -89,6 +89,7 @@ MESHMIND_CONTROL_SOURCE_IP=100.100.3.5
 
 The source address must belong to Ryan's Mac; omit that line if using another
 machine. Reuse `env.phase8.download` for the private OpenAI key/model settings.
+Set `OPENAI_MODEL=gpt-6.1-sol` in that file; preserve the existing API key.
 
 **Terminal 1 — Control API**
 

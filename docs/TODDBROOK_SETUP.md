@@ -310,13 +310,13 @@ worker URLs must be different origins. Do not add private-data paths, NASA
 credentials or internal tokens. Keep existing legacy `.env` files intact.
 
 Ryan can reuse the existing private `env.phase8.download` file, which contains
-`OPENAI_API_KEY` and `OPENAI_MODEL=gpt-5.4-mini`. Keep that file and its values out
+`OPENAI_API_KEY` and `OPENAI_MODEL=gpt-6.1-sol`. Keep that file and its values out
 of Git and chat. For a new setup, create ignored `.env.phase8.local` containing
 only these two assignments with your own key:
 
 ```dotenv
 OPENAI_API_KEY=your_api_key
-OPENAI_MODEL=gpt-5.4-mini
+OPENAI_MODEL=gpt-6.1-sol
 ```
 
 Start Control in one terminal, using Ryan's existing file:
@@ -444,4 +444,4 @@ not a forecast for dates that have not occurred.
 
 **Ryan — Control**
 
-> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use main without merging or pushing. Preserve work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, then start backend.control.serve with --generic --worker-env-file .env.reservoir.local --openai-env-file env.phase8.download --history-dir outputs/debug/reservoir-cutoff/history. Reuse the existing private OpenAI file without printing its key; another setup can use .env.phase8.local with OPENAI_API_KEY and OPENAI_MODEL=gpt-5.4-mini. Build/start the UI on loopback. Each new job permits at most one bounded AI request over checked aggregates; history reopening must not call it again. AI should infer the contextual combined risk, not apply mandatory interaction thresholds, and lead with a plain-language explanation. If AI is unavailable, label the fallback and retain the evidence. The prepared bundle is shared through Git, but only Dam may consume it during investigations. Wait for matching commits and readiness before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Check cutoff compliance, conditional Dam routing, source notes, visible operational errors and the download. Preserve prior history and the retained codex/toddbrook-private-worker branch; do not delete branches.
+> In the Mac Control checkout, read docs/TODDBROOK_SETUP.md and use main without merging or pushing. Preserve work and existing configuration. Configure the three worker URLs in ignored .env.reservoir.local, then start backend.control.serve with --generic --worker-env-file .env.reservoir.local --openai-env-file env.phase8.download --history-dir outputs/debug/reservoir-cutoff/history. Reuse the existing private OpenAI file without printing its key; another setup can use .env.phase8.local with OPENAI_API_KEY and OPENAI_MODEL=gpt-6.1-sol. Build/start the UI on loopback. Each new job permits at most one bounded AI request over checked aggregates; history reopening must not call it again. AI should infer the contextual combined risk, not apply mandatory interaction thresholds, and lead with a plain-language explanation. If AI is unavailable, label the fallback and retain the evidence. The prepared bundle is shared through Git, but only Dam may consume it during investigations. Wait for matching commits and readiness before submitting the agreed August 1, 2019 and December 9, 2007 runs one at a time. Check cutoff compliance, conditional Dam routing, source notes, visible operational errors and the download. Preserve prior history and the retained codex/toddbrook-private-worker branch; do not delete branches.

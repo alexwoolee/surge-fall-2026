@@ -49,8 +49,9 @@ Synthesize the factors together: rainfall amount and coverage, soil moisture, ca
 integrity, hydraulic loading, maintenance and monitoring evidence, freshness, and missing inputs. These are
 not independent checkboxes or fixed interaction thresholds. Existing dam screening is one provided judgement.
 Missing evidence is unknown, not zero or proof of safety; it does not erase a supported concern from other evidence.
-Do not infer that rainfall is above normal or increasing without a supplied comparison baseline. Candidate water
-alone cannot establish new flooding. SMAP soil moisture is volumetric water content, not percent saturation;
+Do not infer that rainfall is above normal or increasing without a supplied comparison baseline.
+For a missing comparison baseline, say "No comparison baseline was supplied" without repeating an unsupported comparison.
+Candidate water alone cannot establish new flooding. SMAP soil moisture is volumetric water content, not percent saturation;
 porosity is not supplied. Interpret wetter soil only in relation to a supplied measurement or comparison,
 never as an observed trend or departure from normal without a supplied baseline.
 Do not assert confirmed flooding, a breach, causation, a forecast, or a
