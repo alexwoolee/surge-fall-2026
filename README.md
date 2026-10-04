@@ -7,7 +7,7 @@ results, and displays a risk level, evidence confidence and downloadable report.
 Missing data remains explicit; risk scores are screening indicators, not flood
 probabilities or emergency guidance.
 
-This branch adds a private records worker for **Toddbrook Reservoir, Whaley Bridge,
+This branch adds a Dam records worker for **Toddbrook Reservoir, Whaley Bridge,
 Derbyshire, England**. Hydro and Flood run for every resolved request; only
 Toddbrook requests also use the Dam worker. The feature remains separate from
 `main` until approved.
@@ -15,7 +15,7 @@ Toddbrook requests also use the Dam worker. The feature remains separate from
 ## Install
 
 You need Git, **Python 3.12**, **Node.js 20.9+** and npm. For the team's four-laptop
-setup and private dataset installation, use [the deployment guide](docs/TODDBROOK_SETUP.md).
+setup, use [the deployment guide](docs/TODDBROOK_SETUP.md).
 
 ```sh
 git clone --branch codex/toddbrook-private-worker https://github.com/alexwoolee/surge-fall-2026.git
@@ -104,14 +104,19 @@ missing observations and failed downloads remain unavailable.
 
 For Toddbrook, configure Karan's Dam worker using [the deployment guide](docs/TODDBROOK_SETUP.md),
 which includes the exact four-device commands and prompts for **2007-12-09** and
-**2019-08-01**. Karan must rerun the installer to prepare offline date snapshots at
-`private_data/toddbrook_runtime/as_of/YYYY-MM-DD/data/`. Dam opens only the selected
-day's model-needed fields; future records and future maintenance closures are
-absent. Keep these files on that worker only and the raw ZIP separate. Its base
-setting stays `private_data/toddbrook_runtime/data/`. Up to seven days after a
-supported observation period ends, Dam may use its last-known evidence with its
-actual age; recorded coverage is not extended. The local Hydro/Flood setup above
-can still return a partial Toddbrook briefing if no Dam worker is running.
+**2019-08-01**. Pull the code and start Dam: its prepared date bundle is included
+at `private_data/toddbrook_runtime/as_of.zip`, with no installer, extraction or
+separate data transfer. Dam reads only the requested day's model-needed fields;
+future observations and future maintenance closures are absent. Its base setting
+stays `private_data/toddbrook_runtime/data/`. Up to seven days after an observed
+period ends, Dam may use last-known evidence with its actual age; recorded coverage
+is not extended. The local Hydro/Flood setup above can still return a partial
+Toddbrook briefing if no Dam worker is running.
+
+This demonstration intentionally shares the prepared bundle through Git, so anyone
+with repository access can read it. Only Dam consumes it during investigations;
+production storage restricted to the data owner is simulated here. The original
+raw archive, evaluation files and archive helpers are not tracked.
 
 Wait for the briefing, review coverage and risk conditions, and download the report.
 Stop each service with Ctrl+C when its job is finished. Keep distributed services

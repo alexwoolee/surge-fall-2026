@@ -82,6 +82,10 @@ outputs/reports/*
 .urs_cookies
 .netrc
 
-# Worker-local records. Only the placeholder instructions are shared by Git.
+# Shared demo bundle, read only by Dam at runtime. Raw and generated owner files
+# remain local; sharing the prepared bundle is explicitly authorized for this demo.
 private_data/*
 !private_data/README.md
+!private_data/toddbrook_runtime/
+private_data/toddbrook_runtime/*
+!private_data/toddbrook_runtime/as_of.zip

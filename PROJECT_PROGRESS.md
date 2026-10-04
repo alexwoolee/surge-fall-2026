@@ -36,9 +36,11 @@ private coverage. Evaluation files and retrospective timelines are not risk
 inputs. The installer extracts only five allowlisted JSONL files and does not
 execute package code. Repository test discovery excludes private packages.
 
-`private_data` is ignored except for its placeholder README. It represents one
-device's private storage: only Karan reads it in deployment; local development
-mocks that boundary. API/dashboard/report outputs contain bounded aggregates,
+The prepared `private_data/toddbrook_runtime/as_of.zip` is now shared in this
+feature repository at the user's request; raw and other generated inputs remain
+ignored. It mocks one device's private storage: only Karan's Dam service consumes
+it during an investigation, though repository readers can access the bundle.
+API/dashboard/report outputs contain bounded aggregates,
 fixed screening criteria and opaque references, without raw records, local
 paths, free-text notes or data-origin flags.
 
@@ -148,6 +150,49 @@ All three physical worker status endpoints returned HTTP 200 and idle from the
 Mac when bound to `100.100.3.5`. The cutoff update still needs to be pulled and
 restarted on the workers before submitting the two joint investigations. Local
 evidence is in `outputs/debug/historical-cutoff/`; the feature remains unmerged.
+
+## Repository-bundled Dam inputs — October 4, 2026
+
+Karan's installer failed because neither the requested Downloads ZIP nor the
+prepared input directory existed on his laptop. The user then explicitly
+requested that the data be included in the feature repository and read directly
+from `private_data`, without installation or copying elsewhere. This supersedes
+the earlier no-data-in-Git and installer prerequisite for this demonstration.
+
+The feature now includes `private_data/toddbrook_runtime/as_of.zip`, a prepared
+bundle of the same cutoff-specific analytical inputs. Git makes this bundle
+available to repository readers; the one-owner storage boundary is mocked here.
+Only the Dam worker opens it at runtime. Control, Hydro and Flood still consume
+only bounded Dam results, and no endpoint serves the bundle. The original owner
+archive, evaluation data, notes, origin metadata and package code remain outside
+the tracked runtime inputs.
+
+Dam reads exactly the five entries for its requested date directly from the
+bundle, without extraction, installation, or opening other days' record contents.
+The existing base setting ending in `toddbrook_runtime/data` is retained for
+compatibility; its sibling `as_of.zip` takes precedence. A malformed bundle fails
+without falling back to other records. Dates, risk rules and result APIs are
+unchanged. Karan only needs to pull this feature branch and restart Dam.
+
+`scripts.bundle_private_dataset` is an offline developer packaging command,
+not a startup prerequisite. It builds reproducible date inputs from the five
+prepared source files. Raw data, extracted snapshots and caches remain ignored;
+only the specific prepared bundle is tracked alongside its instructions.
+
+The bundle contains 7,970 analytical members for 1,594 dates (about 5.2 MiB
+compressed). Fresh-checkout HTTP checks with no source ZIP, prepared master
+directory, or extracted snapshots returned complete results for both requested
+dates. The July-31-based critical August 1 result and moderate December 9 result
+exactly matched the previously validated aggregates. Each task opened only its
+five exact-date member streams and created no extracted input directories.
+This is local validation; Karan still needs to pull/restart before a new physical
+run. Evidence is under `outputs/debug/repository-dam-bundle/`.
+
+Validation: **1,808 Python tests passed**. The reproducible developer builder
+returned `unchanged` against the included bundle. Archive bounds, exact-date reads,
+future-fact rejection, no extraction, malformed-bundle failures, atomic packaging
+and existing worker/Control regressions passed. `git diff --check` passed; frontend
+code and the result API did not change.
 
 ## Current access policy
 

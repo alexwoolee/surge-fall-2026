@@ -1,16 +1,22 @@
 """Read bounded local records and emit only validated aggregate screening evidence."""
 
 from datetime import date, timedelta
+from dataclasses import dataclass
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
+import stat
+import zipfile
+import zlib
 
 from backend.shared.dam_contracts import (
     DamCounts, DamEvidence, DamMetrics, DamResult, DamRule, DamTask,
     LIMITATIONS, RULE_CRITERIA, WINDOWS, expected_rules, expected_summary,
 )
 from backend.shared.dam_records import project_record
+from backend.shared.dam_snapshots import period_for
 
 _FILES = {
     'operations': 'weekly_ops_logs.jsonl', 'supervision': 'se_reports.jsonl',
@@ -22,6 +28,9 @@ _ENGINEERING = frozenset({'vegetation_and_patch_repairs', 'joint_sealant', 'seep
                          'left_wall', 'vegetation_in_joints', 'pressure_relief_holes',
                          'spillway_hydraulic_integrity'})
 _MAX_BYTES = 4 * 1024 * 1024
+_MAX_BUNDLE_BYTES = 64 * 1024 * 1024
+_MAX_BUNDLE_ENTRIES = 10000
+_MAX_BUNDLE_TOTAL_BYTES = 128 * 1024 * 1024
 _ERROR = 'Local evidence could not be validated.'
 
 
@@ -73,15 +82,91 @@ def _finite(value):
             _finite(item)
 
 
-def _load(data_dir: Path, category: str):
-    """Read exactly one approved regular file, with no directory or file API."""
+@dataclass(frozen=True)
+class _BundleSnapshot:
+    files: dict[str, bytes]
+    task: DamTask
+
+
+def _bundle_snapshot(path: Path, task: DamTask) -> _BundleSnapshot:
+    """Read metadata and only this date's five members; never extract an archive."""
     try:
-        root = Path(data_dir).expanduser().resolve(strict=True)
-        path = root / _FILES[category]
-        if path.is_symlink() or not path.is_file() or not path.resolve(strict=True).is_relative_to(root) or path.stat().st_size > _MAX_BYTES:
+        if path.is_symlink() or not path.is_file() or path.stat().st_size > _MAX_BUNDLE_BYTES:
             _bad()
-        # The entire bounded read is local to the worker. No imported archive code runs.
-        data = path.read_bytes()
+        expected = {f'{task.as_of.isoformat()}/data/{name}': name for name in _FILES.values()}
+        selected, seen, total = {}, set(), 0
+        with path.open('rb') as source:
+            metadata = os.fstat(source.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > _MAX_BUNDLE_BYTES:
+                _bad()
+            with zipfile.ZipFile(source) as package:
+                entries = package.infolist()
+                if len(entries) > _MAX_BUNDLE_ENTRIES:
+                    _bad()
+                for info in entries:
+                    name = info.orig_filename
+                    parts = name.split('/')
+                    mode = stat.S_IFMT(info.external_attr >> 16)
+                    if (name != info.filename or name in seen or len(parts) != 3
+                            or parts[1] != 'data' or parts[2] not in _FILES.values()
+                            or period_for(_day(parts[0])) is None
+                            or info.is_dir() or mode not in {0, stat.S_IFREG}
+                            or info.flag_bits & 1
+                            or info.compress_type not in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED}
+                            or not 0 <= info.file_size <= _MAX_BYTES):
+                        _bad()
+                    seen.add(name)
+                    total += info.file_size
+                    if total > _MAX_BUNDLE_TOTAL_BYTES:
+                        _bad()
+                    if name in expected:
+                        selected[name] = info
+                if set(selected) != set(expected):
+                    _bad()
+                files = {}
+                for name, basename in expected.items():
+                    info = selected[name]
+                    with package.open(info) as member:
+                        content = member.read(_MAX_BYTES + 1)
+                    if len(content) > _MAX_BYTES or len(content) != info.file_size:
+                        _bad()
+                    files[basename] = content
+        return _BundleSnapshot(files, task)
+    except (OSError, ValueError, TypeError, RuntimeError, OverflowError,
+            zipfile.BadZipFile, zipfile.LargeZipFile, zlib.error):
+        raise ValueError(_ERROR) from None
+
+
+def _snapshot_cutoff(row, category, task):
+    """Reject a corrupt prepared member instead of silently filtering its future facts."""
+    if category == 'maintenance':
+        observed = _day(row['opened'])
+        available = _day(row.get('available_date', row['opened']))
+        if row.get('closed_date') is not None and _day(row['closed_date']) > task.as_of:
+            _bad()
+    elif category == 'instrumentation':
+        observed, available = date(row['year'], 12, 31), _day(row['available_date'])
+    else:
+        observed, available = _day(row['date']), _day(row['available_date'])
+    if observed > task.as_of or available > task.as_of:
+        _bad()
+    if category == 'operations' and not WINDOWS[task.window][0] <= observed <= WINDOWS[task.window][1]:
+        _bad()
+
+
+def _load(data_dir: Path | _BundleSnapshot, category: str):
+    """Parse one approved file or already-selected bundle member."""
+    try:
+        bundled = isinstance(data_dir, _BundleSnapshot)
+        if bundled:
+            data = data_dir.files[_FILES[category]]
+        else:
+            root = Path(data_dir).expanduser().resolve(strict=True)
+            path = root / _FILES[category]
+            if path.is_symlink() or not path.is_file() or not path.resolve(strict=True).is_relative_to(root) or path.stat().st_size > _MAX_BYTES:
+                _bad()
+            # The entire bounded read is local to the worker. No imported archive code runs.
+            data = path.read_bytes()
         if len(data) > _MAX_BYTES:
             _bad()
         rows = []
@@ -97,6 +182,8 @@ def _load(data_dir: Path, category: str):
             # Never fall back to the original archive or development package.
             if project_record(_FILES[category], row) != row:
                 _bad()
+            if bundled:
+                _snapshot_cutoff(row, category, data_dir.task)
             rows.append(row)
         return rows
     except (OSError, UnicodeError, TypeError, ValueError, RecursionError, OverflowError):
@@ -167,7 +254,7 @@ def _visible(data_dir, task):
     return selected
 
 
-def analyze(task: DamTask, *, data_dir: Path, progress=None) -> DamResult:
+def analyze(task: DamTask, *, data_dir: Path | _BundleSnapshot, progress=None) -> DamResult:
     rows = {key: [] for key in _FILES} if task.window == 'outside-coverage' else _visible(data_dir, task)
     if progress is not None:
         if task.window != 'outside-coverage':
@@ -219,13 +306,16 @@ def analyze(task: DamTask, *, data_dir: Path, progress=None) -> DamResult:
 
 
 def run_dam_task(task: DamTask, progress, *, settings):
-    # Preparation happens separately on the owner's device. Runtime selects one
-    # exact day without reading the full master records or enumerating other days.
-    # Missing snapshots fail closed; there is deliberately no archive fallback.
+    # Runtime selects one prepared day. The repository bundle has priority;
+    # a present but invalid bundle never falls back to other local records.
     data_dir = Path(settings.dam_data_dir).expanduser()
     if task.window != 'outside-coverage':
         try:
             owner_root = data_dir.parent.resolve(strict=True)
+            bundle = owner_root / 'as_of.zip'
+            if bundle.exists() or bundle.is_symlink():
+                return analyze(task, data_dir=_bundle_snapshot(bundle, task),
+                               progress=progress).model_dump(mode='json')
             parts = (owner_root / 'as_of', owner_root / 'as_of' / task.as_of.isoformat())
             snapshot = parts[-1] / 'data'
             if any(path.is_symlink() or not path.is_dir() for path in (*parts, snapshot)):
