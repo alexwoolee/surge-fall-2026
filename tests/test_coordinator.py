@@ -3,6 +3,7 @@
 import asyncio
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
+from itertools import count
 import json
 import time
 
@@ -402,7 +403,12 @@ def matching_tasks(hydro_result, flood_result, bounds):
                  for result in (hydro_result, flood_result))
 
 
-def test_parallel_calls_reach_a_shared_barrier_before_either_returns(hydro_result, flood_result):
+def test_parallel_calls_reach_a_shared_barrier_before_either_returns(hydro_result, flood_result, monkeypatch):
+    # The shared barrier proves concurrency; observation ordering must not
+    # depend on the host wall clock resolving these very short HTTP fixtures.
+    ticks = count()
+    monkeypatch.setattr("backend.control.coordinator._now",
+                        lambda: BASE + timedelta(microseconds=next(ticks)))
     tasks = matching_tasks(hydro_result, flood_result, hydro_result["bbox"])
     settings = ControlSettings(WorkerEndpoint("http://hydro.invalid", "hydro-worker"),
                                WorkerEndpoint("http://flood.invalid", "flood-worker"), task_timeout=5)

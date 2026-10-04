@@ -156,6 +156,14 @@ Local evidence: `outputs/debug/parallel-workers/local-real/result.json`, its
 Windows/Linux reruns on the Phase 6 branch and physical-laptop overlap remain
 pending. No Phase 6 completion is claimed from these local results.
 
+Kazi's Windows rerun at `633306f` reported **756 passed, 1 failed, 1 expected
+symlink-privilege skip**. The failing concurrency unit test received equal host
+wall-clock timestamps and passed when rerun alone. Its observation clock is now
+deterministic, while the shared asynchronous barrier, strict interval assertion,
+serialization check and rejection of sequential classification remain intact.
+Production clocks, real deadlines and physical overlap validation are unchanged.
+Another full Windows rerun is required; Karan's update confirmation remains pending.
+
 After the physical run passes, compare numerical results, obtain human acceptance
 and stop at the Phase 6 checkpoint. No HTML review is needed. Later phases are
 outside the current request.
