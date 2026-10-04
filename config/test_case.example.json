@@ -12,5 +12,7 @@
   "gpm_smoke_start": "2021-11-15T00:00:00Z",
   "gpm_smoke_end": "2021-11-15T01:00:00Z",
   "smap_smoke_start": "2021-11-15T00:00:00Z",
-  "smap_smoke_end": "2021-11-15T06:00:00Z"
+  "smap_smoke_end": "2021-11-15T06:00:00Z",
+  "sentinel1_smoke_start": "2021-11-13T00:00:00Z",
+  "sentinel1_smoke_end": "2021-11-18T23:59:59Z"
 }
