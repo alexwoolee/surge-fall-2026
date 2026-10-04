@@ -21,7 +21,7 @@ export function BriefingView({ id }: { id: string }) {
   return (
     <>
       <header className="view-topbar briefing-topbar">
-        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : "Final briefing"}</span><span className="demo-label">{analysis?.isDemo ? "Demo evidence" : analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span></div>
+        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : briefing.risk ? "Screening briefing" : "Final briefing"}</span><span className="demo-label">{analysis?.isDemo ? "Demo evidence" : analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span></div>
         <div className="topbar-actions"><Button asChild variant="outline"><Link href={`/session/${id}`}><ArrowLeft size={14} aria-hidden="true" />Back to investigation</Link></Button><DownloadBriefingButton briefing={briefing} sessionId={id} /></div>
       </header>
       <div className="briefing-content">

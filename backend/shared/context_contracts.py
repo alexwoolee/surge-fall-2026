@@ -114,6 +114,7 @@ ContextReason = Literal[
     "processing_failed", "invalid_result", "resource_limit",
     "authentication_unavailable", "provider_timeout", "download_limit",
     "observation_date_unverified",
+    "no_matching_observations",
 ]
 
 

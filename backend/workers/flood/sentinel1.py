@@ -40,6 +40,10 @@ class Sentinel1ProcessingError(Exception):
     """Raised when calibrated SAR evidence cannot be calculated safely."""
 
 
+class Sentinel1NoSceneError(Sentinel1ProcessingError):
+    """A successful catalog query had no eligible scene for the requested bounds."""
+
+
 @dataclass(frozen=True)
 class Sentinel1Scene:
     scene_id: str
@@ -119,7 +123,7 @@ def select_scene(scenes: Iterable[Sentinel1Scene], bbox, reference_time) -> Sent
             distance = abs((_timestamp(scene.acquired_at) - reference).total_seconds())
             ranked.append((-overlap / aoi_area, distance, scene.scene_id, scene))
     if not ranked:
-        raise Sentinel1ProcessingError("No supported Sentinel-1 VV scene intersects the requested AOI.")
+        raise Sentinel1NoSceneError("No supported Sentinel-1 VV scene intersects the requested AOI.")
     return min(ranked, key=lambda item: item[:3])[3]
 
 

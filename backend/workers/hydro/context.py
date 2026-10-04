@@ -49,11 +49,8 @@ def smap_interval(name: str):
         return None
 
 
-def _gpm(task, settings, provider):
-    if task.end_time <= GPM_START:
-        return unavailable("gpm", "before_product_coverage")
-    from backend.workers.hydro.context_sources import live_paths
-    paths, reason = live_paths(provider, "gpm", task, settings.gpm_dir)
+def _gpm(task, acquired):
+    paths, reason = acquired
     if reason:
         return unavailable("gpm", reason)
     try:
@@ -103,11 +100,8 @@ def _gpm(task, settings, provider):
         return unavailable("gpm", "invalid_result")
 
 
-def _smap(task, settings, provider):
-    if task.end_time <= SMAP_START:
-        return unavailable("smap", "before_product_coverage")
-    from backend.workers.hydro.context_sources import live_paths
-    paths, reason = live_paths(provider, "smap", task, settings.smap_dir)
+def _smap(task, acquired):
+    paths, reason = acquired
     if reason:
         return unavailable("smap", reason)
     try:
@@ -155,12 +149,21 @@ def run_hydro_context(task: ContextTask, progress, *, settings: WorkerSettings) 
     task = ContextTask.model_validate(task.model_dump(mode="json"))
     if task.analysis_type != "hydrometeorology":
         raise ValueError("Environmental context task does not match the Hydro role.")
-    progress(TaskState.PROCESSING)
-    from backend.workers.hydro.context_sources import NASAContextProvider
+    from backend.workers.hydro.context_sources import NASAContextProvider, live_paths
     provider = NASAContextProvider()
     try:
-        components = [_gpm(task, settings, provider), _smap(task, settings, provider)]
+        acquired = {}
+        for component, coverage_start, folder in (("gpm", GPM_START, settings.gpm_dir),
+                                                  ("smap", SMAP_START, settings.smap_dir)):
+            acquired[component] = (([], "before_product_coverage") if task.end_time <= coverage_start
+                                   else live_paths(provider, component, task, folder))
     finally:
         provider.close()
+    # Report actual successful acquisition before analysis begins. A component
+    # failure must neither suppress the other source nor invent a located event.
+    if any(paths and reason is None for paths, reason in acquired.values()):
+        progress(TaskState.DATASET_LOCATED)
+    progress(TaskState.PROCESSING)
+    components = [_gpm(task, acquired["gpm"]), _smap(task, acquired["smap"])]
     progress(TaskState.PREPARING_RESULT)
     return context_result(task, components)

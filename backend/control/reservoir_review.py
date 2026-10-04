@@ -1,6 +1,7 @@
 """Grounded combined review of independent worker aggregates; no local datasets."""
 
 from copy import deepcopy
+from datetime import datetime, timezone
 
 from backend.control.alerts import DEMO_NOTICE
 from backend.control.fusion import DISCLAIMER
@@ -19,6 +20,7 @@ REASONS = {
     'partial_temporal_coverage': 'Only part of the requested rainfall interval is available.',
     'static_noncontemporaneous': 'Static terrain context; not a measurement at the historical assessment date.',
     'observation_date_unverified': 'Terrain excluded because its observation date cannot be verified against the historical cutoff.',
+    'no_matching_observations': 'The catalog returned no eligible observations for the requested area and interval.',
     'missing_local_data': 'Matching input files are unavailable on the assigned worker.',
     'before_product_coverage': 'The requested period predates this product.',
     'source_unavailable': 'The source could not provide suitable data.',
@@ -29,6 +31,32 @@ REASONS = {
     'provider_timeout': 'The external data provider did not respond within the acquisition deadline.',
     'download_limit': 'The requested download exceeds the configured acquisition limit.',
 }
+# These are normal source-selection outcomes, not acquisition/processing errors.
+# They still contribute zero coverage to the unchanged confidence calculation.
+EXPECTED_ABSENCE_REASONS = frozenset({
+    'before_product_coverage', 'no_matching_observations', 'observation_date_unverified',
+})
+# Match the acquisition workers' fixed lower bounds; intervals end exclusively.
+_PRODUCT_STARTS = {
+    'gpm': datetime(1998, 1, 1, tzinfo=timezone.utc),
+    'smap': datetime(2015, 3, 31, tzinfo=timezone.utc),
+    'sentinel1': datetime(2014, 4, 3, tzinfo=timezone.utc),
+}
+
+
+def expected_source_absence(item, end):
+    """An expected reason must fit both its product and requested period."""
+    if item is None or item.availability != 'unavailable':
+        return False
+    if item.reason == 'observation_date_unverified':
+        return item.component in {'dem', 'hand'}
+    start = _PRODUCT_STARTS.get(item.component)
+    if start is None:
+        return False
+    return ((item.reason == 'before_product_coverage' and end <= start)
+            or (item.reason == 'no_matching_observations' and end > start))
+
+
 LIMITS = [
     'Risk is an ordinal screening concern, not a calibrated flood or dam-failure probability, forecast, or emergency instruction.',
     'Confidence is an evidence-coverage score, not the probability that flooding will occur.',
@@ -148,26 +176,36 @@ def build_reservoir_review(plan, records, task_id, prompt):
     results = checked_results(plan, records, task_id)
     components = {item.component: item for role in ('hydro', 'flood') if role in results
                   for item in results[role].components}
-    conditions, measurements, sources, processing = [], [], [], []
+    conditions, measurements, sources, processing, coverage_summary = [], [], [], [], []
     qualities = []
+    incomplete = False
     for name in DATASETS:
         item = components.get(name)
         available = item is not None and item.availability == 'available'
+        expected_absence = expected_source_absence(item, plan.end)
         reason = REASONS[item.reason] if item else 'No validated worker result is available.'
+        if item is not None and item.reason in EXPECTED_ABSENCE_REASONS and not expected_absence:
+            reason = 'The returned coverage reason does not match this product and requested period.'
         metrics = item.metrics.model_dump() if available else {}
         coverage = (f'{item.observed_start.isoformat()} to {item.observed_end.isoformat()}. '
                     if available and item.observed_start is not None else '') + reason
         sources.append({'dataset': DATASETS[name], 'access': 'Assigned environmental worker',
                         'resources': 'Validated aggregate from the named product.' if available else 'Unavailable.',
                         'coverage': coverage})
+        if not expected_absence:
+            coverage_summary.append(f'{DATASETS[name]}: {coverage}')
         if available:
             for key, value in metrics.items():
                 measurements.append(display_measurement(DATASETS[name], key, value))
             fractions = [float(value) for key, value in metrics.items() if key.endswith('fraction') and key not in {'candidate_fraction_valid'}]
-            qualities.append(min(fractions) if fractions else 1.0)
+            quality = min(fractions) if fractions else 1.0
+            qualities.append(quality)
+            incomplete = incomplete or quality < 1
         else:
             qualities.append(0.0)
-            measurements.append({'label': DATASETS[name], 'value': 'Unavailable. ' + reason})
+            if not expected_absence:
+                incomplete = True
+                measurements.append({'label': DATASETS[name], 'value': 'Unavailable. ' + reason})
     rain, soil = components.get('gpm'), components.get('smap')
     rain_ok = (rain is not None and rain.availability == 'available'
                and rain.metrics.requested_hours == 24 and rain.metrics.temporal_coverage_fraction == 1
@@ -204,6 +242,7 @@ def build_reservoir_review(plan, records, task_id, prompt):
         sources.append({'dataset': 'Toddbrook dam records', 'access': 'Worker-local analysis; only derived aggregates returned',
                         'resources': f'{dam.evidence.record_count} records. Example opaque references: ' + ', '.join(dam.evidence.record_refs[:6]),
                         'coverage': f'Available as of {dam.as_of}; operational evidence {dam.evidence.first_observation} to {dam.evidence.last_observation}.'})
+        coverage_summary.append(f'{sources[-1]["dataset"]}: {sources[-1]["coverage"]}')
     elif plan.location_id == 'toddbrook':
         confidence = min(confidence, .4)
         limitations.append('The private worker did not return usable site-specific evidence; structural concern remains unassessed.')
@@ -231,15 +270,16 @@ def build_reservoir_review(plan, records, task_id, prompt):
         processing.append({'investigation': NAMES[role], 'location': 'Independent ' + role + ' worker',
                            'method': 'Deterministic historical screening aggregates.' if role == 'dam' else 'Existing deterministic geospatial processors over the resolved area and interval.',
                            'duration': duration})
-    partial = (set(results) != set(plan.tasks(task_id)) or any(getattr(result, 'status') == 'partial' for result in results.values())
-               or level == 'unknown' or any(q < 1 for q in qualities))
+    partial = set(results) != set(plan.tasks(task_id)) or level == 'unknown' or incomplete
+    if any(expected_source_absence(item, plan.end) for item in components.values()):
+        coverage_summary.append('Source notes describe product availability for this date.')
     context = (f'WGS84 bounds: {plan.bbox.as_tuple()}. All environmental tasks use these exact bounds. '
                'The area is an analysis window, not a delineated catchment or an inundation footprint.')
     briefing = {
         'title': 'Combined flood-risk screening briefing', 'originalRequest': prompt,
         'studyArea': plan.name + '. ' + context,
         'requestedWindow': f'{plan.start.isoformat()} to {plan.end.isoformat()} (end exclusive); as of {plan.as_of}.',
-        'actualCoverage': ' '.join(f'{row["dataset"]}: {row["coverage"]}' for row in sources),
+        'actualCoverage': ' '.join(coverage_summary),
         'executionNotice': 'New independent worker execution over historical observations. Current processing does not make those observations current.',
         'partial': partial, 'risk': deepcopy(risk),
         'sections': [

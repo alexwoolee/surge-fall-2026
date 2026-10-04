@@ -194,6 +194,51 @@ future-fact rejection, no extraction, malformed-bundle failures, atomic packagin
 and existing worker/Control regressions passed. `git diff --check` passed; frontend
 code and the result API did not change.
 
+## Live environmental acquisition and dashboard milestones — October 4, 2026
+
+The reported Hydro/Flood “Input data located — Not observed” had two causes.
+Both dated runners omitted that lifecycle event, and Hydro rejected the specific
+CloudFront distributions used by NASA's HTTPS download redirects. Those two CDN
+hosts are now allowed only as redirects from a validated provider link. Hydro
+announces acquired files before processing; Flood announces its validated,
+cutoff-matching scene before raster processing. Empty or failed discovery does
+not invent a located event. Successful empty catalog searches return the distinct
+`no_matching_observations` reason.
+
+Actual authenticated NASA downloads and processing through the local Hydro HTTP
+API passed for both requested dates:
+
+- **2019-08-01:** 48 GPM granules covering all 24 hours; area-mean accumulation
+  3.364999885 mm. SMAP's wholly contained final three-hour interval returned
+  surface moisture 0.325211287 and root-zone moisture 0.320841908 m³/m³.
+- **2007-12-09:** 48 GPM granules covering all 24 hours; area-mean accumulation
+  0.185833331 mm. SMAP predates its product coverage and remains unavailable.
+
+Both runs retained the actual located/processing/result lifecycle events.
+December 9 is a working historical example, not a high-rainfall example. No Dam
+records, dates, or prompts were replaced. The user's conditional request for a
+later replacement period was unnecessary because GPM covers this date.
+
+Expected historical product absence is now recorded in source notes without
+duplicating unavailable measurement rows or marking an otherwise assessable
+briefing partial. Numerical risk, confidence, source provenance, original worker
+results and unassessable review conditions are unchanged. Provider, login,
+processing and worker failures, incomplete measured coverage and unknown risk
+still require attention. The generic report is labelled a screening briefing.
+
+These are local live-data checks, not a new combined physical-laptop acceptance.
+Kazi and Alex must pull this branch and restart their workers before the joint
+rerun can validate the changes on Windows. Local evidence is retained under
+`outputs/debug/environmental-worker-investigation/`. Main remains unmerged.
+
+Validation: **1,857 Python tests passed**, including genuine dashboard HTTP
+milestones, empty versus failed catalog responses, exact redirect allowlisting,
+future-scene rejection and expected-absence product/date bounds. **65 frontend
+tests**, lint, TypeScript, the production build, dependency consistency and
+`git diff --check` passed. Control/UI were restarted with their existing settings
+and history; both services, the UI proxy and retained report returned HTTP 200.
+All three remote workers returned HTTP 200 and idle in the final read-only check.
+
 ## Current access policy
 
 Internal authentication has been removed at the user's request. Worker, Control

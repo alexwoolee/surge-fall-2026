@@ -67,7 +67,7 @@ def test_existing_cache_does_not_override_empty_live_catalog(monkeypatch, tmp_pa
     mock_query(monkeypatch, [])
     (tmp_path / NAME).write_bytes(b"previous cached file")
     paths, reason = sources.live_paths(sources.NASAContextProvider(), "gpm", requested(), tmp_path)
-    assert paths == [] and reason == "source_unavailable"
+    assert paths == [] and reason == "no_matching_observations"
 
 
 def test_smap_selection_includes_only_latest_wholly_contained_three_hours(monkeypatch):
@@ -160,6 +160,26 @@ def test_oversize_or_incomplete_download_removes_temporary_files(monkeypatch, tm
 @pytest.mark.parametrize("url", ["http://data.nasa.gov/a", "https://127.0.0.1/a", "https://evil.example/a", "https://user:password@data.nasa.gov/a"])
 def test_provider_links_cannot_point_to_other_devices_or_credentials(url):
     with pytest.raises(sources.SourceUnavailable): sources._allowed_url(url)
+
+
+@pytest.mark.parametrize("host", sorted(sources.NASA_CDN_HOSTS))
+def test_nasa_cloudfront_distributions_are_accepted_only_after_provider_redirect(host):
+    signed = f"https://{host}/file.h5?Signature=PRIVATE_MARKER"
+    assert sources._allowed_url(signed, redirect=True) == signed
+    with pytest.raises(sources.SourceUnavailable, match="invalid_result"):
+        sources._allowed_url(signed)
+    response = SimpleNamespace(url="https://data.gesdisc.earthdata.nasa.gov/file.h5",
+                               is_redirect=True, headers={"Location": signed})
+    assert sources.NASAContextProvider()._redirect_guard(response) is response
+    final = SimpleNamespace(url=signed, is_redirect=False, headers={})
+    assert sources.NASAContextProvider()._redirect_guard(final) is final
+
+
+@pytest.mark.parametrize("host", ["unrelated.cloudfront.net", "d2b3c3wh8s6en5.cloudfront.net.evil.example", "cloudfront.net"])
+def test_unrelated_or_spoofed_cdn_redirects_remain_rejected(host):
+    with pytest.raises(sources.SourceUnavailable, match="invalid_result") as error:
+        sources._allowed_url(f"https://{host}/file?token=PRIVATE_MARKER", redirect=True)
+    assert "PRIVATE_MARKER" not in str(error.value)
 
 
 def test_total_provider_deadline_enforced(monkeypatch):

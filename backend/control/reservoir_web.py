@@ -209,7 +209,7 @@ class ReservoirService:
             outcome = record.get('outcome')
             state = ('complete' if returned else 'down' if outcome in {'transport_error', 'timed_out'} else
                      'failed' if outcome else 'active' if record and running else 'unknown')
-            detail = ('Checked ' + ('partial ' if outcome == 'partial' else '') + 'evidence returned.' if returned else
+            detail = ('Checked evidence returned; source coverage is recorded in the briefing.' if returned else
                       'Worker evidence is unavailable.' if outcome else 'No activity observed yet.' if not record else 'Worker is processing the resolved investigation.')
             steps = [{'id': label, 'label': label.title(), 'state': 'complete' if returned else 'pending'}
                      for label in ('accepted', 'processing', 'returned', 'validated')]

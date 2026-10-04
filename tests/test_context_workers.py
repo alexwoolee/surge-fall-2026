@@ -70,7 +70,7 @@ def test_local_hydro_uses_matching_dates_and_actual_processors_without_extrapola
     settings = prepare_hydro(tmp_path)
     seen = []
     result = run_hydro_task(task(), seen.append, settings=settings)
-    assert seen == [TaskState.PROCESSING, TaskState.PREPARING_RESULT]
+    assert seen == [TaskState.DATASET_LOCATED, TaskState.PROCESSING, TaskState.PREPARING_RESULT]
     measured = components(result)
     assert result["status"] == "partial"
     rain = measured["gpm"]
@@ -87,7 +87,7 @@ def test_local_hydro_uses_matching_dates_and_actual_processors_without_extrapola
 def test_old_abbotsford_files_are_unavailable_not_relabelled(tmp_path):
     settings, _, _ = _synthetic_hydro(tmp_path, BOUNDS)
     result = components(run_hydro_task(task(), lambda _: None, settings=settings))
-    assert all(row.reason == "source_unavailable" and row.metrics is None for row in result.values())
+    assert all(row.reason == "no_matching_observations" and row.metrics is None for row in result.values())
 
 
 def test_2007_smap_unavailable_before_coverage_and_gpm_independent(tmp_path, monkeypatch):
@@ -95,7 +95,7 @@ def test_2007_smap_unavailable_before_coverage_and_gpm_independent(tmp_path, mon
     value = task(as_of="2007-12-09", start_time="2007-12-09T00:00:00Z", end_time="2007-12-10T00:00:00Z")
     result = components(run_hydro_task(value, lambda _: None, settings=WorkerSettings(gpm_dir=tmp_path, smap_dir=tmp_path)))
     assert result["smap"].reason == "before_product_coverage"
-    assert result["gpm"].reason == "source_unavailable"
+    assert result["gpm"].reason == "no_matching_observations"
 
 
 def test_reprocessed_v07_rainfall_before_june2000_is_not_excluded(tmp_path):
@@ -112,8 +112,8 @@ def test_smap_entire_three_hour_interval_must_be_before_end(tmp_path):
     settings = prepare_hydro(tmp_path)
     value = task(end_time="2019-07-25T23:00:00Z")
     result = components(run_hydro_task(value, lambda _: None, settings=settings))
-    assert result["smap"].reason == "source_unavailable"  # centre is 22:30, but averaging ends at midnight
-    assert result["gpm"].reason == "source_unavailable"
+    assert result["smap"].reason == "no_matching_observations"  # centre is 22:30, but averaging ends at midnight
+    assert result["gpm"].reason == "no_matching_observations"
 
 
 @pytest.mark.parametrize("change", [
@@ -276,7 +276,7 @@ def test_file_symlinks_are_never_opened(tmp_path, monkeypatch):
         return original(path, *args, **kwargs)
     monkeypatch.setattr(Path, "resolve", redirected)
     rows = components(run_hydro_task(task(), lambda _: None, settings=settings))
-    assert rows["gpm"].reason == "source_unavailable"
+    assert rows["gpm"].reason == "no_matching_observations"
 
 
 def test_hydro_http_accepts_context_and_preserves_exact_task_binding(tmp_path):

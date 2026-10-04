@@ -210,6 +210,9 @@ def render_briefing_html(briefing: dict) -> str:
         title = text(briefing["title"])
         availability = ("Partial or unreported spatial coverage is present. Check the source-specific coverage below."
                         if briefing["partial"] else "Validated source results are available; temporal limitations still apply.")
+        if briefing.get('risk') is not None:
+            availability = ('Some evidence needs attention or the screening risk is not assessable. See measurements and source notes.'
+                            if briefing['partial'] else 'Screening briefing prepared from the available evidence. Product availability is recorded in source notes.')
         body = f'<header><p class="eyebrow">MeshMind · Analyst support</p><h1>{title}</h1></header>'
         if briefing.get('risk') is not None:
             from backend.shared.risk_contracts import RiskView

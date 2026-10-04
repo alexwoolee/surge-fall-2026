@@ -351,6 +351,12 @@ Run these two requested assessments separately:
 
 > Assess flood risk at Toddbrook Reservoir, Whaley Bridge, Derbyshire, England as of 2007-12-09. Combine Hydro, Flood and available dam records; explain risk level, evidence confidence and coverage gaps. Use observations through the end of that UTC day only.
 
+December 9, 2007 has live GPM coverage and a moderate Dam-only screening result;
+its checked daily rainfall is low, so it is not a heavy-rainfall example. No later
+replacement period is needed for data access. That date predates SMAP and
+Sentinel-1 coverage; their absence appears in the combined report's source
+notes and does not represent a failed download.
+
 A single ISO date requests that **UTC calendar day** from Hydro/Flood. An explicit
 ordered range is inclusive, bounded to at most seven days. The final date is the
 **end-of-day cutoff** (the following midnight is an exclusive endpoint). Modern

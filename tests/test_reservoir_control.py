@@ -461,6 +461,7 @@ def test_dam_client_rejects_a_valid_result_from_a_different_cutoff():
     ('authentication_unavailable', 'authenticate'),
     ('provider_timeout', 'deadline'),
     ('download_limit', 'acquisition limit'),
+    ('no_matching_observations', 'no eligible observations'),
 ])
 def test_external_acquisition_failures_have_safe_report_explanations(tmp_path, reason, text):
     def mutate(role, result):

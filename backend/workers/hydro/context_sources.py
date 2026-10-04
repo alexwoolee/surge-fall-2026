@@ -19,6 +19,10 @@ MAX_DISCOVERY_BYTES = 16 * 1024 * 1024
 MAX_FILE_BYTES = 1024 * 1024 * 1024
 MAX_DOWNLOAD_BYTES = 4 * 1024 * 1024 * 1024
 MAX_PROVIDER_SECONDS = 300
+# NASA's GES DISC and NSIDC HTTPS data services currently issue signed redirects
+# to these distributions. CDN links are accepted only after provider discovery;
+# they are not permitted as initial catalog links.
+NASA_CDN_HOSTS = frozenset({"d2b3c3wh8s6en5.cloudfront.net", "d3h5e2j7riftk6.cloudfront.net"})
 
 
 class _PrivateAuthLogs(logging.Filter):
@@ -57,7 +61,7 @@ def _allowed_url(url, *, redirect=False):
         parsed = urlsplit(url)
         host = (parsed.hostname or "").lower()
         trusted = host.endswith(".nasa.gov") or host.endswith(".nsidc.org")
-        cloud = redirect and host.endswith(".amazonaws.com")
+        cloud = redirect and (host.endswith(".amazonaws.com") or host in NASA_CDN_HOSTS)
         if (parsed.scheme != "https" or not (trusted or cloud) or parsed.username or parsed.password
                 or parsed.port not in (None, 443) or any(char.isspace() for char in url)):
             raise ValueError
@@ -232,7 +236,7 @@ def live_paths(provider, component, task, folder):
     try:
         selected = provider.search(component, task)
         if not selected:
-            return [], "source_unavailable"
+            return [], "no_matching_observations"
         paths = provider.obtain(selected, folder)
         if len(paths) != len(selected):
             raise SourceUnavailable("invalid_result")
