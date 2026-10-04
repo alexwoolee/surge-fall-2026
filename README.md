@@ -49,7 +49,7 @@ SMAP            PASS
 Hydro Worker    PASS
 DEM / HAND      PASS
 Sentinel-1      PASS
-Flood Worker    PASS (terminal validation; phase checkpoint pending)
+Flood Worker    PASS
 
 DISTRIBUTED SYSTEM
 
@@ -65,10 +65,9 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Review the Phase 3C terminal checkpoint and approve advancing.
-2. Define shared Pydantic contracts and worker APIs.
-3. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
-4. Prove both workers execute at the same time.
+1. Define shared Pydantic contracts and worker APIs.
+2. Prove Laptop 1 can call Laptop 2 and Laptop 3 remotely.
+3. Prove both workers execute at the same time.
 
 Current validation commands and limits are recorded in
 [Phase 3C validation](docs/phase3c-validation.md). The earlier
@@ -1098,7 +1097,7 @@ HAND            PASS
 
 ## Phase 3 — Flood / Terrain Processing
 
-**Technical validation PASS; awaiting the Phase 3C checkpoint before Phase 4.**
+**PASS — Phase 3C checkpoint approved by the user.**
 
 ### 3A — Terrain Processor
 
@@ -1130,7 +1129,7 @@ Required:
 
 ### 3C — Flood Worker
 
-**Terminal real-data and automated validation PASS; user checkpoint pending.**
+**PASS — terminal checks and user checkpoint approved.**
 
 Required:
 
@@ -1750,8 +1749,6 @@ The cloud AI layer and physical worker execution must not be confused.
 Nothing currently.
 
 ## NEXT
-
-**Phase 3C checkpoint acknowledgment**, then:
 
 **Phase 4 — Shared Contracts and Worker APIs**
 

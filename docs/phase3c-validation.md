@@ -83,7 +83,7 @@ tests. The 897 warnings are deprecations from the existing geospatial dependency
 stack; the final run had no failures. `git diff --check` is clean. No existing processor or protected Hydro test
 was rewritten, no dependency was added, and no remote push was performed.
 
-## Phase boundary — pending user acknowledgment
+## Phase boundary — APPROVED
 
 The necessary terminal checks have been run. No additional visual/manual task
 is required for this integration because its source calculations and maps were
@@ -91,9 +91,9 @@ already accepted in Phases 3A and 3B. The commands above are available for a
 repeat check. The JSON report starts with `manual_review: PENDING` and does not
 advance the project automatically.
 
-Pause here for the user's go-ahead before Phase 4: shared contracts and worker
-APIs. The Phase 3C implementation remains on its separate branch until this
-checkpoint is accepted.
+The user confirmed 249 passing tests and approved starting Phase 4 on
+2026-10-03. Phase 3C is accepted and merged into local main before shared
+contracts and worker API development.
 
 ## Limits
 
