@@ -2,9 +2,295 @@
 
 MeshMind is a multi-agent, multi-workstation environmental intelligence system.
 
-One natural-language request launches bounded specialist investigations across approved environmental data systems. Real Python processing executes on separate workstations, structured results return to Control, deterministic validation and review rules are evaluated, and MeshMind produces one combined downloadable briefing.
+MeshMind runs bounded environmental investigations on separate workstations and returns structured results to Control for deterministic validation and review. The remaining product goal is to connect natural-language requests and the existing frontend to those real results, then produce a downloadable combined briefing.
 
 > MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response, evacuation, or disaster-detection system.
+
+---
+
+# Continue on Another Laptop — Start Here
+
+**Handoff updated October 4, 2026 (America/Vancouver).** Kazi Boni Amin is moving
+development to a friend's laptop/Codex session. This README is the continuation
+brief; inspect the actual code and applicable `AGENTS.md` files before editing.
+The original handoff did not accept Phase 7. After the Mac review below, the
+user explicitly instructed **“proceed”** on October 4, accepting this checkpoint
+and authorizing the accepted phase merge and Phase 8. Historical raw reports
+retain their original `PENDING_USER` status.
+
+## Exact checkpoint and branches
+
+| Work | Verified state at handoff | Where to find it |
+| --- | --- | --- |
+| Phases 1–6 backend | Implemented, real-data validated, human accepted | `origin/codex/parallel-dispatch` at `b8a74b698ce476a90b5418aab65f4fd53678e61d` |
+| Phase 7 implementation | Implemented, validated and human accepted October 4 | `origin/codex/fusion-review`; tested implementation `ea4f322ae2c4359a3dfb807365e389056e1f6830`, followed by this README handoff |
+| Phase 7 pull request | **Draft, open, not merged**; base `codex/parallel-dispatch`, head `codex/fusion-review` | [PR #1](https://github.com/alexwoolee/surge-fall-2026/pull/1) |
+| Existing frontend | Next.js/TypeScript/Tailwind demonstration implemented; integration pending | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d` |
+| `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
+| Phases 8–10 | Not implemented | Remaining work is detailed below |
+
+Fetch and verify this snapshot against the remote before acting; another owner
+may have advanced it. README-only commits after `ea4f322` do not represent a new
+implementation test run. `main` has not been pushed or merged during this lane.
+GitHub's draft label is a review state, and the PR's zero hosted checks is not
+evidence that the locally run tests failed.
+
+## What has actually been completed
+
+- **Phases 1–3:** real access to GPM IMERG, SMAP L4, Sentinel-1 RTC, Copernicus
+  DEM and HAND; deterministic Hydro and Flood processing, coverage/provenance,
+  multi-tile terrain, partial-component preservation and real-data validation.
+- **Phase 4:** Pydantic contracts and bounded authenticated worker HTTP APIs;
+  task/status/result handling, duplicate-submission behavior and local real-data
+  HTTP checks. Each worker has one Uvicorn process and an in-memory registry.
+- **Phase 5:** Control dispatched to Hydro on Kazi's Windows laptop and Flood on
+  Karan's Linux laptop. Authentication, deployment, duplicate handling and result
+  comparisons passed; both owners' activity/acceptance was recorded.
+- **Phase 6:** concurrent dispatch and calibrated clock bounds proved **0.227333
+  seconds of guaranteed execution overlap** for task
+  `f1f4cc63-1b2c-4a29-a924-f3c7490b554f`. Both results matched Phase 5; human
+  confirmation completed the phase. Tested implementation: `7bde416`.
+- **Phase 7:** strict evidence fusion, explicit configurable review rules,
+  offline JSON replay, optional Control `--rules` integration, input binding,
+  atomic output and failure preservation. Missing data is unavailable or
+  `not_assessable`, never fabricated zero. Kazi selected **clearly labeled
+  demonstration thresholds**, not a validated severity policy.
+- **Frontend lane:** Home, history/search, investigation/worker views, complete,
+  partial and failed outcomes, bounded demo retry and an HTML briefing demo are
+  implemented. Its activity/timing/measurements are explicitly labeled fixtures;
+  browser-local storage is not live distributed state. Existing frontend checks
+  recorded 12 tests, lint and production build passing. Actual browser download
+  capture remains unverified and must be completed in Phase 9.
+
+**Latest backend verification:** Windows Python 3.12, **906 passed and 1 expected
+symlink-privilege skip**; `pip check` and `git diff --check` passed. Independent
+code review and manual artifact QA found no outstanding issues. This is the
+Phase 7 Windows result, not a claim that Phase 7 was tested on every OS. The
+accepted Phase 6 baseline was 758 passing tests on macOS and 757 plus the expected
+skip on Windows; Karan reported the Linux suite passed at that phase.
+
+**Latest real evidence:** new local execution of the accepted processors returned
+complete typed Hydro/Flood results for task
+`b0e3a0d4-3152-434e-8159-61f6b805e10a`. All 15 reference checks matched. The demo
+policy produced **4 triggered, 1 not triggered, 0 not assessable**. Four controlled
+omissions (Hydro, Flood, both, Sentinel component only) preserved valid independent
+evidence. This is local real processing and offline review, not a new physical
+remote run or overlap proof. Full values, methods and limitations are in
+[the Phase 7 validation record](docs/phase7-validation.md).
+
+## First steps on the friend's laptop
+
+Prefer a separate development checkout. Leave any running Control/worker checkout,
+private environment files, cached datasets and unrelated local edits intact.
+Use an unused destination directory; do not reset an existing checkout to make
+these commands succeed.
+
+Fresh checkout (macOS/Linux shell or PowerShell):
+
+```sh
+git clone --branch codex/fusion-review https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase7-review
+cd surge-fall-2026-phase7-review
+git status --short --branch
+git log -3 --oneline
+git merge-base --is-ancestor ea4f322ae2c4359a3dfb807365e389056e1f6830 HEAD
+```
+
+For an existing **separate development checkout**, inspect `git status` first,
+then fetch, switch to `codex/fusion-review`, and pull with `--ff-only`. Preserve
+local edits and investigate any refusal instead of using a reset or force push.
+The branch includes the current README; selecting `main` on GitHub shows older
+documentation.
+
+Read this README, `requirements.txt`, `.env.example`, and the linked
+[Phase 4](docs/phase4-validation.md), [Phase 5](docs/phase5-validation.md),
+[Phase 6](docs/phase6-validation.md) and [Phase 7](docs/phase7-validation.md)
+records. Inspect `backend/control/`, `backend/shared/`, the two worker services,
+`scripts/validate/` and their tests before designing changes. Control currently
+has a **terminal CLI, not a web API**. Shared contracts and processors already
+work; extend them rather than restarting the project.
+
+Create a fresh Python 3.12 environment; do not copy one from another OS.
+
+macOS/Linux:
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pytest -q
+.venv/bin/python -m pip check
+git diff --check
+```
+
+Windows PowerShell:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m pip check
+git diff --check
+```
+
+Keep the pinned requirements and platform markers: macOS versions before 15 use
+the compatible Rasterio 1.4.4 wheel; other supported platforms use 1.5.2. Report
+actual results on the new laptop rather than copying the Windows test result.
+Unit tests and offline report replay do not require worker tokens or an OpenAI key.
+
+## Evidence and files that Git does not transfer
+
+`data/cache/`, `outputs/debug/`, `outputs/reports/`, `.env`, `.env.local`,
+`.env.*.local`, NASA login files and virtual environments are ignored. Other
+names such as `.env.production` are not covered by the current ignore rules;
+verify the exact filename before saving secrets. A clone contains code and
+checkpoint documentation, not these local resources.
+
+Kazi has the sanitized bundle **`MeshMind-Phase7-review-ea4f322.zip`** at:
+
+```text
+C:\Users\kazib\Documents\Codex\2026-10-03\ca\outputs\MeshMind-Phase7-review-ea4f322.zip
+```
+
+Transfer it separately if the new reviewer needs the exact Phase 7 evidence.
+It contains `real-inputs.json`, `review.json`, `preservation.json`, the policy,
+test log, phase documentation and SHA-256 manifest under `phase7-review/`.
+The archived handoff refers to the tested implementation; this README contains
+the newer continuation instructions. No credentials or cached rasters are included.
+
+The input's SHA-256 is
+`f314f5446c94d3194154902d58a4ccfe7f6903535d50e2a445653c699420b18e`.
+After extracting, copy `real-inputs.json` into this checkout's
+`outputs/debug/phase7/` and replay on macOS/Linux:
+
+```sh
+.venv/bin/python -m scripts.validate.validate_fusion --input outputs/debug/phase7/real-inputs.json --rules config/rules.example.json --output outputs/debug/phase7/replayed-review.json
+```
+
+On Windows replace the interpreter with `.\.venv\Scripts\python.exe`. Expected:
+`PASS / PENDING_USER`, four triggered conditions, one not triggered, zero not
+assessable. Replay makes no new worker or data-source calls. Keep the original
+artifact separate from output. Alternatively, Ryan may already have the accepted
+Phase 6 report; the Phase 7 document explains that input format and requested-date
+flags. Missing evidence files are not a failed scientific result; obtain the
+sanitized artifact or generate clearly identified real evidence when needed.
+
+The local Phase 7 acquisition worked around Windows GDAL certificate-chain errors
+with a bounded, read-only loopback Range proxy and verified upstream HTTPS.
+That ignored helper and its local CA/cache setup are not production code and do
+not transfer through Git. Do not disable TLS validation to reproduce a run.
+
+## Deployment and private configuration
+
+These are the last validated deployment roles, **not a current health check**:
+
+| Role | Owner / host | Existing endpoint or checkout |
+| --- | --- | --- |
+| Control | Ryan's Mac | Tailscale `100.100.3.5`; existing repo `/Users/diamster/Stormhacks 2026/surge-fall-2026` |
+| Hydro | Kazi Boni Amin / Windows hostname `Boni` | `http://100.100.3.2:8002`; `C:\Users\kazib\surge-fall-2026-worker`, last verified clean at `7bde416` |
+| Flood | Karan / Linux hostname `ARE` | `http://100.100.3.4:8003`; separate worker checkout described in Phase 6 |
+
+`Boni` is Kazi's hostname, not a fourth team member. Kazi's main project is
+`D:\Projects\MeshMind`; preserve its local `README_FINAL.md` and `hydro-inputs.zip`.
+His separate frontend checkout is under
+`C:\Users\kazib\Documents\Codex\2026-10-03\ca\work\meshmind-frontend`.
+
+For remote dispatch, export `HYDRO_WORKER_URL`, `FLOOD_WORKER_URL`,
+`HYDRO_WORKER_TOKEN` and `FLOOD_WORKER_TOKEN` privately on Control. Each token
+matches the destination's existing `MESHMIND_WORKER_TOKEN`. Current entry points
+read exported environment variables; merely creating `.env` does not load them.
+Keep existing tokens private and stable; never print or commit them. The optional
+`MESHMIND_CONTROL_SOURCE_IP=100.100.3.5` is specific to Ryan's Mac; leave it unset
+on another machine unless binding to that machine's verified local address.
+
+The worker needs its own data folders/settings and existing NASA authentication;
+Control needs connectivity to both workers for a real distributed run. Workers
+must use one Uvicorn process, without reload. Registry state is lost on restart.
+Do not stop, update or restart a deployed worker just to review Phase 7 or prepare
+Phase 8; coordinate any later required deployment with its owner. The exact
+startup, authentication and clock-calibration commands remain in the Phase 5/6
+documents. Do not repeat their accepted physical checkpoints merely because the
+development checkout moved laptops.
+
+## Next actions and remaining phases
+
+1. **Phase 7 human checkpoint accepted October 4.** Following the Mac review
+   (907 passing tests, preserved real evidence and all five demonstration outcomes),
+   the user instructed “proceed.” This records the current user’s approval; it does
+   not invent a separate named worker-owner confirmation. Original raw reports
+   remain unchanged. Mark PR #1 ready and merge it into **`codex/parallel-dispatch`**.
+   Recheck the PR target and head before merging. Do not merge it into `main`.
+2. **Phase 8 — OpenAI agent integration.** Fetch the accepted merge, then create a
+   new `codex/*` branch from the verified accepted commit. Consult current official
+   OpenAI documentation before selecting SDK/interfaces/model configuration. Add
+   bounded request interpretation, supported investigation/tool selection and
+   grounded explanations. Python owns measurements and threshold decisions. Reject
+   unsupported requests, malformed model output and invented resources. Handle
+   API/model failures while preserving deterministic results. Keep model access
+   bounded; no arbitrary remote commands. `.env.example` only has an OpenAI key
+   placeholder; no agent SDK/interface or app model setup is implemented yet.
+   Run automated tests plus a real integration check with privately configured
+   credentials, document the outcome and stop for Phase 8 acceptance.
+3. **Phase 9 — Connect the existing UI and final briefing.** Inspect
+   `origin/kazi/frontend-ui` before integration, including `frontend/AGENTS.md`,
+   `frontend/README.md` and `frontend/IMPLEMENTATION.md`. Preserve that work and
+   the approved design. The existing provider boundary is
+   `frontend/src/lib/data-provider.ts`; `api-provider.ts` is a placeholder and
+   does not define backend endpoints. Design the real Control/UI API, state,
+   history and bounded retry boundary from the implemented CLI/contracts. Replace
+   or isolate fixture providers; never present simulated timers, demo measurements
+   or browser-local state as live execution. Preserve independent worker cards,
+   partial results and unavailable review conditions. Produce a real downloadable
+   standalone HTML briefing with actual observations, provenance and limitations;
+   verify the browser download. PDF is optional. Run `npm ci`, `npm run test`,
+   `npm run lint` and `npm run build` inside `frontend/`, plus backend checks for
+   backend changes, then stop for Phase 9 acceptance.
+4. **Phase 10 — Reliability and submission.** Finish failure/recovery checks,
+   portable startup/reset instructions, deployment guidance, final README,
+   demo preparation and submission materials. Ask for the actual event deadline,
+   submission format and required assets rather than inventing them. Run final
+   end-to-end validation and stop for the final human checkpoint.
+
+For every phase: implement → run → real/manual validation → necessary automated
+tests → review/commit/push a separate `codex/*` branch → human acceptance → merge
+the accepted phase. Preserve existing passing assertions, run the full Python
+suite and `git diff --check` before finalizing code, and report exact commands,
+PASS/FAIL, limitations and remaining work. Treat historical test counts as history.
+Do not overwrite unrelated work or push `main`. This README-only handoff does
+not require rerunning the unchanged implementation suite on Kazi's laptop.
+
+## Scientific boundaries that must survive integration
+
+- GPM's accepted example covers supplied observations totaling **one hour**, not
+  the requested multiday event. Current worker results do not validate interval
+  boundaries or continuity merely because resource filenames contain dates.
+- SMAP is a state snapshot, not accumulated rainfall or an observed trend.
+- Sentinel-1 gives **candidate** surface water, not confirmed flooding. Preserve
+  the **97.6354%** valid SAR fraction; completed processing is not full coverage.
+- DEM/HAND statistics cover the AOI, not specifically candidate-water pixels.
+- No common-grid water/terrain overlay, water depth, causation, operational hazard
+  classification or validated disaster severity has been computed.
+- Missing/invalid results and unavailable prerequisites must remain explicit;
+  an unassessable condition is not a passing threshold comparison.
+- User-visible activity describes observable events, not fabricated model
+  reasoning. Keep secrets, infrastructure addresses and raw long logs out of the
+  primary UI. Retain the environmental-analysis/analyst-support disclaimer.
+
+## Prompt to give the next Astra session
+
+```text
+Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the latest
+README on codex/fusion-review, starting with "Continue on Another Laptop".
+Preserve existing checkouts, private environment files, data and running workers.
+Phases 1–6 are accepted. Phase 7 implementation ea4f322 passed validation; PR #1
+targets codex/parallel-dispatch. Phase 7 human acceptance was recorded after
+the Mac review when the user instructed “proceed” on October 4. Establish the
+current Git/PR state, verify the accepted phase merge, and begin Phase 8 on a
+fresh codex/* branch from that verified merge. Continue phases one at a time with the human
+checkpoints and validation in this README. Inspect origin/kazi/frontend-ui before
+Phase 9; preserve and connect the existing UI. Do not start from main, redo
+accepted Phases 1–6, invent measurements, expose secrets or claim fixture/local
+activity is real distributed execution. Report any missing evidence or credentials
+while continuing independent work.
+```
 
 ---
 
@@ -12,7 +298,7 @@ One natural-language request launches bounded specialist investigations across a
 
 ## Current Phase
 
-**Phase 6 — Real Parallel Execution: complete**
+**Phase 7 — Evidence Combination and Deterministic Review: validation PASS; human accepted October 4**
 
 Completed so far:
 
@@ -29,15 +315,19 @@ Completed so far:
 - Hydro and Flood HTTP APIs validated with real data on loopback
 - bounded Control dispatch with task/result checks, deadlines and independent branch records
 - worker hostname/startup identity and cross-platform deployment instructions
-- automated test suite: **758 passing tests on macOS**
+- accepted Phase 6 automated baseline: **758 passing tests on macOS**
 - Phase 6 Windows verification: **757 passed, 1 expected symlink-privilege skip**
 - real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; Phase 5 accepted**
 - concurrent Control dispatch, authenticated clock samples and conservative overlap proof
 - Phase 6 real-data parallel execution on Windows and Linux workers: **PASS; human checkpoint complete**
+- structured source-evidence combination and explicitly configured demonstration review rules
+- Phase 7 new local real-data processing and review: **PASS; all 15 reference checks match**
+- Phase 7 Windows Python 3.12 suite: **906 passed, 1 expected symlink-privilege skip**
+- missing-worker and partial-component review preserves available real measurements
 
 Current focus:
 
-**The requested work through Phase 6 is complete. Remote validation at implementation commit `7bde416` proved 0.227333 seconds of guaranteed execution overlap, results match Phase 5, and the user confirmed both workers' terminal activity. Stop here; no later phase has started.**
+**Phase 7 extends accepted baseline `b8a74b6` on `codex/fusion-review`. It combines validated evidence and evaluates explicitly configured demonstration review conditions. Phase 6 remains accepted: implementation `7bde416` proved 0.227333 seconds of guaranteed overlap. The user accepted the Phase 7 checkpoint after the Mac review; Phase 8 follows the accepted merge.**
 
 ## Status Matrix
 
@@ -65,16 +355,25 @@ Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
 Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
-Control Fusion          NOT STARTED
+Control Fusion          PHASE 7 PASS; HUMAN ACCEPTED OCTOBER 4
 Agent Integration       NOT STARTED
-Frontend                NOT STARTED
-Final Report            NOT STARTED
+Frontend                DEMONSTRATION UI ON kazi/frontend-ui; LIVE INTEGRATION PENDING
+Final Report            STRUCTURED JSON IMPLEMENTED; LIVE HTML BRIEFING PENDING
 ```
 
 ## Immediate Next Steps
 
-The Phase 6 technical and manual checks are complete. Preserve the recorded
-evidence and stop at the requested scope. Later phases require a new instruction.
+The user accepted the Phase 7 checkpoint after review. Merge PR #1 into
+`codex/parallel-dispatch`, then start Phase 8 on a new `codex/*` branch from
+the verified accepted merge. Phase 8 requires its own validation and human gate.
+
+[Phase 7 validation and policy semantics](docs/phase7-validation.md) describe
+offline replay, optional Control CLI integration, real-data evidence and limits.
+
+**Repository base:** remote `main` does not contain the accepted backend phases.
+This development branch starts from `origin/codex/parallel-dispatch` at
+`b8a74b698ce476a90b5418aab65f4fd53678e61d`. Preserve the separate worker checkouts
+and existing `kazi/frontend-ui` work.
 
 Current cross-platform update commands and overlap requirements are in
 [Phase 6 validation](docs/phase6-validation.md). The accepted
@@ -160,11 +459,8 @@ Multiple laptops are not used because the hackathon datasets require extraordina
 
 Laptop 1 is the MeshMind coordinator.
 
-Planned responsibilities:
+Implemented responsibilities through Phase 6:
 
-- main application UI
-- natural-language request
-- OpenAI agent orchestration
 - task creation
 - worker selection
 - task dispatch
@@ -172,11 +468,11 @@ Planned responsibilities:
 - worker-state tracking
 - result collection
 - deterministic result validation
-- evidence fusion
-- deterministic analyst-review rules
-- report generation
-- history
-- application state
+
+Phase 7 adds evidence combination and deterministic analyst-review rules.
+Natural-language/agent orchestration is Phase 8. The existing demonstration UI,
+live UI boundary and downloadable HTML briefing are connected in Phase 9;
+durable history is not implemented by the current in-memory worker registry.
 
 Laptop 1 must not use the LLM to calculate authoritative environmental measurements.
 
@@ -610,9 +906,11 @@ execution. No new HTML/manual visual review is needed for this phase.
 
 # Automated Tests
 
-Current full test suite:
-
-**390 tests passing**
+Latest Phase 7 Windows run: **906 passed and one expected symlink-privilege skip**.
+Accepted Phase 6 baseline: **758 tests on macOS; 757 passed and one expected
+Windows skip**. Phase 7 verification is recorded in
+[the Phase 7 checkpoint](docs/phase7-validation.md). Older counts in historical
+phase records describe those milestones, not the current suite.
 
 Run:
 
@@ -658,6 +956,15 @@ python -m pytest -v
 - terminal validation, repeatability, failure reports and stale-PASS protection
 - contract serialization, finite measurements and bounded request validation
 - responsive HTTP status, authentication, idempotency and result/task consistency
+
+## Control, Fusion, and Review Tests
+
+- concurrent dispatch, clock uncertainty and conservative overlap proof
+- bounded deadlines, ambiguous submissions and independent result preservation
+- request/task/AOI/resource binding and revalidation of mutated model instances
+- explicit policy units/domains, equality boundaries and nonfinite rejection
+- unavailable evidence and coverage/duration prerequisites
+- strict JSON, offline replay, atomic writes, input-alias protection and stale-attempt handling
 
 Existing passing tests are protected behavior. New work must not silently break them.
 
@@ -707,6 +1014,9 @@ NO   YES
 FIX   COMMIT
         |
         v
+  HUMAN ACCEPTANCE
+        |
+        v
       MERGE
         |
         v
@@ -737,35 +1047,26 @@ GitHub:
 
 `alexwoolee/surge-fall-2026`
 
-Primary branch:
+GitHub default branch: `main` (behind accepted backend work).
 
-`main`
-
-Branch strategy:
+Current development branches:
 
 ```text
-data/gpm-smoke
-data/smap-smoke
-data/sentinel1-smoke
-data/dem-smoke
-data/hand-smoke
-
-feature/gpm-processing
-feature/smap-processing
-feature/hydro-worker
-feature/terrain-processing
-feature/sentinel1-processing
-feature/flood-worker
-feature/shared-contracts
-feature/worker-api
-feature/control-dispatch
+codex/parallel-dispatch    accepted backend through Phase 6
+codex/fusion-review        Phase 7 implementation and this handoff
+kazi/frontend-ui          existing standalone frontend demonstration
+codex/<next-phase>        create only from the verified accepted checkpoint
 ```
 
-Use small branches and merge tested milestones into `main`.
+Use separate `codex/*` phase branches based on the latest accepted backend
+checkpoint. Merge only after the phase's human acceptance. Remote `main` is
+currently behind the accepted backend baseline; do not start new work from it.
 
 ---
 
 # Repository Structure
+
+Selected implemented files; this is not an exhaustive listing:
 
 ```text
 MeshMind/
@@ -785,13 +1086,16 @@ MeshMind/
 |   |   |-- fusion.py
 |   |   |-- alerts.py
 |   |   |-- reporting.py
-|   |   `-- state.py
+|   |   |-- state.py
+|   |   `-- timing.py
 |   |
 |   |-- shared/
 |   |   |-- __init__.py
 |   |   |-- contracts.py
 |   |   |-- settings.py
-|   |   `-- status.py
+|   |   |-- status.py
+|   |   |-- worker_api.py
+|   |   `-- worker_runners.py
 |   |
 |   `-- workers/
 |       |
@@ -811,12 +1115,22 @@ MeshMind/
 |           `-- hand.py
 |
 |-- scripts/
-|   `-- smoke/
-|       |-- smoke_gpm.py
-|       |-- smoke_smap.py
-|       |-- smoke_sentinel1.py
-|       |-- smoke_dem.py
-|       `-- smoke_hand.py
+|   |-- smoke/
+|   |   |-- smoke_gpm.py
+|   |   |-- smoke_smap.py
+|   |   |-- smoke_sentinel1.py
+|   |   |-- smoke_dem.py
+|   |   `-- smoke_hand.py
+|   `-- validate/
+|       |-- prepare_hydro_data.py
+|       |-- validate_terrain.py
+|       |-- validate_sentinel1.py
+|       |-- validate_flood.py
+|       |-- validate_worker_apis.py
+|       |-- validate_remote_workers.py
+|       |-- validate_dispatch_failures.py
+|       |-- validate_parallel_workers.py
+|       `-- validate_fusion.py
 |
 |-- config/
 |   |-- test_case.example.json
@@ -829,6 +1143,10 @@ MeshMind/
 |   |-- test_hydro_service.py
 |   |-- test_smap.py
 |   |-- test_flood.py
+|   |-- test_coordinator.py
+|   |-- test_control_timing.py
+|   |-- test_fusion.py
+|   |-- test_reporting.py
 |   `-- test_rules.py
 |
 |-- data/
@@ -846,11 +1164,20 @@ MeshMind/
 |       `-- .gitkeep
 |
 `-- docs/
-    |-- architecture.md
+    |-- phase3b-validation.md
+    |-- phase3c-validation.md
+    |-- phase4-validation.md
+    |-- phase5-validation.md
+    |-- phase6-validation.md
+    |-- phase7-validation.md
     `-- manual-test-checklist.md
 ```
 
-The frontend will be generated later with the official Next.js project generator.
+The Next.js/TypeScript/Tailwind demonstration UI already exists separately on
+`origin/kazi/frontend-ui`. Preserve it and read its own instructions before
+Phase 9 integration; its fixture activity is not live distributed execution.
+`docs/architecture.md` is currently an empty placeholder; use this README, the
+phase records and implemented contracts for the actual architecture.
 
 ---
 
@@ -973,7 +1300,7 @@ The service returns a structured dictionary containing task/worker identity,
 processing status, compact summaries, full component evidence, separate coverage,
 safe provenance, limitations and component errors. Successful components are
 retained if another fails. The API now validates the service output with the shared Pydantic `FloodResult`
-contract. Distributed execution remains Phase 5.
+contract. Remote and parallel execution were accepted in Phases 5 and 6.
 
 ### `backend/workers/flood/main.py`
 
@@ -1024,41 +1351,37 @@ failed
 
 ### `backend/control/main.py`
 
-Future FastAPI entry point for Laptop 1.
+Implemented terminal entry point for concurrent HTTP dispatch. Optional
+`--rules <policy.json>` adds deterministic Phase 7 review while retaining the
+original requests and independent dispatch results. Control does not yet expose
+a web API.
 
 ### `backend/control/coordinator.py`
 
-Planned:
-
-- task creation
-- worker selection
-- dispatch
-- concurrency
-- result collection
+Implemented bounded HTTP dispatch, concurrent branch execution, independent
+result preservation, validation, deadlines and process identity checks.
 
 ### `backend/control/fusion.py`
 
-Planned:
-
-- validate HydroResult
-- validate FloodResult
-- combine grounded evidence
+Phase 7: revalidate original request/result bindings, preserve full source
+evidence and errors, and expose measurements with units, observation context,
+coverage and explicit unavailable states. This is structured evidence assembly;
+no common-grid overlay or additional environmental measurements are computed.
 
 ### `backend/control/alerts.py`
 
-Planned deterministic analyst-review rules.
+Phase 7: explicit configurable demonstration thresholds, coverage/duration
+prerequisites and `triggered` / `not_triggered` / `not_assessable` results.
 
 ### `backend/control/reporting.py`
 
-Planned briefing generation.
-
-HTML first.
+Phase 7: strict, atomic structured review artifacts and offline replay support.
+The downloadable HTML briefing remains a Phase 9 deliverable.
 
 ### `backend/control/state.py`
 
-Planned investigation/task state.
-
-SQLite may be used later.
+Implemented validated dispatch records and the independent collection envelope.
+Durable storage such as SQLite remains later work.
 
 ---
 
@@ -1245,17 +1568,23 @@ Required validation:
 
 ## Phase 7 — Fusion and Review Rules
 
-Planned:
+Implemented, validated and human accepted October 4 after the Mac review:
 
 - validate both worker results
 - combine evidence
 - deterministic configured review conditions
 
+Demonstration thresholds are explicitly configured in `config/rules.example.json`;
+they are not validated hazard or severity policy. Missing evidence remains
+unavailable/not assessable. Requested event windows remain separate from the
+actual one-hour rainfall accumulation, individual snapshots and static terrain.
+See [Phase 7 validation](docs/phase7-validation.md).
+
 The LLM does not decide whether numerical thresholds were crossed.
 
 ## Phase 8 — OpenAI Agent Integration
 
-Planned only after deterministic workers and distributed execution work.
+Authorized after the accepted Phase 7 merge; implementation begins on a separate branch.
 
 The AI layer may:
 
@@ -1274,7 +1603,9 @@ It must not:
 
 ## Phase 9 — Frontend and Report
 
-Frontend:
+The frontend below is already implemented on `kazi/frontend-ui` with labeled
+fixtures. Phase 9 connects it to real execution and reporting; see the continuation
+brief for the provider boundary, required checks and incomplete download capture.
 
 - Next.js
 - TypeScript
@@ -1298,167 +1629,18 @@ PDF only if reliable.
 
 ---
 
-# Astra Handoff — Phases 3 Through 6
+# Maintaining Accepted Work
 
-Astra may use this README as the project source of truth.
+The current continuation instructions are in [Continue on Another Laptop](#continue-on-another-laptop--start-here).
+Protect the accepted Hydro and Flood processors, shared contracts and worker APIs,
+Control dispatch/timing, and Phase 7 evidence/rule behavior. Extend these components
+only for a concrete requirement and keep their existing assertions green. Smoke
+tests exercise real access; production calculations belong in `backend/`.
 
-It must also inspect the actual existing code before modifying a component.
-
-## Protected Existing Work
-
-Do not rewrite the following working components without a specific technical reason:
-
-```text
-backend/workers/hydro/gpm.py
-backend/workers/hydro/smap.py
-backend/workers/hydro/service.py
-tests/test_hydro.py
-tests/test_smap.py
-tests/test_hydro_service.py
-```
-
-Existing behavior must remain compatible unless an intentional migration is documented.
-
-Baseline:
-
-**17 tests passing**
-
-Before every merge:
-
-```powershell
-python -m pytest -v
-```
-
-All previously passing tests must remain green.
-
-## What Astra Must Provide for Each Phase
-
-For each completed phase, leave behind:
-
-1. production code in the intended repository file
-2. automated tests
-3. updated smoke test if external integration behavior changed
-4. one real-data/manual validation command
-5. a clear PASS/FAIL result from that real-data run
-6. provenance in structured results
-7. explicit limitations
-8. failure handling
-9. clean `git diff --check`
-10. a branch/commit suitable for merge
-
-Do not mark a phase complete based only on unit tests when the component depends on real geospatial data.
-
-## Branch Guidance
-
-Recommended:
-
-```text
-feature/terrain-processing
-feature/sentinel1-processing
-feature/flood-worker
-feature/shared-contracts
-feature/worker-api
-feature/control-dispatch
-feature/parallel-execution
-```
-
-## Smoke-Test Guidance
-
-Smoke tests may be updated.
-
-They should verify real external dependencies, not duplicate the production processor.
-
-Keep them simple:
-
-```text
-search
-access
-open
-inspect
-read real values
-PASS / FAIL
-```
-
-Production calculations belong in `backend/`.
-
-## README Update Frequency
-
-Do not update this README after every small commit.
-
-Update it after major milestones such as:
-
-- deterministic Flood worker complete
-- worker HTTP communication complete
-- real parallel execution complete
-- agent integration complete
-- final demo complete
-
-## Phase 3 Requirements
-
-### Terrain
-
-Must process all intersecting DEM/HAND tiles, not just the first returned tile.
-
-Must clip to the AOI.
-
-Must avoid double-counting overlapping pixels.
-
-Must return deterministic statistics and source tile provenance.
-
-### Sentinel-1
-
-Must use a documented, explainable candidate-water method.
-
-Do not jump to a complex ML model unless necessary.
-
-Must save or produce a manual visual validation artifact when practical.
-
-Do not label all dark SAR pixels as confirmed floodwater.
-
-### Flood Worker
-
-Must combine deterministic terrain and Sentinel-1 outputs.
-
-Do not invent disaster severity.
-
-## Phase 4 Requirements
-
-Shared Pydantic contracts must be defined before remote APIs become the dependency boundary.
-
-Contract tests must cover serialization/deserialization.
-
-Worker APIs must accept bounded tasks and return structured status/results.
-
-## Phase 5 Requirements
-
-A request from Laptop 1 must visibly trigger computation on Laptop 2 or Laptop 3.
-
-Do not fake distribution by running all processors locally.
-
-Record:
-
-- task ID
-- worker ID
-- start time
-- completion/failure state
-
-## Phase 6 Requirements
-
-Both worker calls must be launched concurrently.
-
-Prove overlap using actual timestamps.
-
-A valid demonstration looks like:
-
-```text
-18:10:03 Hydro started
-18:10:03 Flood started
-
-18:10:16 Hydro completed
-18:10:31 Flood completed
-```
-
-A sequential run does not qualify.
+Update progress at each validated phase and record human acceptance separately
+from raw execution reports. Commit and push on `codex/*` branches, then merge the
+accepted phase only after its checkpoint. Historical Phases 3–6 are documented
+above and in `docs/`; they are not a new work queue for the next agent.
 
 ---
 
@@ -1468,7 +1650,8 @@ MeshMind should feel like a calm AI workspace, not a network-administration dash
 
 ## Control Screen
 
-Only the Control/Home screen has the sidebar.
+Control-facing pages (Home, history, sessions and briefings) use the sidebar;
+worker pages use focused execution views.
 
 Primary state:
 
@@ -1587,13 +1770,16 @@ Generated reports:
 
 # Authentication and Secrets
 
-Real credentials belong in:
+Real credentials belong in private environment variables or ignored local files:
 
 `.env`
 
-Never commit `.env`.
+Never commit `.env` or `.env.*.local`. Current entry points do not automatically
+load these files; explicitly load/export the required variables in the process
+that starts Control or a worker. Never print secrets while checking configuration.
 
-Current placeholders:
+Current placeholders (see `.env.example` for the full template; `CONTROL_HOST`
+and `CONTROL_PORT` do not mean a Control web API has been implemented):
 
 ```text
 OPENAI_API_KEY=
@@ -1601,6 +1787,9 @@ CONTROL_HOST=
 CONTROL_PORT=
 HYDRO_WORKER_URL=
 FLOOD_WORKER_URL=
+HYDRO_WORKER_TOKEN=
+FLOOD_WORKER_TOKEN=
+MESHMIND_WORKER_TOKEN=
 ```
 
 Local NASA Earthdata authentication/helper files must remain ignored:
@@ -1639,7 +1828,7 @@ Install:
 python -m pip install -r requirements.txt
 ```
 
-Current direct dependencies:
+Current direct dependencies are pinned in `requirements.txt`:
 
 ```text
 earthaccess==0.19.0
@@ -1648,16 +1837,23 @@ numpy==2.5.3
 planetary-computer==1.0.0
 pystac-client==0.9.0
 pytest==9.1.1
-rasterio==1.5.2
+rasterio==1.4.4; sys_platform == "darwin" and platform_release < "24.0"
+rasterio==1.5.2; sys_platform != "darwin" or platform_release >= "24.0"
+pydantic==2.13.5
+fastapi==0.142.2
+uvicorn==0.54.0
+httpx==0.28.1
 ```
 
 Additional dependencies should only be introduced when the current implementation phase requires them.
 
 ---
 
-# Planned Application Stack
+# Application Stack and Remaining Integration
 
 ## Frontend
+
+Implemented as a separate demonstration branch; real backend integration remains:
 
 - Next.js
 - TypeScript
@@ -1665,20 +1861,21 @@ Additional dependencies should only be introduced when the current implementatio
 
 ## Backend
 
-Planned:
+Implemented:
 
 - Python
 - FastAPI
 - Uvicorn
 - Pydantic
-- SQLite
+
+SQLite/durable history remains planned.
 
 ## Worker Communication
 
-Planned:
+Implemented:
 
 - HTTP
-- `httpx` or equivalent
+- `httpx` with bounded requests, authentication and independent failure records
 
 ## Environmental Processing
 
@@ -1701,7 +1898,7 @@ Every laptop uses the same repository.
 
 ## Laptop 1
 
-Eventually runs:
+Currently runs Control's terminal CLI. Phase 9 connects the existing frontend:
 
 ```text
 backend/control/
@@ -1726,7 +1923,7 @@ Runs:
 backend/workers/flood/
 ```
 
-External data access passes. Deterministic worker implementation is the current focus.
+Deterministic Flood processing and physical remote execution are accepted.
 
 ---
 
@@ -1786,8 +1983,11 @@ The cloud AI layer and physical worker execution must not be confused.
 - shared task/result/status contracts
 - both worker HTTP APIs with local real-data validation
 - Control HTTP dispatch, bounded timeouts, host/process continuity and independent failure records
-- 758 automated tests passing on macOS
+- accepted Phase 6 baseline of 758 automated tests passing on macOS
 - concurrent Control clients, authenticated clock observations and conservative overlap checks
+- Phase 7 structured evidence fusion, explicit demonstration rules and offline JSON review
+- optional Control CLI review with independent results retained on failure
+- standalone frontend demonstration on `kazi/frontend-ui` with provider, pages and HTML generation
 
 ## TESTED
 
@@ -1811,6 +2011,9 @@ The cloud AI layer and physical worker execution must not be confused.
 - request bounds, authentication, duplicate handling and capacity limits
 - Control dispatch over local HTTP using real NASA and public raster evidence
 - strict remote-response validation, ambiguous submissions, deadlines and branch preservation
+- Phase 7: 906 Windows tests passed, 1 expected capability skip; dependency and diff checks passed
+- Phase 7: real local measurements matched 15 reference checks; four controlled evidence omissions passed
+- frontend lane: 12 tests, lint and build passed; actual browser download capture still unverified
 
 ## PHASE 5 ACCEPTED
 
@@ -1836,17 +2039,31 @@ passed plus one expected skip, and Karan reported his Linux tests passed.
 The user subsequently confirmed both owners observed this investigation's
 activity, completing the remaining manual check. The Phase 6 checkpoint is
 complete. The raw validator report retains its original `PASS / PENDING_USER`;
-the later human confirmation is recorded separately. No later phase has started.
+the later human confirmation is recorded separately. Phase 7 now extends this
+accepted baseline on a separate branch.
+
+## PHASE 7 ACCEPTED
+
+Implementation `ea4f322` passed the automated, real local-data, preservation and
+independent review checks described in `docs/phase7-validation.md`. The policy
+uses Kazi's explicitly selected demonstration thresholds. A Mac review at `8049cd2`
+passed 907 tests, dependency/diff checks, independent review and offline replay
+of the accepted Phase 6 evidence (four triggered, one not triggered). The original
+evidence and exact typed results remained unchanged. After presentation of the
+measurements, policy and scientific limits, the user instructed **“proceed”**,
+accepting this checkpoint and authorizing PR #1’s merge into
+`codex/parallel-dispatch` and Phase 8. This is the current user’s approval, not
+a separately claimed confirmation from a named worker owner.
 
 ## NEXT
 
-**Requested scope complete through Phase 6. Await further instructions.**
+**Verify the accepted Phase 7 merge, then implement Phase 8 on a new branch.**
 
 ## CUT FOR NOW
 
-Until deterministic workers and distributed execution are complete:
+Until their separate accepted phases:
 
-- frontend implementation
+- live frontend integration (the demonstration UI already exists separately)
 - OpenAI agent implementation
 - optional sponsor integrations
 - unnecessary dashboards
