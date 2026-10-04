@@ -409,8 +409,23 @@ failure/timeout checks used controlled local TCP scenarios; they are not claimed
 as remote fault-injection tests. Candidate water is a threshold-derived proxy,
 not confirmed flooding, and SAR valid coverage is 97.6354%.
 
-**Human checkpoint:** Kazi and Karan should confirm this investigation's matching
-POST/poll activity and completion in their actual worker terminals. Review the
-measurements above and explicitly accept Phase 5. No HTML review is necessary.
-Stop here until acceptance; do not merge the phase implementation or start
-Phase 6 based solely on the automated PASS.
+**Human checkpoint updates received on 2026-10-03:**
+
+- The user supplied Karan's Flood terminal activity for the matching investigation,
+  including successful status polls and `GET /tasks/{task_id}/result` returning
+  200. The final `POST /tasks` returning 202 corresponds to the validator's
+  intentional duplicate-submission check. The recorded check confirmed the same
+  completed task record was returned without executing again. No additional
+  Flood terminal check is needed for this checkpoint.
+- Kazi confirmed this task completed on his Windows laptop, hostname `Boni`,
+  confirmed matching results, and explicitly accepted the Hydro portion of
+  Phase 5. He also reported resyncing his clock. This is an operator report;
+  post-resync clock agreement must still be measured before Phase 6 overlap checks.
+- These confirmations are recorded locally in
+  `outputs/debug/remote-workers/physical-070db04/human-checkpoint.json`.
+
+Overall Phase 5 acceptance remains pending. Review the measurements above and
+explicitly accept the overall checkpoint. No HTML review or repeat real-data run
+is needed for the supplied confirmations. Stop here until acceptance; do not
+merge the phase implementation or start Phase 6 based solely on the automated
+PASS or the Hydro-only acceptance.

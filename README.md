@@ -35,7 +35,7 @@ Completed so far:
 
 Current focus:
 
-**Phase 5 remote validation passed on matching implementation commit `070db04`. Both results match the accepted Phase 4 measurements. Await human checkpoint acceptance before Phase 6.**
+**Phase 5 remote validation passed on matching implementation commit `070db04`. Both worker terminal confirmations are received, and Kazi has accepted Hydro. Await overall human checkpoint acceptance before Phase 6.**
 
 ## Status Matrix
 
@@ -71,9 +71,9 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Confirm the completed investigation in Kazi's and Karan's actual worker terminals.
-2. Review the recorded Phase 5 results and explicitly accept the human checkpoint.
-3. Only after acceptance, proceed to Phase 6 real parallel execution and overlap checks.
+1. Review the recorded Phase 5 results and explicitly accept the overall human checkpoint; both worker terminal confirmations are received.
+2. After acceptance, verify clock agreement following Kazi's reported resync.
+3. Proceed to Phase 6 real parallel execution and overlap checks.
 
 Current cross-platform setup commands, network requirements and phase gate are in
 [Phase 5 validation](docs/phase5-validation.md). The accepted
@@ -1802,8 +1802,10 @@ The Phase 5 physical-laptop validator returned **PASS / PENDING_USER** for task
 `64807cc5-4637-477d-80d6-f8c043ee368a`. Hydro completed on `Boni` and Flood on `ARE`;
 23 reference checks passed, including exact complete-summary and source matches.
 Kazi's final Windows rerun at `070db04` passed: 617 tests and 1 expected
-symlink-privilege skip. Confirm the investigation appeared in both worker terminals
-and accept the Phase 5 checkpoint before proceeding. Phase 6 has not started.
+symlink-privilege skip. The user supplied Karan's matching poll/result logs, and
+Kazi confirmed completion on his Windows laptop and accepted the Hydro portion.
+Kazi also reported resyncing his clock; post-resync agreement has not yet been
+measured. Overall Phase 5 acceptance remains pending. Phase 6 has not started.
 
 ## NEXT
 
