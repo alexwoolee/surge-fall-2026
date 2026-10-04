@@ -55,39 +55,54 @@ Internet access is needed for the data providers and AI interpretation.
 
 ## Run locally
 
-Open four terminals from the repository root. Activate the Python environment in
+All terminals are opened on repository root. Activate the Python environment in
 each Python terminal using the command above. Stop an existing service before
 starting another on the same port.
 
-**Terminal 1 — Hydro**
+All devices need to be able to communicate with each other (e.g., through tailscale).
+
+**Device 1 — Hydro**
 
 ```sh
 python -m scripts.run_worker hydro
+# example with specified ip and ports
+python -m scripts.run_worker hydro --host 100.100.3.2 --port 8002
 ```
 
-**Terminal 2 — Flood**
+**Device 2 — Flood**
 
 ```sh
 python -m scripts.run_worker flood
+# example with specified ip and ports
+
+python -m scripts.run_worker flood --host 100.100.3.3 --port 8003
 ```
 
-**Terminal 3 — Control**
+**Device 3 - Dam**
 
 ```sh
+# set env, can point to local data
+env MESHMIND_DAM_DATA_DIR="$PWD/private_data/toddbrook_runtime/data"
+python -m scripts.run_worker dam
+# example with specified ip and ports
+python -m scripts.run_worker dam --host 100.100.3.4 --port 8004
+```
+
+**Device 0 — Control**
+
+```sh
+# Terminal 1
 python -m backend.control.serve --generic --openai-env-file .env.phase8.local
-```
 
-**Terminal 4 — interface**
-
-```sh
+# Terminal 2
 cd frontend
 npm ci
 npm run build
 npm run start
 ```
 
-The interface prints its link and opens [Amalga](http://127.0.0.1:3000). Hydro and
-Flood also open their own dashboards. For headless operation, add
+The interface prints its link and opens [Amalga](http://127.0.0.1:3000). Hydro,
+Flood, and Dam also open their own dashboards. For headless operation, add
 `--no-open-dashboard` to a worker command or `-- --no-open-dashboard` to
 `npm run start`. Stop services with **Ctrl+C**.
 
