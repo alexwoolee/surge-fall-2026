@@ -13,6 +13,7 @@ This is not the final rainfall-analysis pipeline.
 """
 
 from pathlib import Path
+import argparse
 import json
 import sys
 
@@ -91,6 +92,14 @@ def inspect_hdf5(file_path: Path) -> None:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--all-in-window",
+        action="store_true",
+        help="Download every granule in the configured smoke window for Phase 2 review.",
+    )
+    args = parser.parse_args()
+
     print("=" * 60)
     print("MeshMind - GPM IMERG Smoke Test")
     print("=" * 60)
@@ -122,7 +131,7 @@ def main() -> None:
         version=GPM_VERSION,
         bounding_box=bbox,
         temporal=(start_time, end_time),
-        count=5,
+        count=-1 if args.all_in_window else 5,
     )
 
     print(f"Granules returned: {len(results)}")
@@ -148,11 +157,12 @@ def main() -> None:
         exist_ok=True,
     )
 
-    print("\nDownloading one granule...")
+    selected = results if args.all_in_window else [first]
+    print(f"\nDownloading {len(selected)} granule(s)...")
     print(f"Destination: {DOWNLOAD_DIR}")
 
     downloaded_files = earthaccess.download(
-        [first],
+        selected,
         str(DOWNLOAD_DIR),
     )
 
@@ -162,6 +172,16 @@ def main() -> None:
             "no downloaded file."
         )
         sys.exit(1)
+
+    if len(downloaded_files) != len(selected):
+        print("ERROR: Not every selected granule was downloaded.")
+        sys.exit(1)
+
+    for downloaded in downloaded_files:
+        downloaded_path = Path(downloaded)
+        if not downloaded_path.is_file() or downloaded_path.stat().st_size == 0:
+            print(f"ERROR: Download is missing or empty: {downloaded_path.name}")
+            sys.exit(1)
 
     local_file = Path(downloaded_files[0])
 

@@ -3,33 +3,44 @@ MeshMind is a multi-agent, multi-workstation environmental intelligence system.
 One natural-language request launches specialist investigations across approved environmental data systems. Real Python processing executes on separate workstations, structured results return to Control, deterministic validation and review rules are evaluated, and MeshMind produces one combined downloadable briefing.
 ---
 # Current Status
-## Current Phase
-**Phase 2 - Deterministic Environmental Processing**
-Phase 1 dataset-access validation is complete.
-All five required environmental data integrations have been tested successfully against real data.
-Current task:
-**Phase 1A - GPM IMERG dataset access smoke test**
-## DONE
-- Project concept selected
-- Three-laptop architecture selected
-- Environmental datasets selected
-- Worker responsibilities selected
-- Repository folder structure created
-- `.gitignore` created
-- `.env.example` created
-- README documentation created
-- `.gitignore` rules manually tested
-## TESTED
-- Repository folder structure
-- README file creation
-- Git ignore behavior for `.env`
-- Git ignore behavior for downloaded cache files
-- Git ignore behavior for generated debug output
-## BLOCKED
-Nothing currently.
-## NEXT
-Complete the initial Git commit.
-Then begin:
+Last reviewed: 2026-10-03.
+
+The active checkpoint is **Phase 2 — GPM regression fixes and manual recheck**.
+The previous Phase 1 and Phase 2 manual checks were reported complete; Phase 3
+was only partially checked. The current GPM changes require another real-data
+check before the Phase 2 gate can close.
+
+| Phase | Implementation | Test gate |
+| --- | --- | --- |
+| 0 — Repository setup | Complete | Repository and ignore rules checked |
+| 1 — Dataset access | All five smoke scripts exist | Prior real-data PASS reported; not rerun on this checkout |
+| 2 — GPM | Temporal filtering and validity fixes complete | 35 processor tests + 14 CLI/download tests pass; manual recheck pending |
+| 3 — SMAP | Existing processor and tests | Manual check incomplete; audit follow-ups pending |
+| 4 — Hydro worker | Existing local-file service and tests | Independent real-data integration check pending |
+| 5 — DEM / HAND | Placeholder files | Not started |
+| 6 — Sentinel-1 | Placeholder file | Not started; visual inspection required |
+
+The remaining phases are planned, not implemented. Phase 4 currently returns a
+Python dictionary; shared Pydantic contracts and HTTP endpoints are later phases.
+
+Latest automated run: **61 passed** with `.venv/bin/python -m pytest -q` on
+2026-10-03 (Python 3.12). This includes the existing SMAP and hydro-service tests.
+Live dataset tests were not rerun; manual Phase 2 approval remains open.
+Work is paused at this checkpoint pending the incoming repository update and
+the user's signal to resume.
+
+## Current constraints
+- This checkout has no cached real GPM or SMAP granules.
+- Python 3.12 or newer is required by the pinned hydro dependencies.
+- On this Mac, the full dependency install stops at `rasterio==1.5.2` because
+  a local GDAL build is required. Hydro tests can run independently with
+  `requirements-hydro.txt`; the GIS setup must be resolved before terrain work.
+
+## Next checkpoint
+Run the Phase 2 regression suite and the real-data review in
+[`docs/manual-test-checklist.md`](docs/manual-test-checklist.md), then report
+PASS or the discrepancy. Do not advance dependent work until that gate passes.
+
 ## Phase 1 Result
 **PASS**
 Verified integrations:
@@ -526,28 +537,12 @@ They should not contain:
 ## Status
 **DONE**
 ## Completed
-- Git repository initialized
-- folders created
-- placeholder files created
-- `.gitignore` created
-- `.env.example` created
-- README created
-- folder structure manually checked
-- `.gitignore` manually tested
-## Remaining
-## Completed
-- Git repository initialized
-- folders created
-- placeholder files created
-- `.gitignore` created
-- `.gitattributes` created
-- `.env.example` created
-- README created
-- folder structure manually checked
-- `.gitignore` manually tested
-- initial Git commit created
-- GitHub remote configured
-- `main` pushed to GitHub
+- Git repository initialized and pushed to GitHub
+- folders and placeholder files created
+- `.gitignore`, `.gitattributes`, `.env.example`, and README created
+- folder structure and ignore rules checked
+- initial Git commit exists
+
 ## Pass Criteria
 Phase 0 passes when:
 - repository structure exists
@@ -571,11 +566,11 @@ scripts/smoke/smoke_hand.py
 ```
 ## Gate
 ```text
-GPM IMERG       NOT TESTED
-SMAP L4         NOT TESTED
-Sentinel-1      NOT TESTED
-Copernicus DEM  NOT TESTED
-HAND            NOT TESTED
+GPM IMERG       PASS (prior real-data manual run)
+SMAP L4         PASS (prior real-data manual run)
+Sentinel-1      PASS (prior real-data manual run)
+Copernicus DEM  PASS (prior real-data manual run)
+HAND           PASS (prior real-data manual run)
 ```
 For a source to PASS, we must confirm:
 - search works
@@ -909,34 +904,33 @@ Incorrect:
 The cloud AI layer and the physical worker execution must not be confused.
 ---
 # Current Progress Tracker
-## DONE
-- project concept
-- distributed architecture
-- worker responsibility split
-- environmental dataset selection
-- UI direction
-- test-gated development strategy
-- repository structure
-- `.gitignore`
-- `.env.example`
-- README
-- ignore-rule manual test
-## TESTED
-- repository folder structure
-- `.env` exclusion from Git
-- cache exclusion from Git
-- debug-output exclusion from Git
-- README creation
-## BLOCKED
-Nothing.
-## NEXT
-1. Create the initial Git commit.
-2. Create the Python environment.
-3. Install only the dependencies required for the first dataset test.
-4. Implement `scripts/smoke/smoke_gpm.py`.
-5. Run the GPM smoke test.
-6. Manually inspect the real result.
-7. Mark GPM `PASS` or fix it before continuing.
+The table under **Current Status** is the authoritative phase tracker.
+
+## Verification commands
+Use Python 3.12 or newer. From the repository root:
+
+```sh
+python3.12 -m venv .venv
+.venv/bin/python -m pip install -r requirements-hydro.txt
+.venv/bin/python -m pytest -q
+```
+
+The automated tests use small synthetic fixtures. They do not prove NASA or
+STAC access, validate a real scene visually, or close a manual phase gate.
+The full geospatial dependency set remains in `requirements.txt`.
+
+## Remaining work through Phase 6
+1. Recheck Phase 2 GPM results after the regression fixes.
+2. Finish Phase 3 timestamp, fill-value, invalid-file, shape, and determinism checks;
+   manually inspect real SMAP output.
+3. Verify Phase 4 using the actual processors and real local files on Laptop 2.
+4. Resolve GIS dependencies; implement and test Phase 5 DEM/HAND handling of all
+   intersecting tiles, AOI clipping, CRS, coverage, and value semantics; inspect results.
+5. Implement and test Phase 6 Sentinel-1 preprocessing and candidate-water output;
+   visually inspect the input scene and derived mask.
+
+Each gate follows IMPLEMENT → RUN → MANUALLY CHECK → PASS or FIX.
+
 ## CUT FOR NOW
 Until the core pipeline works:
 - frontend implementation
