@@ -10,5 +10,7 @@
   "event_start": "2021-11-14T00:00:00Z",
   "event_end": "2021-11-16T23:59:59Z",
   "gpm_smoke_start": "2021-11-15T00:00:00Z",
-  "gpm_smoke_end": "2021-11-15T01:00:00Z"
+  "gpm_smoke_end": "2021-11-15T01:00:00Z",
+  "smap_smoke_start": "2021-11-15T00:00:00Z",
+  "smap_smoke_end": "2021-11-15T06:00:00Z"
 }
