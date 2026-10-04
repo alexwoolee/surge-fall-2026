@@ -59,8 +59,31 @@ update and restart their services; the Mac interface must be rebuilt. Follow
 [the team setup](DEVELOPER_SETUP.md) for that coordinated update. Historical
 acceptance and raw evidence below remain unchanged.
 
+## Control dashboard startup — October 4, 2026
+
+At the user's request, `npm run start` and `npm run dev` now print the Control
+dashboard URL and open it once in the default browser on the Control computer.
+Opening waits for the frontend's own listener and a successful local icon
+response. Occupied ports and failed startup do not open a browser. The
+`--no-open-dashboard` option retains the printed link for headless use; a browser
+launch failure also leaves a manual link. Custom ports and loopback hosts are
+supported. The Python Control API and worker startup commands are unchanged.
+
+Validation: **1,498 Python tests** and **53 frontend tests passed**; frontend lint,
+TypeScript and `git diff --check` passed. **20 actual startup checks passed** in
+an isolated frontend copy using the existing production build, production and
+headless starts, development with both default Turbopack and Webpack, and
+occupied-port failures. A temporary macOS opener captured the exact URL and
+confirmed one browser-open command per successful non-headless start. Windows
+and Linux command selection was tested without opening physical remote browsers.
+
+Local evidence is in `outputs/debug/control-dashboard-startup/`. The running
+demo and its build were left intact; no environmental jobs or external model
+requests were submitted. This follow-up does not start Phase 10.
+
 ## Contents
 
+- [Control dashboard startup](#control-dashboard-startup--october-4-2026)
 - [Setup and access update](#setup-and-access-update--october-4-2026)
 - [Cross-laptop handoff and accepted checkpoint](#continue-on-another-laptop--start-here)
 - [Scientific boundaries](#scientific-boundaries-that-must-survive-integration)

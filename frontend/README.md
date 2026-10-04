@@ -14,7 +14,7 @@ npm run build
 npm run start
 ```
 
-The production server binds **127.0.0.1:3000**. Open [http://127.0.0.1:3000](http://127.0.0.1:3000). `npm run dev` also binds only to loopback. Keep this operator workspace local; it has no public user-login layer. Worker services are reached by Python Control, not by the browser. Internal API credentials are not required.
+Both `npm run start` and `npm run dev` bind **127.0.0.1:3000**, print the Control dashboard URL, and open it once in this computer’s browser after the frontend is ready. Use `npm run start -- --no-open-dashboard` (or the same flag with `dev`) for headless use. A custom port is supported with `--port 3100` or `PORT`; `--hostname` accepts only loopback addresses. Development also accepts `--webpack`, `--turbopack`, or `--turbo`. Occupied ports fail instead of silently switching ports. If the browser cannot open, use the printed [dashboard link](http://127.0.0.1:3000). Keep this operator workspace local; it has no public user-login layer. Worker services are reached by Python Control, not by the browser. Internal API credentials are not required.
 
 Start the Python Control service using the [project setup](../README.md) or [developer setup](../DEVELOPER_SETUP.md). The frontend defaults to `http://127.0.0.1:8001`; no token or frontend environment file is required. To change the local Control port, optionally set this server-only value in ignored `frontend/.env.local`:
 

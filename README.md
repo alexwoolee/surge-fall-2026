@@ -125,8 +125,10 @@ npm run build
 npm run start
 ```
 
-Open [MeshMind](http://127.0.0.1:3000), paste the request below and click
-**Run Analysis** once:
+The interface prints its dashboard link and opens [MeshMind](http://127.0.0.1:3000)
+in the default browser on this computer once ready. Use
+`npm run start -- --no-open-dashboard` for headless startup; the link is still
+printed. Paste the request below and click **Run Analysis** once:
 
 > Investigate Abbotsford / Sumas Prairie for 14–16 November 2021 using the configured rainfall, soil moisture, candidate surface-water and terrain evidence. Explain the demonstration review conditions and coverage limitations.
 

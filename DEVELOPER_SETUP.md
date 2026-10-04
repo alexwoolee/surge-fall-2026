@@ -92,9 +92,12 @@ npm run build
 npm run start
 ```
 
-Open [MeshMind](http://127.0.0.1:3000). Stop the previous interface process before
-building. For later restarts with unchanged source and dependencies, only
-`npm run start` is needed.
+The interface prints [its dashboard link](http://127.0.0.1:3000) and opens it in
+the default browser on Ryan's Mac once ready. Stop the previous interface process
+before building. For later restarts with unchanged source and dependencies, only
+`npm run start` is needed. `npm run dev` also opens the dashboard automatically.
+To keep the browser closed, use `npm run start -- --no-open-dashboard` (or
+`npm run dev -- --no-open-dashboard`); the link still appears in the terminal.
 
 ## Run the configured investigation
 

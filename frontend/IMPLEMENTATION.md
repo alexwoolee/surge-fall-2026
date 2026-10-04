@@ -8,6 +8,7 @@ The approved frontend from `kazi/frontend-ui` is integrated on the Phase 9 branc
 
 | Files/folder | Responsibility |
 | --- | --- |
+| `scripts/start-control.mjs`, `src/lib/control-startup.test.ts` | Cross-platform Control dashboard startup, readiness checks, browser opening and headless/custom-port tests |
 | `package.json`, `package-lock.json` | Frontend dependencies and dev/test/lint/build/start commands |
 | `components.json` | shadcn configuration and Animate UI registry |
 | `next.config.ts`, `tsconfig.json`, `postcss.config.mjs`, `eslint.config.mjs`, `.gitignore` | Frontend-only tooling |
@@ -154,3 +155,7 @@ The build uses Next's documented `--webpack` option after Turbopack's build-proc
 The 12 original provider/download tests remain, alongside real API/proxy boundary tests. These exercise malformed/fixture responses, abort propagation, explicit idempotent replay after a lost response, targeted retries, same-origin and route restrictions, private error/header redaction, streaming size bounds, and bounded native download responses.
 
 The original UI lane had passed desktop/laptop/narrow visual checks, with a browser download capture limitation. Phase 9 browser/live execution/download evidence and the human checkpoint are recorded separately in root validation notes. Historical fixture checks must not be presented as proof of current remote execution.
+
+## Control dashboard startup
+
+`npm run start` and `npm run dev` use `scripts/start-control.mjs`. The launcher retains loopback binding, prints the dashboard URL, and opens the local browser once. It explicitly supplies the port so Next dev cannot select a different occupied-port fallback. It first observes its own child’s bound-listener message, then confirms `/icon.svg` responds with an SVG before printing/opening; Next’s early readiness log alone does not prove configuration succeeded. Failed startup or a stopped child cannot trigger browser opening. `--no-open-dashboard` prints the same link without launching a browser. macOS, Windows and Linux use their platform opener without a shell, with a manual-link fallback on opener failure. Tests cover startup/exit races, headless and custom-port behavior, occupied ports, readiness failure and platform commands.
