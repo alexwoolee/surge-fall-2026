@@ -30,10 +30,12 @@ Completed so far:
 - bounded Control dispatch with task/result checks, deadlines and independent branch records
 - worker hostname/startup identity and cross-platform deployment instructions
 - automated test suite: **618 passing tests on macOS**
+- Windows verification: **617 passed, 1 expected symlink-privilege skip**
+- real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; human checkpoint pending**
 
 Current focus:
 
-**Hydro and Flood are reachable over Tailscale. The final Windows test path correction awaits a native rerun; align worker commits for the physical-laptop checkpoint.**
+**Phase 5 remote validation passed on matching implementation commit `070db04`. Both results match the accepted Phase 4 measurements. Await human checkpoint acceptance before Phase 6.**
 
 ## Status Matrix
 
@@ -59,7 +61,7 @@ DISTRIBUTED SYSTEM
 
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
-Remote Dispatch         LOCAL PASS; REMOTE LAPTOP CHECK PENDING
+Remote Dispatch         REMOTE PASS; HUMAN CHECKPOINT PENDING
 Parallel Execution      NOT STARTED
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
@@ -69,9 +71,9 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Pull matching code on all laptops and rerun the Windows portability checks.
-2. Follow the Phase 5 setup commands and prove real remote execution from Control.
-3. Pause for the Phase 5 checkpoint before testing real parallel execution.
+1. Confirm the completed investigation in Kazi's and Karan's actual worker terminals.
+2. Review the recorded Phase 5 results and explicitly accept the human checkpoint.
+3. Only after acceptance, proceed to Phase 6 real parallel execution and overlap checks.
 
 Current cross-platform setup commands, network requirements and phase gate are in
 [Phase 5 validation](docs/phase5-validation.md). The accepted
@@ -1186,12 +1188,14 @@ Required:
 
 ## Phase 5 — Remote Worker Communication
 
-**Control implementation and local real-data HTTP checks PASS; physical remote deployment pending.**
+**Control dispatch to three physical laptops PASS; human checkpoint acceptance pending.**
 
-Tailscale peer connectivity has been verified. Start the real worker servers and
-use their reachable private addresses;
-[the setup guide](docs/phase5-validation.md) includes Tailscale and commands for
-Windows, macOS and Linux. Two local worker processes do not satisfy this phase.
+Control on Ryan's Mac dispatched real data to Hydro on Kazi's Windows laptop and
+Flood on Karan's Linux laptop over Tailscale. All three used implementation commit
+`070db04`; matching worker checkouts and restarts were operator-confirmed.
+Authentication, duplicate submission, host/process continuity and physical
+deployment checks passed. Numerical summaries and sources exactly match the
+accepted Phase 4 baseline. See [the evidence and human checkpoint](docs/phase5-validation.md#physical-laptop-validation--pending-human-acceptance).
 Control currently dispatches sequentially and preserves completed evidence on
 other-branch failure. Timeouts stop waiting without cancelling remote work.
 
@@ -1792,14 +1796,14 @@ The cloud AI layer and physical worker execution must not be confused.
 - Control dispatch over local HTTP using real NASA and public raster evidence
 - strict remote-response validation, ambiguous submissions, deadlines and branch preservation
 
-## BLOCKED
+## PENDING HUMAN CHECKPOINT
 
-The Phase 5 physical-laptop checkpoint awaits the shared Hydro API token, matching
-commits and the authenticated remote real-data run. Control can reach Hydro HTTP
-using its explicit Tailscale source address and has authenticated Karan's Flood
-worker. Kazi's Windows rerun reported 615 passed, 2 failed and 1 expected symlink
-privilege skip; the remaining native-path test correction awaits another Windows
-rerun. No Phase 5 completion or Phase 6 overlap is claimed.
+The Phase 5 physical-laptop validator returned **PASS / PENDING_USER** for task
+`64807cc5-4637-477d-80d6-f8c043ee368a`. Hydro completed on `Boni` and Flood on `ARE`;
+23 reference checks passed, including exact complete-summary and source matches.
+Kazi's final Windows rerun at `070db04` passed: 617 tests and 1 expected
+symlink-privilege skip. Confirm the investigation appeared in both worker terminals
+and accept the Phase 5 checkpoint before proceeding. Phase 6 has not started.
 
 ## NEXT
 

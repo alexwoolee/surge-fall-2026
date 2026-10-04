@@ -5,11 +5,12 @@ Control dispatches bounded HTTP tasks sequentially to Hydro and Flood. Numerical
 processing stays in the existing worker services. No platform-specific network
 API or Tailscale library is required by the application.
 
-**Remote phase gate: pending execution on three physical laptops.**
-Tailscale is configured and peer connectivity has been verified. Ryan is Control
-on macOS, Kazi is Hydro on Windows, and Karan is Flood on Linux. The worker
-servers must be started and kept running before the authenticated remote checks. Local HTTP checks cannot pass
-this gate. Phase 6 starts only after this checkpoint is accepted.
+**Remote validation: PASS on three physical laptops; human acceptance pending.**
+Ryan's macOS Control dispatched real-data tasks to Kazi's Windows Hydro worker
+and Karan's Linux Flood worker over Tailscale using implementation commit
+`070db04`. See the recorded physical-laptop evidence at the end of this guide.
+Keep the worker servers running during review. Phase 6 starts only after the
+human checkpoint is accepted.
 
 ## 1. Get the same code and Python environment on every laptop
 
@@ -280,7 +281,8 @@ Recorded on 2026-10-03 locally (2026-10-04 UTC):
 - Evidence: `outputs/debug/remote-workers/result.json`,
   `outputs/debug/dispatch-failures/result.json`, and `outputs/debug/phase5-pytest.log`.
 
-Cross-platform remote execution and the user checkpoint remain pending.
+At that initial local checkpoint, cross-platform remote execution and human
+acceptance remained pending. The later physical-laptop run is recorded below.
 The implementation is kept on `codex/control-dispatch`; it has not been merged
 into `main`. Only that separate branch is intended for remote distribution.
 
@@ -304,7 +306,7 @@ The follow-up fixes preserve the existing safety checks:
   misleading sibling-directory prefix. Other filesystem errors remain failures.
   Enabling symlink privileges is not required to run a worker.
 
-The updated suite must be rerun on Windows. A Windows machine without symlink
+The updated suite required a native Windows rerun. A Windows machine without symlink
 creation privileges should report that one explicit skip; do not report it as a
 passed real-symlink test.
 
@@ -315,7 +317,7 @@ and `git diff --check` passed. Evidence is in
 Windows cleanup behavior or the physical-laptop checkpoint. Kazi's Hydro endpoint
 is reachable. Control subsequently verified Karan's Flood endpoint returns 401
 without a token and 200 with its token, identifying an idle `flood-worker` on
-host `ARE`. The authenticated remote real-data run remains pending.
+host `ARE`. At that point, the authenticated remote real-data run was still pending.
 
 Kazi's native Windows rerun at `f8926da` reported **615 passed, 2 failed, 1
 expected symlink-privilege skip**. Temporary-server cleanup now passes. Both
@@ -323,7 +325,8 @@ remaining Sentinel-1 failures occur after the expected overwrite rejection, when
 the test reopens a Windows file URI to inspect source pixels; Kazi independently
 confirmed both source rasters remained intact. The test now preserves its native
 source path for that final pixel-content check while retaining the URI as analyzer
-input and keeping the overwrite assertion. A further Windows rerun is required.
+input and keeping the overwrite assertion. Kazi subsequently verified `070db04`
+on Windows: **617 passed, 1 expected symlink-privilege skip, 0 failures**.
 
 On Ryan's Mac, normal TCP connections to the Tailscale worker IPs returned
 `EADDRNOTAVAIL`, while binding the socket to the Mac's actual Tailscale address
@@ -349,3 +352,65 @@ commands in section 4 and leave that terminal open. Restart running workers afte
 pulling code; compare `git rev-parse HEAD` on all three machines before the real
 physical-laptop validator. Phase 5 remains pending until that validator and the
 human checkpoint pass. Phase 6 has not started.
+
+## Physical-laptop validation — pending human acceptance
+
+Recorded on **2026-10-03 America/Vancouver** (2026-10-04 UTC), with tested
+implementation commit `070db04814ef351ca8d86f20a0dbeaa5bc8fbc40` on Control and
+operator-confirmed matching worker checkouts and restarts. Later documentation
+commits record this evidence; they do not change the implementation tested here.
+
+The remote validator returned **`PASS / PENDING_USER`** for investigation
+`64807cc5-4637-477d-80d6-f8c043ee368a`. Both jobs completed successfully:
+
+| Role | Physical laptop / reported host | Reported start (UTC) | Reported completion (UTC) |
+|---|---|---|---|
+| Control | Ryan / `u172-016-149-029.burnaby.sfu.ca` | Dispatches and validates | Receives both results |
+| Hydro | Kazi, Windows / `Boni` | 05:19:46.156116 | 05:19:46.529985 |
+| Flood | Karan, Linux / `ARE` | 05:19:48.740491 | 05:21:01.282702 |
+
+Both endpoints rejected unauthenticated requests and accepted the configured
+tokens. Duplicate submission returned the same completed task records without
+new execution. All topology checks passed: non-loopback worker addresses, three
+distinct reported hosts, distinct worker process UUIDs, and operator confirmation
+of three physical laptops. Process identity remained stable throughout each job.
+The API does not expose Git revisions or independently attest physical hardware.
+
+All **23 reference checks passed** against the accepted Phase 4
+`outputs/debug/worker-apis/result.json`, including exact full-summary and source
+matches for both workers:
+
+| Measurement | Remote result |
+|---|---:|
+| Mean rainfall accumulation, 2 granules / 1 hour | 6.650416513284047 mm |
+| Surface / root-zone soil moisture | 0.4084949195384979 / 0.3924146294593811 m³/m³ |
+| Candidate-water area, threshold −17 dB | 88.0997 km² |
+| Valid SAR fraction | 0.9763541059495998 |
+| Mean DEM / HAND elevation | 254.30886352438873 / 45.45202530899935 m |
+
+Control recorded 73.373 seconds for the sequential dispatch. Hydro's reported
+receipt time is approximately 1.98 seconds earlier than Control's submission
+timestamp, indicating clock disagreement. Use Control timestamps for sequencing
+and each worker's own timestamps for its processing duration; verify clock
+agreement before Phase 6 overlap measurements. Do not interpret cross-device
+timestamp differences as network latency.
+
+Evidence remains in ignored local outputs, without API tokens:
+
+- `outputs/debug/remote-workers/physical-070db04/result.json`: complete dispatch,
+  source provenance, task timestamps, process identities and gate results.
+- `outputs/debug/remote-workers/physical-070db04/reference-comparison.json`:
+  numerical, input, full-summary and source comparisons against Phase 4.
+- `outputs/debug/remote-workers/preflight-070db04.json`: Control observations and
+  clearly identified operator deployment confirmations.
+
+This successful sequential run does not establish parallel execution. Existing
+failure/timeout checks used controlled local TCP scenarios; they are not claimed
+as remote fault-injection tests. Candidate water is a threshold-derived proxy,
+not confirmed flooding, and SAR valid coverage is 97.6354%.
+
+**Human checkpoint:** Kazi and Karan should confirm this investigation's matching
+POST/poll activity and completion in their actual worker terminals. Review the
+measurements above and explicitly accept Phase 5. No HTML review is necessary.
+Stop here until acceptance; do not merge the phase implementation or start
+Phase 6 based solely on the automated PASS.
