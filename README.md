@@ -31,11 +31,11 @@ Completed so far:
 - worker hostname/startup identity and cross-platform deployment instructions
 - automated test suite: **618 passing tests on macOS**
 - Windows verification: **617 passed, 1 expected symlink-privilege skip**
-- real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; human checkpoint pending**
+- real-data Control dispatch to separate Windows Hydro and Linux Flood laptops: **PASS; Phase 5 accepted**
 
 Current focus:
 
-**Phase 5 remote validation passed on matching implementation commit `070db04`. Both worker terminal confirmations are received, and Kazi has accepted Hydro. Await overall human checkpoint acceptance before Phase 6.**
+**Phase 5 is accepted: all required automated, real-data, remote-deployment and human checks passed. Proceed to Phase 6 clock agreement and real parallel execution.**
 
 ## Status Matrix
 
@@ -61,7 +61,7 @@ DISTRIBUTED SYSTEM
 
 Shared Contracts        PASS
 Worker HTTP APIs        PASS (local real-data HTTP validation)
-Remote Dispatch         REMOTE PASS; HUMAN CHECKPOINT PENDING
+Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      NOT STARTED
 Control Fusion          NOT STARTED
 Agent Integration       NOT STARTED
@@ -71,9 +71,9 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Review the recorded Phase 5 results and explicitly accept the overall human checkpoint; both worker terminal confirmations are received.
-2. After acceptance, verify clock agreement following Kazi's reported resync.
-3. Proceed to Phase 6 real parallel execution and overlap checks.
+1. Begin Phase 6 on its own implementation branch after the accepted Phase 5 merge.
+2. Verify clock agreement following Kazi's reported resync.
+3. Prove real parallel execution and overlap while preserving independent results.
 
 Current cross-platform setup commands, network requirements and phase gate are in
 [Phase 5 validation](docs/phase5-validation.md). The accepted
@@ -1188,7 +1188,7 @@ Required:
 
 ## Phase 5 — Remote Worker Communication
 
-**Control dispatch to three physical laptops PASS; human checkpoint acceptance pending.**
+**Control dispatch to three physical laptops PASS; Phase 5 accepted.**
 
 Control on Ryan's Mac dispatched real data to Hydro on Kazi's Windows laptop and
 Flood on Karan's Linux laptop over Tailscale. All three used implementation commit
@@ -1796,7 +1796,7 @@ The cloud AI layer and physical worker execution must not be confused.
 - Control dispatch over local HTTP using real NASA and public raster evidence
 - strict remote-response validation, ambiguous submissions, deadlines and branch preservation
 
-## PENDING HUMAN CHECKPOINT
+## PHASE 5 ACCEPTED
 
 The Phase 5 physical-laptop validator returned **PASS / PENDING_USER** for task
 `64807cc5-4637-477d-80d6-f8c043ee368a`. Hydro completed on `Boni` and Flood on `ARE`;
@@ -1805,7 +1805,10 @@ Kazi's final Windows rerun at `070db04` passed: 617 tests and 1 expected
 symlink-privilege skip. The user supplied Karan's matching poll/result logs, and
 Kazi confirmed completion on his Windows laptop and accepted the Hydro portion.
 Kazi also reported resyncing his clock; post-resync agreement has not yet been
-measured. Overall Phase 5 acceptance remains pending. Phase 6 has not started.
+measured. The user's conditional approval to proceed once all Phase 5 tests pass
+has been satisfied: the physical run, numerical comparisons, local TCP
+failure/timeout tests, automated suites and worker confirmations all passed.
+Phase 5 is accepted; clock agreement and overlap belong to Phase 6.
 
 ## NEXT
 

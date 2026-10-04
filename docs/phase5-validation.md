@@ -5,12 +5,12 @@ Control dispatches bounded HTTP tasks sequentially to Hydro and Flood. Numerical
 processing stays in the existing worker services. No platform-specific network
 API or Tailscale library is required by the application.
 
-**Remote validation: PASS on three physical laptops; human acceptance pending.**
+**Remote validation: PASS on three physical laptops; Phase 5 accepted.**
 Ryan's macOS Control dispatched real-data tasks to Kazi's Windows Hydro worker
 and Karan's Linux Flood worker over Tailscale using implementation commit
 `070db04`. See the recorded physical-laptop evidence at the end of this guide.
-Keep the worker servers running during review. Phase 6 starts only after the
-human checkpoint is accepted.
+The user's conditional approval to proceed after all required Phase 5 tests pass
+is satisfied. Phase 6 may now begin on a separate implementation branch.
 
 ## 1. Get the same code and Python environment on every laptop
 
@@ -424,8 +424,11 @@ not confirmed flooding, and SAR valid coverage is 97.6354%.
 - These confirmations are recorded locally in
   `outputs/debug/remote-workers/physical-070db04/human-checkpoint.json`.
 
-Overall Phase 5 acceptance remains pending. Review the measurements above and
-explicitly accept the overall checkpoint. No HTML review or repeat real-data run
-is needed for the supplied confirmations. Stop here until acceptance; do not
-merge the phase implementation or start Phase 6 based solely on the automated
-PASS or the Hydro-only acceptance.
+**Overall acceptance:** the user authorized proceeding to Phase 6 if all required
+Phase 5 tests pass. The gate audit confirmed the physical-laptop run, all 23
+reference checks, three controlled TCP failure/timeout scenarios, macOS's 618
+passing tests, Windows's 617 passing tests plus one expected capability skip,
+and both worker confirmations. Phase 5 is therefore accepted. Preserve the raw
+validator's historical `PASS / PENDING_USER`; current acceptance is recorded in
+the separate human-checkpoint evidence. No repeat real-data run is needed.
+Verify clock agreement before Phase 6 overlap measurements.
