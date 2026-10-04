@@ -57,21 +57,23 @@ def topology_checks(run, settings, control_host, confirmed):
     }
 
 
-async def _authentication_check(endpoint, timeout):
+async def _authentication_check(endpoint, timeout, local_address=None):
     async with httpx.AsyncClient(base_url=endpoint.url, timeout=timeout, trust_env=False,
-                                 follow_redirects=False) as client:
+                                 follow_redirects=False,
+                                 transport=httpx.AsyncHTTPTransport(local_address=local_address, trust_env=False)) as client:
         # An absent token must fail before any task is submitted.
         async with asyncio.timeout(timeout):
             async with client.stream('GET', '/status') as response:
                 return response.status_code == 401
 
 
-async def _duplicate_check(endpoint, task, record, timeout):
+async def _duplicate_check(endpoint, task, record, timeout, local_address=None):
     if record.task_status is None or record.outcome != 'complete':
         return False
     headers = {'Authorization': f'Bearer {endpoint.token}'} if endpoint.token else {}
     async with httpx.AsyncClient(base_url=endpoint.url, timeout=timeout, trust_env=False,
-                                 follow_redirects=False, headers=headers) as client:
+                                 follow_redirects=False, headers=headers,
+                                 transport=httpx.AsyncHTTPTransport(local_address=local_address, trust_env=False)) as client:
         async with asyncio.timeout(timeout):
             async with client.stream('POST', '/tasks', json=task.model_dump(mode='json')) as response:
                 if response.status_code != 202:
@@ -89,6 +91,7 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
     report = {
         'phase': '5', 'validation': 'RUNNING', 'phase_gate': 'NOT_READY',
         'control_host': socket.gethostname(), 'task_id': tasks[0].task_id,
+        'control_source_ip': settings.local_address,
         'execution_mode': 'sequential', 'scope': 'local_loopback' if local_check else 'configured_remote_workers',
         'endpoints': {'hydro': settings.hydro.url, 'flood': settings.flood.url},
         'requests': [task.model_dump(mode='json') for task in tasks],
@@ -104,7 +107,7 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
         for endpoint in (settings.hydro, settings.flood):
             if not endpoint.token:
                 raise ValueError('Remote checkpoint requires configured worker tokens.')
-            passed = await _authentication_check(endpoint, settings.request_timeout)
+            passed = await _authentication_check(endpoint, settings.request_timeout, settings.local_address)
             report['authentication'][endpoint.expected_worker_id] = passed
             if not passed:
                 raise ValueError('Worker must reject unauthenticated requests.')
@@ -121,7 +124,7 @@ async def validate(settings, tasks, *, local_check, confirmed, output):
                 print(f'  host={record.task_status.execution_host} '
                       f'start={record.task_status.started_at} end={record.task_status.completed_at}', flush=True)
             report['duplicate_submission'][endpoint.expected_worker_id] = await _duplicate_check(
-                endpoint, task, record, settings.request_timeout)
+                endpoint, task, record, settings.request_timeout, settings.local_address)
         successful = all(record.outcome == 'complete' and record.result is not None for record in (run.hydro, run.flood))
         if not successful or not all(report['duplicate_submission'].values()):
             report.update(validation='FAIL', phase_gate='NOT_READY')

@@ -12,6 +12,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import signal
 import socket
 import subprocess
 import sys
@@ -27,6 +28,69 @@ from backend.shared.settings import WorkerSettings
 
 ROOT = Path(__file__).resolve().parents[2]
 TERMINAL = {'complete', 'partial', 'failed'}
+
+
+def _stop_server(process, *, windows):
+    """Stop only the temporary server process created by this validator.
+
+    On Windows a venv's python.exe may be a redirector owning the actual
+    interpreter. Terminating only that PID can race its child's log-handle
+    cleanup. Send Ctrl+Break to our isolated process group first, then use a
+    PID-scoped tree kill if graceful shutdown is unavailable or times out.
+    """
+    if process.poll() is not None:
+        return
+    if not windows:
+        process.terminate()
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        return
+
+    try:
+        process.send_signal(signal.CTRL_BREAK_EVENT)
+        process.wait(timeout=15)
+        return
+    except (OSError, subprocess.TimeoutExpired):
+        # Console signals are unavailable in some headless Windows sessions.
+        pass
+    if process.poll() is not None:
+        return
+    # Do this before terminating the redirector so its child is still in the
+    # owned process tree. Never kill by image name, by port, or by a shared group.
+    taskkill = Path(os.environ.get('SystemRoot', r'C:\Windows'))/'System32'/'taskkill.exe'
+    try:
+        subprocess.run(
+            [str(taskkill), '/PID', str(process.pid), '/T', '/F'],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            check=False, timeout=10,
+        )
+        # A nonzero taskkill exit can mean the process exited concurrently.
+        # Its actual termination is the required condition, not command output.
+        process.wait(timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        raise RuntimeError('Temporary worker process tree did not stop cleanly.') from None
+
+
+def _remove_windows_server_log(path, *, timeout=5):
+    """Require release of our log after all parent handles have been closed.
+
+    Windows process/job termination can finish asynchronously. Retry only its
+    transient sharing/locking errors; a persistent lock still fails validation.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            path.unlink(missing_ok=True)
+            return
+        except OSError as exc:
+            if getattr(exc, 'winerror', None) not in {32, 33}:
+                raise
+            if time.monotonic() >= deadline:
+                raise RuntimeError('Temporary worker log remained locked after shutdown.') from None
+            time.sleep(0.05)
 
 
 def _synthetic_hydro(folder, bbox):
@@ -104,41 +168,47 @@ def _server(kind, settings, token, folder):
     env.update(MESHMIND_GPM_DIR=str(settings.gpm_dir), MESHMIND_SMAP_DIR=str(settings.smap_dir),
                MESHMIND_WORKER_TOKEN=token, MESHMIND_MAX_TASKS='16')
     log_path = folder/f'{kind}-server.log'
-    with log_path.open('w') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'uvicorn', f'backend.workers.{kind}.main:create_app',
+    windows = sys.platform == 'win32'
+    process, stopped = None, False
+    try:
+        with log_path.open('w') as log:
+            options = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if windows else {}
+            process = subprocess.Popen([sys.executable, '-m', 'uvicorn', f'backend.workers.{kind}.main:create_app',
                                     '--factory', '--workers', '1', '--host', '127.0.0.1', '--port', str(port),
                                     '--no-access-log', '--log-level', 'warning'], cwd=ROOT, env=env,
-                                   stdout=log, stderr=log)
-        try:
-            with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=15, trust_env=False,
-                              headers={'Authorization': f'Bearer {token}'}) as client:
-                deadline = time.monotonic()+30
-                while True:
-                    if process.poll() is not None:
-                        raise RuntimeError(f'{kind} API process exited during startup.')
-                    try:
-                        response = client.get('/status')
-                        if response.status_code == 200:
-                            status = WorkerStatus.model_validate(response.json())
-                            if status.worker_id != f'{kind}-worker':
-                                raise RuntimeError('Unexpected worker identity.')
-                            break
-                    except httpx.TransportError:
-                        pass
-                    if time.monotonic() >= deadline:
-                        raise RuntimeError(f'{kind} API did not become ready.')
-                    time.sleep(0.1)
-                # Verify the real server enforces its configured token.
-                unauthorized = client.get('/status', headers={'Authorization': 'Bearer invalid'})
-                if unauthorized.status_code != 401:
-                    raise RuntimeError('Configured API authentication did not reject an invalid token.')
-                yield client
-        finally:
-            process.terminate()
+                                   stdin=subprocess.DEVNULL, stdout=log, stderr=log, close_fds=True, **options)
             try:
-                process.wait(timeout=15)
-            except subprocess.TimeoutExpired:
-                process.kill(); process.wait(timeout=5)
+                with httpx.Client(base_url=f'http://127.0.0.1:{port}', timeout=15, trust_env=False,
+                              headers={'Authorization': f'Bearer {token}'}) as client:
+                    deadline = time.monotonic()+30
+                    while True:
+                        if process.poll() is not None:
+                            raise RuntimeError(f'{kind} API process exited during startup.')
+                        try:
+                            response = client.get('/status')
+                            if response.status_code == 200:
+                                status = WorkerStatus.model_validate(response.json())
+                                if status.worker_id != f'{kind}-worker':
+                                    raise RuntimeError('Unexpected worker identity.')
+                                break
+                        except httpx.TransportError:
+                            pass
+                        if time.monotonic() >= deadline:
+                            raise RuntimeError(f'{kind} API did not become ready.')
+                        time.sleep(0.1)
+                    # Verify the real server enforces its configured token.
+                    unauthorized = client.get('/status', headers={'Authorization': 'Bearer invalid'})
+                    if unauthorized.status_code != 401:
+                        raise RuntimeError('Configured API authentication did not reject an invalid token.')
+                    yield client
+            finally:
+                _stop_server(process, windows=windows)
+                stopped = True
+    finally:
+        # The parent's log object must be closed before checking child release.
+        # No ignore_cleanup_errors: failed teardown remains a failed checkpoint.
+        if windows and (process is None or stopped):
+            _remove_windows_server_log(log_path)
 
 
 def _request(client, task, model, timeout):

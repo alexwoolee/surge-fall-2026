@@ -29,11 +29,11 @@ Completed so far:
 - Hydro and Flood HTTP APIs validated with real data on loopback
 - bounded Control dispatch with task/result checks, deadlines and independent branch records
 - worker hostname/startup identity and cross-platform deployment instructions
-- automated test suite: **535 passing tests**
+- automated test suite: **618 passing tests on macOS**
 
 Current focus:
 
-**Control dispatch passes local real-data checks; prepare private connectivity and validate two remote worker laptops.**
+**Hydro is reachable over Tailscale; bring up Karan's Flood worker and align worker commits for the physical-laptop checkpoint. Windows portability fixes await a native rerun.**
 
 ## Status Matrix
 
@@ -69,7 +69,7 @@ Final Report            NOT STARTED
 
 ## Immediate Next Steps
 
-1. Set up connectivity to the Windows/macOS/Linux worker laptops (Tailscale is an option for the isolated network).
+1. Pull matching code on all laptops and rerun the Windows portability checks.
 2. Follow the Phase 5 setup commands and prove real remote execution from Control.
 3. Pause for the Phase 5 checkpoint before testing real parallel execution.
 
@@ -1188,7 +1188,8 @@ Required:
 
 **Control implementation and local real-data HTTP checks PASS; physical remote deployment pending.**
 
-The campus network isolates devices. Use reachable private worker addresses;
+Tailscale peer connectivity has been verified. Start the real worker servers and
+use their reachable private addresses;
 [the setup guide](docs/phase5-validation.md) includes Tailscale and commands for
 Windows, macOS and Linux. Two local worker processes do not satisfy this phase.
 Control currently dispatches sequentially and preserves completed evidence on
@@ -1766,7 +1767,7 @@ The cloud AI layer and physical worker execution must not be confused.
 - shared task/result/status contracts
 - both worker HTTP APIs with local real-data validation
 - Control HTTP dispatch, bounded timeouts, host/process continuity and independent failure records
-- 535 automated tests
+- 618 automated tests passing on macOS
 
 ## TESTED
 
@@ -1793,10 +1794,11 @@ The cloud AI layer and physical worker execution must not be confused.
 
 ## BLOCKED
 
-The Phase 5 physical-laptop checkpoint needs private connectivity to both workers.
-The current network prevents direct device-to-device access; Tailscale is a
-proposed option. Worker addresses and actual remote execution are still pending.
-No Phase 5 completion or Phase 6 overlap is claimed.
+The Phase 5 physical-laptop checkpoint awaits Karan's running Flood server, shared
+private API tokens, matching commits and the authenticated remote real-data run.
+Tailscale peer connectivity is verified; Control can reach Hydro HTTP using its
+explicit Tailscale source address. Windows portability fixes still require a
+native Windows rerun. No Phase 5 completion or Phase 6 overlap is claimed.
 
 ## NEXT
 

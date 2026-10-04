@@ -1,6 +1,8 @@
 """Verify API resource resolution and actual deterministic worker adapters."""
 
 from pathlib import Path
+import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -38,12 +40,85 @@ def test_missing_resource_fails_before_claiming_discovery_or_processing(tmp_path
     assert str(tmp_path) not in str(error.value)
 
 
+def _create_test_symlink(link, target):
+    try:
+        link.symlink_to(target)
+    except OSError as error:
+        if sys.platform == 'win32' and getattr(error, 'winerror', None) == 1314:
+            pytest.skip(
+                'Windows denied creation of a real symbolic link (WinError 1314); '
+                'the mandatory resolved-path containment tests still run.'
+            )
+        raise
+
+
 def test_resource_cannot_escape_configured_folder_via_symlink(tmp_path):
     root = tmp_path/'resources'; root.mkdir()
     outside = tmp_path/'outside.h5'; outside.write_bytes(b'secret')
-    (root/'alias.h5').symlink_to(outside)
+    _create_test_symlink(root/'alias.h5', outside)
     with pytest.raises(runners.WorkerResourceError):
         runners._resource(root, 'alias.h5')
+
+
+@pytest.mark.parametrize('platform,winerror,capability_skip', [
+    ('win32', 1314, True),
+    ('win32', 5, False),
+    ('win32', None, False),
+    ('darwin', 1314, False),
+    ('linux', 1314, False),
+])
+def test_only_windows_symlink_privilege_error_can_skip(tmp_path, monkeypatch, platform, winerror, capability_skip):
+    error = OSError('Synthetic symlink creation failure.')
+    if winerror is not None:
+        error.winerror = winerror
+
+    def unavailable_symlink(*args, **kwargs):
+        raise error
+
+    # Replace this test module's platform source, not the interpreter's platform.
+    monkeypatch.setattr(sys.modules[__name__], 'sys', SimpleNamespace(platform=platform))
+    monkeypatch.setattr(Path, 'symlink_to', unavailable_symlink)
+    if capability_skip:
+        with pytest.raises(pytest.skip.Exception, match='WinError 1314'):
+            _create_test_symlink(tmp_path/'alias.h5', tmp_path/'outside.h5')
+    else:
+        with pytest.raises(OSError) as caught:
+            _create_test_symlink(tmp_path/'alias.h5', tmp_path/'outside.h5')
+        assert caught.value is error
+
+
+@pytest.mark.parametrize('outside_folder', ['private', 'resources-other'])
+def test_resolved_resource_cannot_escape_configured_folder(tmp_path, monkeypatch, outside_folder):
+    """Exercise containment even when the OS forbids creating symbolic links.
+
+    Only the filesystem's resolution result is simulated. The production
+    identifier validation and resolved-parent containment check remain intact;
+    an existing outside file would be accepted if that boundary check regressed.
+    The sibling-prefix case also rejects a naive string-prefix containment test.
+    """
+    root = tmp_path/'resources'
+    root.mkdir()
+    root = root.resolve()
+    alias = root/'alias.h5'
+    alias.write_bytes(b'inside')
+    outside = tmp_path/outside_folder/'outside.h5'
+    outside.parent.mkdir()
+    outside.write_bytes(b'outside')
+    outside = outside.resolve()
+    assert outside.is_file() and outside.parent != root
+    original_resolve = Path.resolve
+    resolved_paths = []
+
+    def resolve_at_filesystem_boundary(path, *args, **kwargs):
+        resolved_paths.append(path)
+        if path == alias:
+            return outside
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'resolve', resolve_at_filesystem_boundary)
+    with pytest.raises(runners.WorkerResourceError):
+        runners._resource(root, 'alias.h5')
+    assert root in resolved_paths and alias in resolved_paths
 
 
 @pytest.mark.parametrize('name', ['../outside.h5', '/tmp/private.h5', 'https://host/file', 'subdir/file.h5'])

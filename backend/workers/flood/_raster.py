@@ -9,8 +9,11 @@ https://rasterio.readthedocs.io/en/stable/topics/windowed-rw.html
 from contextlib import ExitStack
 from dataclasses import dataclass
 import math
+import nturl2path
 from numbers import Real
+import os
 from pathlib import Path
+import sys
 from typing import Iterable, Literal
 from urllib.parse import unquote, urlsplit, urlunsplit
 
@@ -62,15 +65,50 @@ def _safe_href(href: str) -> str:
     return str(href)
 
 
+def _file_uri_path(href: str, *, windows: bool) -> str:
+    """Decode a file URI once using the target platform's path conventions.
+
+    In particular, ``/C:/...`` is URI syntax, not a Windows drive-rooted path.
+    Windows non-local authorities identify UNC shares; they have no portable
+    local mapping on POSIX. Ambiguous URI suffixes fail closed for write guards.
+    """
+    try:
+        parsed = urlsplit(href)
+        if (parsed.scheme != "file" or "?" in href or "#" in href
+                or any(character in href for character in "\r\n\t")):
+            raise ValueError
+        authority = parsed.netloc
+        if authority.lower() == "localhost":
+            authority = ""
+        if authority and (not windows or any(character in authority for character in "@:%\\")):
+            raise ValueError
+        if windows:
+            # nturl2path is the Windows implementation of urllib.request's
+            # url2pathname and is also available for regression tests on POSIX.
+            value = ("//" + authority if authority else "") + parsed.path
+            decoded = nturl2path.url2pathname(value)
+        else:
+            decoded = unquote(parsed.path, encoding=sys.getfilesystemencoding(),
+                              errors=sys.getfilesystemencodeerrors())
+        if not decoded or "\x00" in decoded:
+            raise ValueError
+        return decoded
+    except (ValueError, OSError):
+        raise TerrainProcessingError(
+            "File URI cannot be mapped safely to a local path on this platform."
+        ) from None
+
+
 def _local_path(href: str) -> Path | None:
-    """Recognize filesystem sources, including Windows drives and file URIs."""
+    """Recognize native paths and file URIs for source-overwrite protection."""
     href = str(href)
-    if "://" not in href:
+    if href.lower().startswith("file:"):
+        return Path(_file_uri_path(href, windows=os.name == "nt"))
+    # Do not URL-decode ordinary filenames, including literal percent signs.
+    # A drive path may contain two slashes without becoming a remote URI.
+    if "://" not in href or (len(href) >= 2 and href[0].isascii() and href[0].isalpha() and href[1] == ":"):
         return Path(href)
-    parsed = urlsplit(href)
-    if parsed.scheme == "file" and parsed.netloc in {"", "localhost"}:
-        return Path(unquote(parsed.path))
-    return None
+    return None if urlsplit(href).scheme else Path(href)
 
 
 def _grid_offset(value: float) -> int:

@@ -280,6 +280,8 @@ def test_output_cannot_overwrite_file_uri_source(tmp_path):
     uri_tile = RasterTile(tile.tile_id, Path(tile.href).as_uri())
     with pytest.raises(TerrainProcessingError, match="overwrite"):
         analyze_raster_tiles([uri_tile], (0, 0, 2, 2), output_path=tile.href)
+    with rasterio.open(tile.href) as source:
+        np.testing.assert_array_equal(source.read(1), [[1, 2], [3, 4]])
 
 
 def test_provenance_removes_url_secrets(tmp_path, monkeypatch):

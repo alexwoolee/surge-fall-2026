@@ -6,9 +6,9 @@ processing stays in the existing worker services. No platform-specific network
 API or Tailscale library is required by the application.
 
 **Remote phase gate: pending execution on three physical laptops.**
-The current network blocks direct device-to-device traffic. Tailscale is a
-supported deployment option; it still needs installation, account sign-in and
-successful endpoint checks on the three laptops. Local HTTP checks cannot pass
+Tailscale is configured and peer connectivity has been verified. Ryan is Control
+on macOS, Kazi is Hydro on Windows, and Karan is Flood on Linux. The worker
+servers must be started and kept running before the authenticated remote checks. Local HTTP checks cannot pass
 this gate. Phase 6 starts only after this checkpoint is accepted.
 
 ## 1. Get the same code and Python environment on every laptop
@@ -283,3 +283,59 @@ Recorded on 2026-10-03 locally (2026-10-04 UTC):
 Cross-platform remote execution and the user checkpoint remain pending.
 The implementation is kept on `codex/control-dispatch`; it has not been merged
 into `main`. Only that separate branch is intended for remote distribution.
+
+
+## Windows portability follow-up and Control source address
+
+Kazi reported the original `707f3b0` Windows checkpoint as 530 passed / 5 failed.
+His NASA checksums, native imports, local real Hydro measurements and authenticated
+API status checks passed. Those are useful local checks, not a completed remote gate.
+
+The follow-up fixes preserve the existing safety checks:
+
+- File URI conversion now handles native Windows drive and UNC paths before
+  comparing output paths against raster sources. Existing actual overwrite tests
+  remain; portable Windows decoding regressions also run on macOS/Linux.
+- Temporary Windows validation servers use a dedicated process group, graceful
+  shutdown and an owned-process-tree fallback. Parent log handles close before
+  bounded sharing-lock checks. Persistent cleanup failures still fail validation.
+- The real symlink test reports a capability skip only for Windows WinError 1314.
+  Mandatory resolved-path containment tests still run on every OS, including a
+  misleading sibling-directory prefix. Other filesystem errors remain failures.
+  Enabling symlink privileges is not required to run a worker.
+
+The updated suite must be rerun on Windows. A Windows machine without symlink
+creation privileges should report that one explicit skip; do not report it as a
+passed real-symlink test.
+
+Follow-up verification on Ryan's Mac: **618 tests passed**, including the live
+TCP failure scenarios and a real socket source-address binding check. `pip check`
+and `git diff --check` passed. Evidence is in
+`outputs/debug/phase5-portability-pytest.log`. This does not establish native
+Windows cleanup behavior or the physical-laptop checkpoint. Kazi's Hydro endpoint
+is reachable; Karan's Flood startup and the authenticated remote run are next.
+
+On Ryan's Mac, normal TCP connections to the Tailscale worker IPs returned
+`EADDRNOTAVAIL`, while binding the socket to the Mac's actual Tailscale address
+reached Hydro and returned the expected unauthenticated HTTP 401. Control now
+accepts an optional literal source IP in `MESHMIND_CONTROL_SOURCE_IP`. This uses
+HTTPX's documented local-address transport setting; it does not change system
+routes, worker processing or the physical-deployment gate.
+
+For this deployment, set on Control only:
+
+```sh
+export MESHMIND_CONTROL_SOURCE_IP='100.100.3.5'
+```
+
+The setting is optional and defaults to normal OS source selection. Use an
+address actually assigned to Control. The dispatcher and validator authentication
+and duplicate-submission checks all use the same setting. Local fixture checks
+continue to bind loopback normally.
+
+Tests exit after completion. They do **not** leave the production worker servers
+running. On each worker, pull the same updated branch, then start Uvicorn with the
+commands in section 4 and leave that terminal open. Restart running workers after
+pulling code; compare `git rev-parse HEAD` on all three machines before the real
+physical-laptop validator. Phase 5 remains pending until that validator and the
+human checkpoint pass. Phase 6 has not started.

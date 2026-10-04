@@ -19,7 +19,7 @@ from backend.control.state import DispatchError, DispatchRecord, DispatchRun, St
 from backend.shared.contracts import (
     AnalysisTask, CombinedAnalysis, FloodResult, HydroResult, TaskStatus, WorkerStatus,
 )
-from backend.shared.settings import ControlSettings, WorkerEndpoint
+from backend.shared.settings import ControlSettings, WorkerEndpoint, validate_local_address
 from backend.shared.status import TERMINAL_STATES, TaskState
 
 
@@ -101,6 +101,7 @@ class WorkerClient:
         self, settings: WorkerEndpoint, *, request_timeout: float = 15.0,
         task_timeout: float = 600.0, poll_interval: float = 0.5,
         max_response_bytes: int = 8 * 1024 * 1024,
+        local_address: str | None = None,
         transport: httpx.AsyncBaseTransport | None = None,
     ):
         if not isinstance(settings, WorkerEndpoint):
@@ -116,6 +117,7 @@ class WorkerClient:
         self.task_timeout = task_timeout
         self.poll_interval = poll_interval
         self.max_response_bytes = max_response_bytes
+        self.local_address = validate_local_address(local_address)
         self.transport = transport
 
     async def _json(self, client, method, path, deadline, *, body=None, expected=200):
@@ -209,8 +211,11 @@ class WorkerClient:
             headers["Authorization"] = f"Bearer {self.settings.token}"
         try:
             async with asyncio.timeout(self.task_timeout):
+                transport = self.transport
+                if transport is None:
+                    transport = httpx.AsyncHTTPTransport(local_address=self.local_address, trust_env=False)
                 async with httpx.AsyncClient(
-                    base_url=self.settings.url, headers=headers, transport=self.transport,
+                    base_url=self.settings.url, headers=headers, transport=transport,
                     timeout=httpx.Timeout(self.request_timeout), follow_redirects=False, trust_env=False,
                 ) as client:
                     worker = WorkerStatus.model_validate(await self._json(client, "GET", "/status", deadline))
@@ -284,6 +289,7 @@ async def run_analysis(
         client = WorkerClient(
             endpoint, request_timeout=settings.request_timeout, task_timeout=settings.task_timeout,
             poll_interval=settings.poll_interval, max_response_bytes=settings.max_response_bytes,
+            local_address=settings.local_address,
             transport=transport_factory(endpoint) if transport_factory is not None else None,
         )
         records.append(await client.run(task))

@@ -94,3 +94,32 @@ def test_environment_loads_separate_destinations_tokens_and_limits(monkeypatch):
     with pytest.raises(ValueError) as caught:
         ControlSettings.from_env()
     assert "private-not-a-number" not in str(caught.value)
+
+
+@pytest.mark.parametrize('value,normalized', [
+    (None, None), ('127.0.0.1', '127.0.0.1'), ('100.100.3.5', '100.100.3.5'),
+    ('::1', '::1'), ('2001:0db8:0:0::1', '2001:db8::1'),
+])
+def test_explicit_control_source_is_a_normalized_ip_literal(value, normalized):
+    assert ControlSettings(**endpoints(), local_address=value).local_address == normalized
+
+
+@pytest.mark.parametrize('value', [
+    '', True, 123, 'control.local', '127.0.0.1:8002', '[::1]', '[::1]:8002',
+    'fe80::1%utun8', 'http://127.0.0.1', 'user@127.0.0.1', '127.0.0.1/32',
+    ' 127.0.0.1', '127.0.0.1\n',
+])
+def test_control_source_rejects_dns_ports_scopes_and_non_ip_inputs(value):
+    with pytest.raises(ValueError, match='MESHMIND_CONTROL_SOURCE_IP'):
+        ControlSettings(**endpoints(), local_address=value)
+
+
+def test_control_source_environment_is_optional_and_never_guessed(monkeypatch):
+    monkeypatch.setenv('HYDRO_WORKER_URL', 'http://hydro.local:8002')
+    monkeypatch.setenv('FLOOD_WORKER_URL', 'http://flood.local:8003')
+    monkeypatch.delenv('MESHMIND_CONTROL_SOURCE_IP', raising=False)
+    assert ControlSettings.from_env().local_address is None
+    monkeypatch.setenv('MESHMIND_CONTROL_SOURCE_IP', '')
+    assert ControlSettings.from_env().local_address is None
+    monkeypatch.setenv('MESHMIND_CONTROL_SOURCE_IP', '2001:0db8::1')
+    assert ControlSettings.from_env().local_address == '2001:db8::1'

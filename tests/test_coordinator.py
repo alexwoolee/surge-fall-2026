@@ -431,3 +431,88 @@ def test_persisted_dispatch_cannot_contradict_its_validated_evidence(hydro_resul
         value["worker_status"]["analysis_type"] = "surface_water_and_terrain"
     with pytest.raises(ValidationError):
         DispatchRecord.model_validate(value)
+
+
+@pytest.mark.parametrize('source', [None, '192.0.2.10'])
+def test_default_transport_receives_explicit_source_and_disables_environment(hydro_result, monkeypatch, source):
+    observed = []
+    worker = ScriptedWorker(hydro_result)
+
+    def transport(**options):
+        observed.append(options)
+        return httpx.MockTransport(worker.handle)
+
+    monkeypatch.setattr(httpx, 'AsyncHTTPTransport', transport)
+    client = WorkerClient(WorkerEndpoint('http://worker.invalid', 'hydro-worker'),
+                          local_address=source, poll_interval=0.01)
+    record = asyncio.run(client.run(task_for(hydro_result)))
+    assert record.outcome == 'complete'
+    assert observed == [{'local_address': source, 'trust_env': False}]
+
+
+def test_explicit_source_preserves_injected_transport(hydro_result, monkeypatch):
+    def unexpected_transport(**options):
+        pytest.fail('An injected transport must not be replaced.')
+
+    monkeypatch.setattr(httpx, 'AsyncHTTPTransport', unexpected_transport)
+    record = asyncio.run(ScriptedWorker(hydro_result).client(local_address='192.0.2.10').run(task_for(hydro_result)))
+    assert record.outcome == 'complete'
+    with pytest.raises(ValueError, match='MESHMIND_CONTROL_SOURCE_IP'):
+        ScriptedWorker(hydro_result).client(local_address='host.invalid')
+
+
+def test_dispatch_forwards_control_source_to_both_workers(hydro_result, monkeypatch):
+    import backend.control.coordinator as module
+    hydro = task_for(hydro_result)
+    flood = AnalysisTask.model_validate({
+        'task_id': hydro.task_id, 'analysis_type': 'surface_water_and_terrain', 'bbox': hydro.bbox.model_dump(),
+        'start_time': '2021-11-13T00:00:00Z', 'end_time': '2021-11-18T23:59:59Z',
+    })
+    settings = ControlSettings(WorkerEndpoint('http://hydro.invalid', 'hydro-worker'),
+                               WorkerEndpoint('http://flood.invalid', 'flood-worker'), local_address='192.0.2.10')
+    observed = []
+
+    def client(endpoint, **options):
+        observed.append((endpoint.expected_worker_id, options['local_address']))
+        return WorkerClient(endpoint, **options)
+
+    async def unavailable(request):
+        raise httpx.ConnectError('Unavailable', request=request)
+
+    monkeypatch.setattr(module, 'WorkerClient', client)
+    run = asyncio.run(run_analysis(hydro, flood, settings,
+                                   transport_factory=lambda endpoint: httpx.MockTransport(unavailable)))
+    assert run.hydro.outcome == run.flood.outcome == 'transport_error'
+    assert observed == [('hydro-worker', '192.0.2.10'), ('flood-worker', '192.0.2.10')]
+
+
+def test_http_transport_actually_binds_configured_source_socket(hydro_result, monkeypatch):
+    import socket
+    bindings, peers = [], []
+    original_bind = socket.socket.bind
+
+    def observed_bind(sock, address):
+        bindings.append(address)
+        return original_bind(sock, address)
+
+    async def verify():
+        async def reject(reader, writer):
+            await reader.readuntil(b'\r\n\r\n')
+            peers.append(writer.get_extra_info('peername')[0])
+            writer.write(b'HTTP/1.1 401 Unauthorized\r\nContent-Length: 0\r\nConnection: close\r\n\r\n')
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+
+        server = await asyncio.start_server(reject, '127.0.0.1', 0)
+        port = server.sockets[0].getsockname()[1]
+        monkeypatch.setattr(socket.socket, 'bind', observed_bind)
+        async with server:
+            client = WorkerClient(WorkerEndpoint(f'http://127.0.0.1:{port}', 'hydro-worker'),
+                                  local_address='127.0.0.1', request_timeout=2, task_timeout=3)
+            record = await client.run(task_for(hydro_result))
+        assert record.outcome == 'rejected' and not record.accepted
+
+    asyncio.run(verify())
+    assert ('127.0.0.1', 0) in bindings
+    assert peers == ['127.0.0.1']

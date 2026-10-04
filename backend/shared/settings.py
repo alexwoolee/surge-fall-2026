@@ -1,6 +1,7 @@
 """Explicit worker and Control settings; credentials never come from HTTP tasks."""
 
 from dataclasses import dataclass, field
+from ipaddress import ip_address
 import os
 from pathlib import Path
 
@@ -86,6 +87,18 @@ def _bounded_number(value, *, name: str, minimum: float, maximum: float) -> floa
     return float(value)
 
 
+def validate_local_address(value: str | None) -> str | None:
+    """Normalize an operator-selected source IP without DNS or interface lookup."""
+    if value is None:
+        return None
+    try:
+        if not isinstance(value, str) or '%' in value:
+            raise ValueError
+        return str(ip_address(value))
+    except ValueError:
+        raise ValueError('MESHMIND_CONTROL_SOURCE_IP must be a literal IPv4 or IPv6 address without a scope or port.') from None
+
+
 @dataclass(frozen=True)
 class ControlSettings:
     """Explicit destinations and finite limits for one Control dispatch run."""
@@ -96,6 +109,7 @@ class ControlSettings:
     task_timeout: float = 600.0
     poll_interval: float = 0.5
     max_response_bytes: int = 8 * 1024 * 1024
+    local_address: str | None = None
 
     def __post_init__(self):
         if (not isinstance(self.hydro, WorkerEndpoint) or self.hydro.expected_worker_id != 'hydro-worker'
@@ -108,6 +122,7 @@ class ControlSettings:
         if (isinstance(self.max_response_bytes, bool) or not isinstance(self.max_response_bytes, int)
                 or not 1024 <= self.max_response_bytes <= 32 * 1024 * 1024):
             raise ValueError('max_response_bytes must be an integer from 1024 to 33554432.')
+        object.__setattr__(self, 'local_address', validate_local_address(self.local_address))
 
     @classmethod
     def from_env(cls):
@@ -125,4 +140,5 @@ class ControlSettings:
             request_timeout=number('MESHMIND_REQUEST_TIMEOUT_SECONDS', 15),
             task_timeout=number('MESHMIND_TASK_TIMEOUT_SECONDS', 600),
             poll_interval=number('MESHMIND_POLL_INTERVAL_SECONDS', 0.5),
+            local_address=os.environ.get('MESHMIND_CONTROL_SOURCE_IP') or None,
         )
