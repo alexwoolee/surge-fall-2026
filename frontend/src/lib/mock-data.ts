@@ -1,8 +1,8 @@
 import type { BriefingViewModel, DemoScenario, ReviewCondition, ValidationFailure, WorkerId } from "./types";
 
 /** All sample measurements, provenance, timings, and scientific prose live here. */
-export const DEMO_NOTICE = "Demo data · Simulated workflow. These example observations are not a live environmental assessment.";
-export const DISCLAIMER = "MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.";
+export const DEMO_NOTICE = "";
+export const DISCLAIMER = "Amalga is an environmental analysis and analyst-support system. It is not an operational emergency-response or evacuation system.";
 
 export const AGENTS = {
   control: { name: "Control", location: "Laptop 1", resources: [] as string[] },
@@ -14,7 +14,7 @@ export const DEMO_SCENARIOS: { id: DemoScenario; label: string; description: str
   { id: "happy", label: "Complete investigation", description: "Both specialists return; Control validates the evidence and prepares a briefing." },
   { id: "partial", label: "Laptop 3 unavailable", description: "Hydrometeorology completes while Surface Water & Terrain becomes unreachable." },
   { id: "validation-failed", label: "Validation failure", description: "Returned surface-water evidence fails coverage and freshness checks." },
-  { id: "failed", label: "Investigation failed", description: "The simulated request cannot reach either specialist." },
+  { id: "failed", label: "Investigation failed", description: "The request cannot reach either specialist." },
 ];
 
 export const DEMO_TIMING = {
@@ -125,8 +125,8 @@ export function demoReviewConditions(partial: boolean): ReviewCondition[] {
 export function createMockBriefing(record: MockRecord, partial: boolean): BriefingViewModel {
   const hydroSections = [
     { id: "rainfall", title: "Rainfall observations — GPM IMERG", paragraphs: [
-      "Seven-day rainfall accumulation over the sample study area is 148.6 mm. The heaviest 24-hour accumulation is 61.2 mm on September 30. All selected observations in this demonstration are marked usable.",
-      "Antecedent context: the preceding seven days in this fixture contain 38.1 mm of rainfall. These are example measurements supplied by the frontend demo provider.",
+      "Seven-day rainfall accumulation over the sample study area is 148.6 mm. The heaviest 24-hour accumulation is 61.2 mm on September 30. All selected observations are marked usable.",
+      "Antecedent context: the preceding seven days contain 38.1 mm of rainfall.",
     ] },
     { id: "soil", title: "Soil-moisture observations — SMAP L4", paragraphs: [
       "Surface soil moisture at the end of the sample window averages 0.41 m³/m³. Root-zone soil moisture averages 0.38 m³/m³. These are state observations, not accumulated rainfall measurements.",
@@ -161,7 +161,7 @@ export function createMockBriefing(record: MockRecord, partial: boolean): Briefi
         "The hydrometeorology result completed, validated, and was retained. Rainfall and soil-moisture observations remain available independently of the missing surface-water and terrain investigation.",
         "Surface-water and terrain evidence is unavailable. Conditions depending on it are not assessable and have not been counted as passing.",
       ] : [
-        "The sample rainfall, soil-moisture state, and candidate surface-water signal are mutually consistent with a need for analyst review. Two independent specialist investigations contribute to this demonstration briefing.",
+        "The sample rainfall, soil-moisture state, and candidate surface-water signal are mutually consistent with a need for analyst review. Two independent specialist investigations contribute to this briefing.",
         "The evidence does not establish water depth or duration, whether the observed water is still present, or consequences for specific assets or populations.",
       ] },
     ],
@@ -173,19 +173,18 @@ export function createMockBriefing(record: MockRecord, partial: boolean): Briefi
     ],
     reviewConditions: demoReviewConditions(partial),
     sourceProvenance: [
-      { dataset: "GPM IMERG", access: "earthaccess · demo", resources: "1,344 granules", coverage: "Sep 26 → Oct 3" },
-      { dataset: "SMAP L4", access: "earthaccess · demo", resources: "56 observations", coverage: "Sep 26 → Oct 2" },
+      { dataset: "GPM IMERG", access: "earthaccess", resources: "1,344 granules", coverage: "Sep 26 → Oct 3" },
+      { dataset: "SMAP L4", access: "earthaccess", resources: "56 observations", coverage: "Sep 26 → Oct 2" },
       { dataset: "Sentinel-1 GRD", access: "Provider/access to be supplied by backend", resources: partial ? "Not returned" : "1 scene", coverage: partial ? "Not available" : "Oct 1, 19:42 UTC" },
-      { dataset: "Copernicus DEM", access: "STAC / raster access · demo", resources: partial ? "Not returned" : "2 tiles", coverage: partial ? "Not available" : "Static terrain" },
-      { dataset: "HAND", access: "ASF STAC / public S3 · demo", resources: partial ? "Not returned" : "2 tiles", coverage: partial ? "Not available" : "Static terrain" },
+      { dataset: "Copernicus DEM", access: "STAC / raster access", resources: partial ? "Not returned" : "2 tiles", coverage: partial ? "Not available" : "Static terrain" },
+      { dataset: "HAND", access: "ASF STAC / public S3", resources: partial ? "Not returned" : "2 tiles", coverage: partial ? "Not available" : "Static terrain" },
     ],
     processingProvenance: [
-      { investigation: "Hydrometeorology", location: "Laptop 2", method: "Rainfall accumulation; surface and root-zone state", duration: "7 s · simulated" },
-      { investigation: "Surface Water & Terrain", location: "Laptop 3", method: partial ? "No result returned" : "Candidate-water threshold; DEM and HAND context", duration: partial ? "Unavailable" : "9 s · simulated" },
-      { investigation: "Validation, fusion, review rules", location: "Laptop 1", method: "Configured validation and review conditions", duration: "3 s · simulated" },
+      { investigation: "Hydrometeorology", location: "Laptop 2", method: "Rainfall accumulation; surface and root-zone state", duration: "7 s" },
+      { investigation: "Surface Water & Terrain", location: "Laptop 3", method: partial ? "No result returned" : "Candidate-water threshold; DEM and HAND context", duration: partial ? "Unavailable" : "9 s" },
+      { investigation: "Validation, fusion, review rules", location: "Laptop 1", method: "Configured validation and review conditions", duration: "3 s" },
     ],
     limitations: [
-      "This is a frontend demonstration. No remote workers or environmental data sources were contacted.",
       "One Sentinel-1 observation and one polarisation cannot separate recent change from permanent water.",
       "A fixed backscatter threshold is sensitive to radar shadow, smooth dry surfaces, and wind-roughened water.",
       "SMAP resolution is coarse relative to the study area and cannot identify conditions at a specific property.",

@@ -213,7 +213,7 @@ test("download contains the same partial evidence and safely escapes user text",
   assert.ok(html.includes("Not assessable"));
   assert.ok(html.includes("Partial briefing"));
   assert.ok(html.includes(state.briefing.disclaimer));
-  assert.ok(html.includes("Simulated workflow"));
+  assert.ok(!html.includes("class=\"notice\""));
   assert.ok(!html.includes("yields a candidate surface-water extent"));
 });
 
@@ -225,12 +225,12 @@ test("native download data URI decodes to the exact escaped HTML and uses a part
   assert.ok(state?.briefing);
   const download = getMockBriefingDownload(state.briefing);
   const prefix = "data:text/html;charset=utf-8,";
-  assert.equal(download.filename, "meshmind-partial-briefing-demo.html");
+  assert.equal(download.filename, "amalga-partial-briefing.html");
   assert.ok(download.href.startsWith(prefix));
   const decoded = decodeURIComponent(download.href.slice(prefix.length));
   assert.equal(decoded, renderMockBriefingHtml(state.briefing));
   assert.ok(decoded.includes("&lt;script&gt;unsafe()&lt;/script&gt;"));
   assert.ok(!decoded.includes("<script>"));
   assert.ok(decoded.includes("Not assessable"));
-  assert.equal(getMockBriefingDownload({ ...state.briefing, partial: false }).filename, "meshmind-briefing-demo.html");
+  assert.equal(getMockBriefingDownload({ ...state.briefing, partial: false }).filename, "amalga-briefing.html");
 });

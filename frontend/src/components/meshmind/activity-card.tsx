@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight } from "@phosphor-icons/react/ssr";
 import type { ActivityGroup } from "@/lib/types";
-import { StatusOrb } from "./agent-status";
+import { StatusOrb, availabilityLabels as statusLabels } from "./agent-status";
 
-const statusLabels = { ready: "Ready", active: "Active", down: "Down", failed: "Failed", unknown: "Not observed", complete: "Complete" };
 
 export function ActivityCard({ activity, workerHref }: { activity: ActivityGroup; workerHref?: string }) {
   return (
@@ -14,7 +13,7 @@ export function ActivityCard({ activity, workerHref }: { activity: ActivityGroup
           <h2>{activity.name} <span>· {activity.location}</span></h2>
         </div>
         {workerHref ? (
-          <Link className="activity-worker-link" href={workerHref} aria-label={`View ${activity.name} worker`}>
+          <Link className={`activity-worker-link status-${activity.status}`} href={workerHref} aria-label={`View ${activity.name} worker`}>
             {statusLabels[activity.status]} <ArrowUpRight size={14} aria-hidden="true" />
           </Link>
         ) : <span className={`activity-status status-${activity.status}`}>{statusLabels[activity.status]}</span>}

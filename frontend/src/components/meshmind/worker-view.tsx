@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { isDemoMode } from "@/lib/data-provider";
 import type { WorkerId } from "@/lib/types";
 import { StatusOrb } from "./agent-status";
 import { StatusTimeline } from "./status-timeline";
+import { SpaceBackground } from "./space-background";
 
 export function WorkerView({ workerId, sessionId = isDemoMode ? "running" : "" }: { workerId: WorkerId; sessionId?: string }) {
   const { analysis, loading, error } = useAnalysis(sessionId);
@@ -16,12 +17,12 @@ export function WorkerView({ workerId, sessionId = isDemoMode ? "running" : "" }
 
   return (
     <main className="worker-page atmosphere">
-      <div className="ambient-field" aria-hidden="true"/>
+      <SpaceBackground />
       <header className="worker-nav">
         <Button variant="outline" asChild><Link href={sessionId ? `/session/${encodeURIComponent(sessionId)}` : "/"}><ArrowLeft size={17} aria-hidden="true" />Back to session</Link></Button>
-        <span className="demo-label">{analysis?.isDemo ? "Demo · simulated workflow" : analysis?.executionMode === "review" ? "Retained evidence review" : "Investigation activity"}</span>
+        {!analysis?.isDemo && <span className="demo-label">{analysis?.executionMode === "review" ? "Retained evidence review" : "Investigation activity"}</span>}
       </header>
-      {loading ? <div className="view-empty-state" role="status">Opening worker activity…</div> : !analysis || !worker ? <div className="view-empty-state"><h1>{workerLabel}</h1><p>{error || "The investigation for this worker is not available."}</p><Button asChild variant="outline"><Link href="/">Back to Home</Link></Button></div> : <div className="worker-content">
+      {loading ? <div className="view-empty-state" role="status">Opening worker activity…</div> : !analysis || !worker ? <div className="view-empty-state"><h1>{workerLabel}</h1><p>{error || "The investigation for this worker is not available."}</p><Button asChild variant="outline"><Link href="/">New session</Link></Button></div> : <div className="worker-content">
         {error && <p role="alert">{error} Displaying the last received state.</p>}
         <div className="worker-heading">
           <StatusOrb status={worker.status} size="lg" />
@@ -35,7 +36,7 @@ export function WorkerView({ workerId, sessionId = isDemoMode ? "running" : "" }
           <p className={`worker-summary ${worker.status === "down" || worker.status === "failed" ? "failure-detail" : ""}`} role="status">{worker.summary}</p>
         </section>
         <p className="worker-resource-note">Approved resources on this worker: {worker.resources.join(", ")}.<br />Python produces the numerical measurements; the model does not.</p>
-        <p className="worker-demo-note">{analysis.isDemo ? "This frontend demonstration shows simulated activity. No remote processing is being performed." : analysis.executionNotice}</p>
+        {!analysis.isDemo && <p className="worker-demo-note">{analysis.executionNotice}</p>}
       </div>}
     </main>
   );

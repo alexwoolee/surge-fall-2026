@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { RefreshCw, ArrowUpRight } from "lucide-react";
+import { ArrowClockwise, ArrowUpRight } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 import type { AnalysisState, WorkerId } from "@/lib/types";
 import { StatusOrb } from "./agent-status";
@@ -21,7 +21,7 @@ export function PartialResultCard({ analysis, onRetry, retrying }: { analysis: A
       <AnalystReviewBanner conditions={analysis.reviewConditions}/>
       {notAssessable.length > 0 && <p className="unassessed-note"><strong>{notAssessable.map((condition) => condition.id).join(", ")} — Not assessable.</strong> These conditions need missing evidence and have not been treated as passing.</p>}
       <div className="result-actions">{briefing && <DownloadBriefingButton briefing={briefing} sessionId={analysis.id}/>}
-        {retryable.map((worker) => <Button key={worker} variant="outline" onClick={() => onRetry(worker)} disabled={retrying}><RefreshCw size={15} aria-hidden="true"/>{retrying ? "Requesting retry…" : `Retry ${analysis.workers[worker].name}`}</Button>)}
+        {retryable.map((worker) => <Button key={worker} variant="outline" onClick={() => onRetry(worker)} disabled={retrying}><ArrowClockwise size={15} aria-hidden="true"/>{retrying ? "Requesting retry…" : `Retry ${analysis.workers[worker].name}`}</Button>)}
         {briefing && <Link className="text-action" href={`/session/${analysis.id}/briefing`}>Open partial briefing <ArrowUpRight size={14} aria-hidden="true"/></Link>}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { Check, X } from "lucide-react";
+import { Check, X } from "@phosphor-icons/react/ssr";
 import type { WorkerStep } from "@/lib/types";
 import { StatusOrb } from "./agent-status";
 

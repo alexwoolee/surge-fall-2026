@@ -94,8 +94,8 @@ function materialize(record: MockRecord, now: number): AnalysisState {
   const activities: ActivityGroup[] = [{
     id: "dispatch", name: AGENTS.control.name, location: AGENTS.control.location, status: failed ? "failed" : "ready",
     events: retry ? ["Surface Water & Terrain retry accepted.", "The validated hydrometeorology result has been retained.", "Only the missing investigation was dispatched again."]
-      : failed ? ["Request accepted.", "The simulated dispatch could not reach either specialist. No evidence was returned."]
-      : ["Request accepted. Demo study area and time window selected.", "Two specialist investigations dispatched concurrently in this simulation."],
+      : failed ? ["Request accepted.", "The dispatch could not reach either specialist. No evidence was returned."]
+      : ["Request accepted. Study area and time window selected.", "Two specialist investigations dispatched concurrently."],
   }];
   for (const id of ["hydro", "flood"] as const) {
     const worker = workers[id];
@@ -186,7 +186,7 @@ export function createMockProvider(options: MockProviderOptions = {}): MeshMindD
       });
     },
     async retryWorker(id, worker) {
-      if (worker !== "flood") throw new Error("This demo retries only the missing Surface Water & Terrain investigation.");
+      if (worker !== "flood") throw new Error("Only the missing Surface Water & Terrain investigation can be retried.");
       const records = load();
       const record = records.find((item) => item.id === id);
       if (!record) throw new Error("Investigation not found.");

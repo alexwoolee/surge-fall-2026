@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Check } from "lucide-react";
+import { ArrowUpRight, Check } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 import type { AnalysisState } from "@/lib/types";
 import { AnalystReviewBanner } from "./analyst-review-banner";
@@ -27,7 +27,7 @@ export function BriefingCard({ analysis }: { analysis: AnalysisState }) {
           <Button asChild variant="outline"><Link href={`/session/${analysis.id}/briefing`}>Open full briefing <ArrowUpRight size={15} aria-hidden="true" /></Link></Button>
         </div>
       </div>
-      <footer className="result-footer">{briefing.executionNotice || briefing.demoNotice}</footer>
+      {briefing.executionNotice && <footer className="result-footer">{briefing.executionNotice}</footer>}
     </section>
   );
 }

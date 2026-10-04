@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { authorizeViewer } from "@/lib/viewer-auth";
 import { WorkerFollower } from "@/components/meshmind/worker-follower";
 export const dynamic = "force-dynamic";
+export const metadata = { title: "Worker viewer · Amalga" };
 export default async function Page({ params }: { params: Promise<{ role: string }> }) {
   const { role } = await params;
   if (role !== "hydro" && role !== "flood") notFound();

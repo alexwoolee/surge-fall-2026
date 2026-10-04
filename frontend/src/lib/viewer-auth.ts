@@ -5,7 +5,7 @@ import type { WorkerId } from "./types";
 export type ViewerEnvironment = Record<string, string | undefined>;
 export type ViewerIdentity = { role: WorkerId; token: string };
 export const viewerHeaders = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY" };
-export const viewerFailure = (status: number) => new Response("Worker viewer is unavailable.", { status, headers: { ...viewerHeaders, ...(status === 401 ? { "WWW-Authenticate": 'Basic realm="MeshMind worker viewer", charset="UTF-8"' } : {}) } });
+export const viewerFailure = (status: number) => new Response("Worker viewer is unavailable.", { status, headers: { ...viewerHeaders, ...(status === 401 ? { "WWW-Authenticate": 'Basic realm="Amalga worker viewer", charset="UTF-8"' } : {}) } });
 const validToken = (token: string | undefined): token is string => !!token && token.length >= 32 && token.length <= 256 && /^[A-Za-z0-9_-]+$/.test(token);
 function equal(left: string, right: string): boolean {
   const a = Buffer.from(left); const b = Buffer.from(right);
@@ -54,7 +54,7 @@ export function guardViewerSurface(request: Request, env: ViewerEnvironment = pr
   // sequences remain disallowed instead of broadly decoding the asset path.
   const assetPath = path.replace(/%5b/gi, "[").replace(/%5d/gi, "]");
   const asset = /^\/_next\/static\/[A-Za-z0-9_./\[\]-]+$/.test(assetPath) && !assetPath.includes("..");
-  if (!(ownPage || ownApi || asset || path === "/icon.svg")) return viewerFailure(403);
+  if (!(ownPage || ownApi || asset || path === "/icon.png")) return viewerFailure(403);
   // Next's internal RSC query is required for rendering, but no arbitrary query
   // parameters or destination/session selectors are accepted by viewer endpoints.
   if (ownApi && url.search || ownPage && [...url.searchParams.keys()].some((key) => key !== "_rsc")) return viewerFailure(403);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@phosphor-icons/react/ssr";
 import { Button } from "@/components/ui/button";
 import { useAnalysis } from "@/hooks/use-meshmind";
 import { DownloadBriefingButton } from "./download-briefing-button";
@@ -20,15 +20,15 @@ export function BriefingView({ id }: { id: string }) {
   return (
     <>
       <header className="view-topbar briefing-topbar">
-        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : "Final briefing"}</span><span className="demo-label">{analysis?.isDemo ? "Demo evidence" : analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span></div>
+        <div className="topbar-left"><span>{briefing.partial ? "Partial briefing" : "Final briefing"}</span>{!analysis?.isDemo && <span className="demo-label">{analysis?.executionMode === "review" ? "Retained evidence" : "Validated evidence"}</span>}</div>
         <div className="topbar-actions"><Button asChild variant="outline"><Link href={`/session/${id}`}><ArrowLeft size={14} aria-hidden="true" />Back to investigation</Link></Button><DownloadBriefingButton briefing={briefing} sessionId={id} /></div>
       </header>
       <div className="briefing-content">
         <article className="briefing-document">
           <header className="briefing-document-header">
-            <p className="eyebrow">MeshMind briefing · prepared by Control on Laptop 1</p>
+            <p className="eyebrow">Amalga briefing · prepared by Control on Laptop 1</p>
             <h1>{briefing.title}</h1>
-            <p className="briefing-demo-notice">{briefing.executionNotice || briefing.demoNotice}</p>
+            {briefing.executionNotice && <p className="briefing-demo-notice">{briefing.executionNotice}</p>}
           </header>
           <dl className="briefing-meta">
             <div><dt>Original request · user context, not a finding</dt><dd>“{briefing.originalRequest}”</dd></div>
@@ -64,7 +64,7 @@ export function BriefingView({ id }: { id: string }) {
               <thead><tr><th scope="col">Investigation</th><th scope="col">Executed on</th><th scope="col">Method</th><th scope="col">Duration</th></tr></thead>
               <tbody>{briefing.processingProvenance.map((process) => <tr key={process.investigation}><td>{process.investigation}</td><td>{process.location}</td><td className="mono">{process.method}</td><td className="mono">{process.duration}</td></tr>)}</tbody>
             </table></div>
-            <p className="briefing-note">{analysis?.isDemo ? "Execution labels and durations are simulated for this frontend demonstration. They do not attest to work performed on remote laptops." : briefing.executionNotice || analysis?.executionNotice}</p>
+            {!analysis?.isDemo && <p className="briefing-note">{briefing.executionNotice || analysis?.executionNotice}</p>}
           </section>
           <section className="briefing-section" aria-labelledby="briefing-limitations"><h2 id="briefing-limitations">Limitations</h2><ul className="briefing-limitations">{briefing.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></section>
           <footer className="disclaimer">{briefing.disclaimer}</footer>

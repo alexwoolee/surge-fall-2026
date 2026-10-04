@@ -25,7 +25,7 @@ test("viewer Basic identity is role scoped, exact host scoped and independent of
   assert.equal((authorizeViewer(request(), "hydro", { ...env, MESHMIND_VIEWER_FLOOD_TOKEN: env.MESHMIND_VIEWER_HYDRO_TOKEN }) as Response).status, 503);
 });
 test("viewer listener permits own read-only surface and assets while blocking all operator and other-role surfaces", () => {
-  for (const path of ["/viewer/hydro", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/_next/static/chunks/app-123.js", "/icon.svg"]) assert.equal(guardViewerSurface(request(path), env), null, path);
+  for (const path of ["/viewer/hydro", "/viewer/hydro?_rsc=opaque", "/api/viewer/hydro", "/_next/static/chunks/app-123.js", "/icon.png"]) assert.equal(guardViewerSurface(request(path), env), null, path);
   for (const path of ["/", "/history", `/session/${ID}`, "/worker/hydro", "/viewer/flood", "/api/viewer/flood", "/api/control/config", "/api/control/sessions", "/_next/data/build/index.json", "/_next/image?url=http://evil", "/viewer/hydro?session=anything", "/api/viewer/hydro?target=evil", "/api/viewer/hydro/retry", "/viewer/hydro/extra"]) assert.equal(guardViewerSurface(request(path), env)?.status, 403, path);
   for (const method of ["POST", "PUT", "DELETE", "HEAD", "OPTIONS"]) assert.equal(guardViewerSurface(request("/api/viewer/hydro", "hydro", {}, method), env)?.status, 405, method);
   assert.equal(guardViewerSurface(request("/"), { ...env, MESHMIND_UI_MODE: "operator" }), null);

@@ -5,6 +5,7 @@ import type { WorkerId, WorkerViewerSnapshot } from "@/lib/types";
 import { followWorker } from "@/lib/viewer-polling";
 import { StatusOrb } from "./agent-status";
 import { StatusTimeline } from "./status-timeline";
+import { SpaceBackground } from "./space-background";
 
 const statusLabels = { unknown: "Not observed", ready: "Ready", active: "Active", complete: "Complete", failed: "Failed", down: "Unavailable" };
 const time = (value: string) => new Intl.DateTimeFormat("en-CA", { dateStyle: "medium", timeStyle: "medium", timeZone: "UTC" }).format(new Date(value));
@@ -17,8 +18,8 @@ export function WorkerFollower({ role }: { role: WorkerId }) {
   const session = snapshot?.session;
   const name = role === "hydro" ? "Hydrometeorology Agent" : "Surface Water & Terrain Agent";
   return <main className={`worker-page atmosphere ${error ? "viewer-stale" : ""}`}>
-    <div className="ambient-field" aria-hidden="true"/>
-    <header className="worker-nav"><span className="eyebrow">MeshMind · {role === "hydro" ? "Laptop 2" : "Laptop 3"}</span><span className="demo-label">Read-only worker view</span></header>
+    <SpaceBackground />
+    <header className="worker-nav"><span className="eyebrow">Amalga · {role === "hydro" ? "Laptop 2" : "Laptop 3"}</span><span className="demo-label">Read-only worker view</span></header>
     <div className="worker-content">
       {error && <p className="viewer-warning" role="alert">{error}</p>}
       {!session || !worker ? <div className="view-empty-state" role="status"><StatusOrb status="unknown" size="lg"/><h1>{name}</h1><p>{snapshot ? "Waiting for an investigation from Control." : "Connecting to Control…"}</p><p className="muted">Keep this page open. It follows the next investigation automatically.</p></div> : <section key={session.id}>

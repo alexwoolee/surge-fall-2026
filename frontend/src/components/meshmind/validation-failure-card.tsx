@@ -1,4 +1,4 @@
-import { X } from "lucide-react";
+import { X } from "@phosphor-icons/react/ssr";
 import type { ValidationFailure } from "@/lib/types";
 
 export function ValidationFailureCard({ failures }: { failures: ValidationFailure[] }) {
