@@ -3,9 +3,10 @@
 Branch: `codex/briefing-integration`, from accepted Phase 8 merge `807865f`.
 Kazi's existing `kazi/frontend-ui` work at `5ae2919` was merged with its design
 and history preserved. Phase 9 implementation, automated checks and the live
-browser investigation passed on October 4, 2026. The human checkpoint has not
-yet been accepted. Do not merge this phase or begin Phase 10 until human review
-is complete.
+browser investigation passed on October 4, 2026. The user subsequently reported
+**“all passed”** for the six manual checks below, completing human acceptance.
+Tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb` and this acceptance
+record are merged into `codex/parallel-dispatch`. Phase 10 has not started.
 
 ## Execution boundary
 
@@ -126,7 +127,12 @@ Do not treat an HTML string or a link alone as proof that downloading works.
 | Actual local HTTP authentication/proxy checks | All **6 PASS**: API auth, normal proxy access, hostile Host/Origin rejection, valid localhost alias reaches input validation |
 | Live browser, new physical worker execution | PASS; one investigation submitted, independent worker completion observed |
 | Reference comparison, export and restart checks | All **16 PASS** |
-| Human acceptance | **PENDING_USER** |
+| Human acceptance | **PASS — user reported “all passed” for all six manual checks on October 4** |
+
+The acceptance merge check reran the full Python suite: **1,327 passed** in
+23.23 seconds, with `git diff --check` also passing. This rerun made no live
+model or worker investigation requests. Its local log is
+`outputs/debug/phase9/acceptance-pytest.log`.
 
 The build script uses Next's supported Webpack mode. Turbopack could not create
 its build socket in this environment; the same required `npm run build` command
@@ -187,9 +193,10 @@ It contains no scripts, external assets, private credentials or infrastructure
 addresses. Browser history/reload and a local Control restart restored exactly
 one session without new dispatch. The completed session's SHA-256 is
 `662d0d362b80ebfb0b95f3d08260a462c21c51ad7dbe20b32b2fb6295e218958`.
-The in-app browser blocks direct `file:` navigation. The actual download and
-its complete contents were verified, but opening the downloaded file visually
-in a normal browser remains part of the human checkpoint below.
+The in-app browser blocks direct `file:` navigation. Automated work verified
+the actual download and its complete contents; the user's subsequent manual
+acceptance includes opening and visually checking the downloaded HTML in a
+normal browser.
 
 The final production UI was reloaded after two presentation fixes: running
 activity uses Control's actual description, and a busy composer refreshes its
@@ -207,7 +214,24 @@ Local, ignored evidence is under `outputs/debug/phase9/`:
 These files and all private environment settings stay untracked. The validation
 record above is portable; it does not imply ignored data exists on another laptop.
 
-## Phase 9 human checkpoint — PENDING_USER
+## Phase 9 human checkpoint — ACCEPTED October 4, 2026
+
+The user was given exact steps for the following six checks and replied
+**“all passed”**:
+
+| Manual check | User-reported result |
+| --- | --- |
+| Both workers complete; 2 of 2 investigations validated; expected partial coverage | PASS |
+| All eight measurements and their units | PASS |
+| Historical scope, coverage, scientific explanation and limitations | PASS |
+| All five conditions, source provenance and processing methods | PASS |
+| History/search and reload preserve the same investigation | PASS |
+| Downloaded standalone HTML opens and is readable with all required sections | PASS |
+
+This records the current user's acceptance, not a new test run or a separate
+named confirmation from either worker owner. Original raw validation reports
+retain their historical `PENDING_USER` status; this document records the later
+human decision. The manual review can be repeated using these saved-session steps:
 
 Open the saved investigation at
 `http://127.0.0.1:3000/session/ad711f78-ae40-4c31-b5ee-1c5a68551f51` while the
@@ -219,7 +243,8 @@ two local servers are running. No new worker run is needed for this review.
    clear enough for the demo.
 3. Open the downloaded HTML and confirm it is readable as a standalone report.
 
-The automated and live technical checks pass. Record the user's acceptance
-separately before merging `codex/briefing-integration` into `codex/parallel-dispatch`
-or beginning Phase 10. Phase 10 still needs the real event deadline, submission
-format and required assets, plus its reliability and final demo checkpoint.
+Automated, live and human checks pass; Phase 9 is complete and accepted.
+The accepted development base is `codex/parallel-dispatch`; preserve the separate
+`codex/briefing-integration` implementation history. Phase 10 has not started and
+still needs the real event deadline, submission format and required assets,
+plus its reliability and final demo checkpoint.
