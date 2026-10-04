@@ -2,6 +2,135 @@
 
 MeshMind is a multi-agent, multi-workstation environmental intelligence system.
 
+## Run MeshMind
+
+These commands use the team's current checkouts, installed Python 3.12 virtual
+environments, saved configuration and downloaded data. Connect all three laptops
+to Tailscale. Keep each server terminal open while using the app.
+
+**Already running?** Open [MeshMind on Ryan's Mac](http://127.0.0.1:3000) and skip
+the startup commands. To restart a server, wait for its job to finish, press
+**Ctrl+C** in its terminal, then run its command below. Reuse the existing worker
+terminals to keep their tokens and any custom data-folder settings.
+
+### 1. Start the workers
+
+**Kazi — Windows PowerShell, Hydro:**
+
+```powershell
+cd C:\Users\kazib\surge-fall-2026-worker
+.\.venv\Scripts\python.exe -m scripts.run_worker hydro --host 100.100.3.2 --port 8002
+```
+
+**Karan — Linux, Flood:**
+
+```sh
+cd ~/surge-fall-2026-worker
+.venv/bin/python -m scripts.run_worker flood --host 100.100.3.4 --port 8003
+```
+
+Each worker opens its own dashboard automatically:
+[Hydro](http://100.100.3.2:8002/dashboard) ·
+[Flood](http://100.100.3.4:8003/dashboard). Leave both pages open to see new jobs.
+Dashboard pages require no login; worker APIs still use their existing tokens.
+
+<details>
+<summary>Starting a worker in a new terminal?</summary>
+
+After changing into its checkout, run the matching command below and enter the
+**existing** worker token when prompted. Input is hidden. Use the same token
+already configured on Ryan's Mac; do not generate a replacement. Then run the
+worker startup command above. Worker launchers do not automatically load `.env`
+files.
+
+Windows PowerShell:
+
+```powershell
+$env:MESHMIND_WORKER_TOKEN = [System.Net.NetworkCredential]::new('', (Read-Host 'Existing Hydro worker token' -AsSecureString)).Password
+```
+
+Linux Bash or Zsh:
+
+```sh
+export MESHMIND_WORKER_TOKEN="$(.venv/bin/python -c 'import getpass; print(getpass.getpass("Existing Flood worker token: "))')"
+```
+
+Hydro normally reads `data/cache/gpm` and `data/cache/smap`. If Kazi previously
+set `MESHMIND_GPM_DIR` or `MESHMIND_SMAP_DIR` to another location, restore those
+same settings in the new terminal too.
+
+</details>
+
+### 2. Start Control on Ryan's Mac — terminal 1
+
+```sh
+cd "/Users/diamster/Stormhacks 2026/surge-fall-2026"
+.venv/bin/python -m backend.control.serve --execute \
+  --config config/test_case.example.json \
+  --rules config/rules.example.json \
+  --control-env-file .env.phase9.local \
+  --openai-env-file env.phase8.download \
+  --worker-env-file .env.phase5.local \
+  --gpm-resources 3B-HHR.MS.MRG.3IMERG.20211115-S000000-E002959.0000.V07B.HDF5 3B-HHR.MS.MRG.3IMERG.20211115-S003000-E005959.0030.V07B.HDF5 \
+  --smap-resource SMAP_L4_SM_gph_20211114T223000_Vv8010_001.h5 \
+  --history-dir outputs/debug/phase9/live-history
+```
+
+This starts the API on `127.0.0.1:8001` using the existing private files on this
+Mac. Keep those files in place. The frontend already has its matching settings
+in `frontend/.env.local`.
+
+### 3. Start the interface on Ryan's Mac — terminal 2
+
+```sh
+cd "/Users/diamster/Stormhacks 2026/surge-fall-2026/frontend"
+npm run start
+```
+
+The current production build is already installed. Open
+[http://127.0.0.1:3000](http://127.0.0.1:3000).
+
+### 4. Run a job
+
+Paste this into the investigation box and click **Run Analysis** once:
+
+```text
+Investigate Abbotsford / Sumas Prairie for 14–16 November 2021 using the configured rainfall, soil moisture, candidate surface-water and terrain evidence. Explain the demonstration review conditions and coverage limitations.
+```
+
+Both worker dashboards should show the same job ID. Hydro usually finishes in
+less than a second; Flood took about 80 seconds in the latest run. Wait for
+Control to finish preparing the briefing. **Partial result** is expected for
+this dataset's area/time coverage, even when both workers complete successfully.
+Use **Open partial briefing** or **Download partial briefing** to view the result.
+
+### Updating or setting up another checkout
+
+For a clean existing checkout, stop its servers when idle, then update from its
+repository directory:
+
+```sh
+git fetch --prune origin
+git switch main
+git pull --ff-only origin main
+```
+
+After pulling frontend changes, run these in Ryan's `frontend` directory before
+starting the interface again:
+
+```sh
+npm ci
+npm run build
+npm run start
+```
+
+For a new machine, follow the [worker dependency and data setup](docs/phase5-validation.md)
+or [Control configuration and frontend setup](docs/phase9-validation.md#local-startup).
+Private environment files and cached datasets are local to each laptop and are
+not supplied by `git pull`.
+
+---
+
 MeshMind runs bounded environmental investigations on separate workstations and returns structured results to Control for deterministic validation and review. Phase 9 connects natural-language requests and the existing frontend to those results and produces a downloadable combined briefing. Its initial Mac-side checks and the additional coordinated three-laptop browser checkpoint have passed with human acceptance. Phase 10 has not started.
 
 > MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response, evacuation, or disaster-detection system.
