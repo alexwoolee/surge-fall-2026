@@ -1,0 +1,14 @@
+{
+  "id": "abbotsford-flood-2021",
+  "name": "Abbotsford / Sumas Prairie, British Columbia",
+  "bbox": [
+    -122.45,
+    48.95,
+    -121.95,
+    49.30
+  ],
+  "event_start": "2021-11-14T00:00:00Z",
+  "event_end": "2021-11-16T23:59:59Z",
+  "gpm_smoke_start": "2021-11-15T00:00:00Z",
+  "gpm_smoke_end": "2021-11-15T01:00:00Z"
+}
