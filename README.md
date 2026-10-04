@@ -2,13 +2,23 @@
 
 MeshMind is a multi-agent, multi-workstation environmental intelligence system.
 
-MeshMind runs bounded environmental investigations on separate workstations and returns structured results to Control for deterministic validation and review. Phase 9 connects natural-language requests and the existing frontend to those results and produces a downloadable combined briefing. Its implementation, automated checks, live browser validation and six manual checks passed. Phase 9 is accepted and merged into `codex/parallel-dispatch`.
+MeshMind runs bounded environmental investigations on separate workstations and returns structured results to Control for deterministic validation and review. Phase 9 connects natural-language requests and the existing frontend to those results and produces a downloadable combined briefing. Its initial Mac-side checks and the additional coordinated three-laptop browser checkpoint have passed with human acceptance. Phase 10 has not started.
 
 > MeshMind is an environmental analysis and analyst-support system. It is not an operational emergency-response, evacuation, or disaster-detection system.
 
 ---
 
 # Continue on Another Laptop — Start Here
+
+**Current checkpoint: Phase 9 is accepted in full.** The six Mac-side checks and
+the coordinated Hydro screen on Kazi's Windows laptop and Flood screen on
+Karan's Linux laptop all passed. The shared new investigation was
+`c51fd780-8b4d-4eea-906b-5fea0bfff690`; the user confirmed **“Yes both pass”**
+after both remote pages retained completion and activity on refresh. Tested
+viewer implementation: `01df4d7` on `codex/worker-viewers`. Continue from the
+accepted `codex/parallel-dispatch` integration and preserve
+[the three-screen evidence](docs/phase9-worker-viewers.md).
+Phase 10 has not started; wait for the next phase instruction.
 
 **Handoff updated October 4, 2026 (America/Vancouver).** Kazi Boni Amin is moving
 development to a friend's laptop/Codex session. This README is the continuation
@@ -36,7 +46,7 @@ separately from the original raw reports, whose historical statuses are unchange
 | Existing frontend | Original design and history preserved in the Phase 9 integration | `origin/kazi/frontend-ui` at `5ae2919ff551848b7abae1119f17ca4b992acd5d`, merged at `5770c49` |
 | `main` | Behind the accepted backend work | **Do not use it as the continuation base** |
 | Phase 8 | Accepted after the requested explanation fixes and completeness review; merged into `codex/parallel-dispatch` | Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` on `codex/agent-integration`; [Phase 8 checkpoint](docs/phase8-validation.md) |
-| Phase 9 | All technical and six manual checks PASS; human accepted October 4 and merged into `codex/parallel-dispatch` | Tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb` on `codex/briefing-integration`; [Phase 9 checkpoint](docs/phase9-validation.md) |
+| Phase 9 | Initial checks merged at `fb14c2a`; additional three-laptop browser check PASS and human accepted | Tested viewer implementation `01df4d7` on `codex/worker-viewers`; [three-screen checkpoint](docs/phase9-worker-viewers.md), [initial validation](docs/phase9-validation.md) |
 | Phase 10 | Not implemented | Reliability, final demo and submission work remains |
 
 Fetch and verify this snapshot against the remote before acting; another owner
@@ -88,7 +98,7 @@ dispatches. Phase 8 is accepted under the user's conditional authorization; see
 [Phase 8 validation](docs/phase8-validation.md). The downloadable standalone
 HTML briefing and actual browser download now pass the Phase 9 checks below.
 
-**Current Phase 9 verification:** Mac Control Python 3.12.14, **1,327 passed**;
+**Initial Phase 9 verification:** Mac Control Python 3.12.14, **1,327 passed**;
 frontend **25 passed**, lint and production build passed. Both physical workers
 passed authenticated checks and completed browser-submitted investigation
 `ad711f78-ae40-4c31-b5ee-1c5a68551f51`. All eight measurements and all five review
@@ -97,9 +107,17 @@ completion, kept source-coverage limits visible, and downloaded the standalone
 briefing successfully. Saved history and identical briefing bytes survived a
 Control restart. All 16 comparison/export/restart checks passed. See
 [Phase 9 evidence and human review steps](docs/phase9-validation.md).
-**Phase 9 accepted October 4:** the user reported “all passed” for all six manual
+**Initial Mac-side checks accepted October 4:** the user reported “all passed” for all six manual
 checks, including the downloaded HTML visual review. The accepted implementation
-is merged into `codex/parallel-dispatch`; Phase 10 has not started.
+is merged into `codex/parallel-dispatch`. The additional three-screen checkpoint
+on `codex/worker-viewers` also passed with human acceptance; Phase 10 has not started.
+
+**Worker-viewer follow-up verification:** **1,378 Python tests** and **35 frontend
+tests** passed; lint, TypeScript and production build passed. All **49 live HTTP
+checks** passed for the authenticated role pages, assets and access restrictions.
+The new physical run passed **15 live completion checks** and **27 independent
+evidence assertions**. Kazi and Karan's browser displays and refresh checks are
+human accepted. See [the three-screen checkpoint](docs/phase9-worker-viewers.md).
 
 **Historical Phase 7 verification:** Windows Python 3.12, **906 passed and 1 expected
 symlink-privilege skip**; `pip check` and `git diff --check` passed. Independent
@@ -127,19 +145,20 @@ these commands succeed.
 Fresh checkout (macOS/Linux shell or PowerShell):
 
 ```sh
-git clone --branch codex/parallel-dispatch https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026-phase10
-cd surge-fall-2026-phase10
+git clone --branch codex/parallel-dispatch https://github.com/alexwoolee/surge-fall-2026.git surge-fall-2026
+cd surge-fall-2026
 git status --short --branch
 git log -3 --oneline
 git merge-base --is-ancestor ccd0de8932e2f26351cf939d714173797b9bbeeb HEAD
+git merge-base --is-ancestor 01df4d7 HEAD
 ```
 
 For an existing **separate development checkout**, inspect `git status` first,
 then fetch, switch to `codex/parallel-dispatch`, and pull with `--ff-only`. Preserve
 local edits and investigate any refusal instead of using a reset or force push.
-The ancestor check above verifies that the tested Phase 9 implementation is
-included in the accepted base. When Phase 10 is authorized, create a separate
-`codex/*` branch from that accepted base and preserve existing work. Selecting `main`
+The ancestor checks above verify that both tested Phase 9 implementations are
+included in the accepted base. Preserve the accepted worker-viewer work;
+Phase 10 has not started. Selecting `main`
 on GitHub shows older documentation.
 
 Read this README, `requirements.txt`, `.env.example`, and the linked
@@ -275,7 +294,7 @@ development checkout moved laptops.
    **`25e48d57eabc942184892cbdb5fb009bd6da487f`** is merged into
    **`codex/parallel-dispatch`**, the accepted Phase 9 base. See
    [Phase 8 validation](docs/phase8-validation.md).
-3. **Phase 9 — Accepted October 4; merged into `codex/parallel-dispatch`.**
+3. **Phase 9 — Initial and three-screen checks accepted.**
    Tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb` is preserved
    on `codex/briefing-integration`. It starts from the accepted
    Phase 8 merge and preserves the frontend's original history. Inspect
@@ -292,6 +311,8 @@ development checkout moved laptops.
    `npm run lint` and `npm run build` inside `frontend/`, plus backend checks for
    backend changes. The user reported “all passed” for the six manual checks,
    including the standalone HTML visual review. Preserve this accepted checkpoint.
+   The additional [three-screen checkpoint](docs/phase9-worker-viewers.md)
+   on `codex/worker-viewers` also passed and is human accepted.
 4. **Phase 10 — Reliability and submission.** Finish failure/recovery checks,
    portable startup/reset instructions, deployment guidance, final README,
    demo preparation and submission materials. Ask for the actual event deadline,
@@ -330,17 +351,18 @@ appropriate to new implementation changes before advancing their phase.
 Continue MeshMind in alexwoolee/surge-fall-2026. Fetch origin and read the latest
 README on codex/parallel-dispatch, starting with "Continue on Another Laptop".
 Preserve existing checkouts, private environment files, data and running workers.
-Phases 1–9 are accepted and merged into codex/parallel-dispatch. Verify that
-tested Phase 9 implementation ccd0de8932e2f26351cf939d714173797b9bbeeb is an
-ancestor of your continuation branch.
+Phases 1–9, including the coordinated three-laptop browser checkpoint, are
+accepted. Verify that tested viewer implementation 01df4d7 and initial Phase 9
+implementation ccd0de8932e2f26351cf939d714173797b9bbeeb are
+ancestors of your continuation branch.
 Phase 8 uses bounded Responses API interpretation and Python-rendered grounded
 explanations. Check docs/phase8-validation.md for current checks, historical live
 API evidence and scientific limitations. The separate Agents API/SDK are not used.
 Read docs/phase9-validation.md and frontend/AGENTS.md; preserve the integrated UI,
-local Control API, durable sessions and standalone HTML briefing. Phase 9 manual
-checks were accepted by the user. Phase 10 has not started: when authorized, use
-a separate codex/* branch from the accepted base, obtain the actual event deadline,
-submission format and required assets, and follow its final checkpoint. Do not start from main,
+local Control API, durable sessions and standalone HTML briefing. Read
+docs/phase9-worker-viewers.md for the accepted session and physical-browser
+confirmations from Ryan, Kazi and Karan. Phase 10 has not started; begin it only
+when the user requests the next phase. Do not start from main,
 redo accepted phases, invent measurements, expose
 secrets or claim fixture/local/replayed activity is fresh distributed execution.
 Report missing evidence or credentials while continuing independent work.
@@ -352,7 +374,7 @@ Report missing evidence or credentials while continuing independent work.
 
 ## Current Phase
 
-**Phases 1–9 accepted and merged; Phase 10 reliability and submission work is next.**
+**Phase 9 complete: the Control, Hydro and Flood laptop browsers passed the coordinated live investigation and human checkpoint. Phase 10 has not started.**
 
 Completed so far:
 
@@ -388,7 +410,7 @@ Completed so far:
 
 Current focus:
 
-**Phase 9 is complete and accepted. Preserve the integrated frontend, local Control API and downloadable briefing. Phase 10 has not started; its work requires the actual event deadline, submission format and required assets. See [the accepted Phase 9 checkpoint](docs/phase9-validation.md).**
+**Phase 9 is accepted, including all three physical browser screens. Preserve the Mac UI, local Control API, read-only worker viewers and downloadable briefing. Use [the worker-viewer setup and accepted evidence](docs/phase9-worker-viewers.md). Wait for the next phase instruction before Phase 10.**
 
 ## Status Matrix
 
@@ -418,17 +440,18 @@ Remote Dispatch         PASS; PHASE 5 ACCEPTED
 Parallel Execution      PASS; PHASE 6 COMPLETE
 Control Fusion          PHASE 7 PASS; HUMAN ACCEPTED OCTOBER 4
 Agent Integration       PHASE 8 PASS; ACCEPTED AFTER COMPLETENESS REVIEW
-Frontend                PHASE 9 PASS; HUMAN ACCEPTED OCTOBER 4
+Frontend                MAC UI AND THREE-LAPTOP BROWSER CHECK PASS; ACCEPTED
 Final Report            STANDALONE HTML AND BROWSER DOWNLOAD PASS
 ```
 
 ## Immediate Next Steps
 
-Phase 9 is accepted following the user’s “all passed” response to the six manual
-checks. Tested implementation `ccd0de8` and its acceptance record are merged into
-`codex/parallel-dispatch`. Preserve [the accepted checkpoint](docs/phase9-validation.md).
-Phase 10 has not started; obtain its actual submission constraints before planning
-the deadline-dependent work.
+The six Mac-side manual checks passed; their tested implementation `ccd0de8`
+and acceptance record were merged into `codex/parallel-dispatch` at `fb14c2a`.
+The additional worker screens on both other physical laptops also passed the
+same new investigation and refresh check. Preserve
+[that accepted three-screen checkpoint](docs/phase9-worker-viewers.md). Do not
+erase or repeat accepted evidence; wait for the next phase instruction.
 The Phase 8 evidence and API boundaries remain documented in
 [its validation record](docs/phase8-validation.md).
 
@@ -1122,6 +1145,7 @@ codex/parallel-dispatch    accepted implementation through Phase 9
 codex/fusion-review        accepted Phase 7 implementation
 codex/agent-integration    accepted Phase 8 implementation
 codex/briefing-integration accepted Phase 9 implementation and checkpoint
+codex/worker-viewers       accepted three-laptop browser implementation and evidence
 kazi/frontend-ui          original frontend, preserved in Phase 9
 codex/<next-phase>        create only from the verified accepted checkpoint
 ```
@@ -1691,7 +1715,9 @@ It must not:
 
 Implemented on `codex/briefing-integration`, preserving `kazi/frontend-ui` and
 the accepted Phase 8 base. Automated, live browser and six manual checks pass.
-The user accepted Phase 9 on October 4; it is merged into `codex/parallel-dispatch`.
+The user accepted those Mac-side checks on October 4; that implementation is
+merged into `codex/parallel-dispatch`. The additional three-laptop browser check
+passed on `codex/worker-viewers` and is human accepted; see [its checkpoint](docs/phase9-worker-viewers.md).
 See [the Phase 9 validation record](docs/phase9-validation.md) for startup,
 verification and the checkpoint. The browser uses a local authenticated Python
 API through a server-only Next.js proxy. Real execution is the default; fixtures
@@ -2163,7 +2189,7 @@ live API call or physical-laptop run. Original live reports retain their origina
 Tested implementation `25e48d57eabc942184892cbdb5fb009bd6da487f` is merged into
 `codex/parallel-dispatch`; that accepted base supplies the Phase 9 branch.
 
-## PHASE 9 ACCEPTED
+## PHASE 9 INITIAL MAC-SIDE CHECKS ACCEPTED
 
 After receiving exact manual steps, the user reported **“all passed”** on
 October 4. This accepts worker completion, all eight measurements, explanation
@@ -2175,9 +2201,10 @@ the acceptance is recorded in [the Phase 9 checkpoint](docs/phase9-validation.md
 
 ## NEXT
 
-**Phase 9 is accepted and merged into `codex/parallel-dispatch`. Phase 10 is next
-and has not started. Preserve [the accepted validation record](docs/phase9-validation.md),
-then follow the reliability/submission scope and final human checkpoint when authorized.**
+**Phase 9 is complete and human accepted, including all three browser screens
+in session `c51fd780-8b4d-4eea-906b-5fea0bfff690`. Preserve
+[the accepted worker-viewer evidence](docs/phase9-worker-viewers.md).
+Phase 10 has not started; wait for the next phase instruction.**
 
 ## CUT FOR NOW
 

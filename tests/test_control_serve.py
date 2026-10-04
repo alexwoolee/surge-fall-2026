@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from backend.control.serve import read_private_assignments, worker_settings
+from backend.control.serve import read_private_assignments, viewer_tokens, worker_settings
 
 
 def test_literal_private_configuration_preserves_environment(tmp_path, monkeypatch):
@@ -37,3 +37,29 @@ def test_worker_file_is_explicit_and_bounded(tmp_path):
     path.write_text(path.read_text() + 'MESHMIND_TASK_TIMEOUT_SECONDS=inf\n')
     with pytest.raises(ValueError, match='bounded configuration'):
         worker_settings(path)
+
+
+def test_viewers_are_disabled_without_an_explicit_private_file(monkeypatch):
+    monkeypatch.setenv('MESHMIND_VIEWER_HYDRO_TOKEN', 'h' * 40)
+    monkeypatch.setenv('MESHMIND_VIEWER_FLOOD_TOKEN', 'f' * 40)
+    assert viewer_tokens() is None
+
+
+def test_viewer_credentials_remain_role_scoped_and_do_not_mutate_environment(tmp_path, monkeypatch):
+    path = tmp_path / 'viewers.env'
+    path.write_text('MESHMIND_VIEWER_HYDRO_TOKEN=' + 'h' * 40 + '\n'
+                    'MESHMIND_VIEWER_FLOOD_TOKEN=' + 'f' * 40 + '\n')
+    monkeypatch.delenv('MESHMIND_VIEWER_HYDRO_TOKEN', raising=False)
+    assert viewer_tokens(path) == {'hydro': 'h' * 40, 'flood': 'f' * 40}
+    assert 'MESHMIND_VIEWER_HYDRO_TOKEN' not in os.environ
+
+
+@pytest.mark.parametrize('contents', [
+    '', 'MESHMIND_VIEWER_HYDRO_TOKEN=' + 'h' * 40,
+    'MESHMIND_CONTROL_API_TOKEN=' + 'p' * 40,
+])
+def test_viewer_file_requires_both_viewer_roles_and_excludes_operator_credentials(tmp_path, contents):
+    path = tmp_path / 'viewers.env'
+    path.write_text(contents)
+    with pytest.raises(ValueError):
+        viewer_tokens(path)

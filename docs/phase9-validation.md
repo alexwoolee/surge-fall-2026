@@ -8,6 +8,16 @@ browser investigation passed on October 4, 2026. The user subsequently reported
 Tested implementation `ccd0de8932e2f26351cf939d714173797b9bbeeb` and this acceptance
 record are merged into `codex/parallel-dispatch`. Phase 10 has not started.
 
+**Subsequent scope clarification:** “all passed” covered the six Mac-side manual
+checks listed here. The user then required the worker screens on Kazi's and
+Karan's physical laptops to show the same investigation. That additional
+three-screen checkpoint passed with user acceptance on `codex/worker-viewers`; see
+[setup and coordinated test](phase9-worker-viewers.md). The prior merge and
+technical evidence remain valid. The new shared session was
+`c51fd780-8b4d-4eea-906b-5fea0bfff690`; the user's “Yes both pass” confirms the
+two remote screens and their refresh checks. Phase 9 is accepted in full;
+Phase 10 has not started.
+
 ## Execution boundary
 
 The browser uses the existing provider interface. Real Control is the default;
@@ -243,8 +253,8 @@ two local servers are running. No new worker run is needed for this review.
    clear enough for the demo.
 3. Open the downloaded HTML and confirm it is readable as a standalone report.
 
-Automated, live and human checks pass; Phase 9 is complete and accepted.
+The initial automated, live and six Mac-side human checks pass.
 The accepted development base is `codex/parallel-dispatch`; preserve the separate
-`codex/briefing-integration` implementation history. Phase 10 has not started and
-still needs the real event deadline, submission format and required assets,
-plus its reliability and final demo checkpoint.
+`codex/briefing-integration` implementation history. The additional three-screen
+check on `codex/worker-viewers` also passed with human acceptance. Phase 10 has not started and
+still needs its own reliability and final demo checkpoint.

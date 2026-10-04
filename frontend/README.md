@@ -52,6 +52,23 @@ Downloads use a native same-origin link through the authenticated server route. 
 
 A worker page without a selected session does not invent an active investigation. Sidebar worker links use the most recent known session.
 
+## Three-screen worker viewers
+
+A separate viewer-only Next process can serve Kazi and Karan over Tailscale while Ryan's operator workspace remains on `127.0.0.1:3000`. Build once before starting either process. Start Python Control with its separate viewer-token file, as described in the root README, then run from `frontend/`:
+
+```bash
+npm run start:viewers -- --env-file ../.env.phase9-viewers.local --host 100.100.3.5 --port 3001 --upstream http://127.0.0.1:8001
+```
+
+The private file contains only two different URL-safe tokens (32–256 characters): `MESHMIND_VIEWER_HYDRO_TOKEN` and `MESHMIND_VIEWER_FLOOD_TOKEN`. Share each token privately only with its worker owner. Never embed credentials in a URL.
+
+- Kazi opens `http://100.100.3.5:3001/viewer/hydro`, enters username `hydro`, and uses the Hydro viewer token as the browser authentication password.
+- Karan opens `http://100.100.3.5:3001/viewer/flood`, enters username `flood`, and uses the Flood viewer token as the password.
+
+These are read-only views of the same current execution session. Open both before Ryan submits the request. They automatically follow each new execution, show a shared session ID and UTC request time, and retain actual observed events when a worker completes between polls. Completed earlier work is labeled while waiting for another investigation; it is never replayed as current processing. Missing updates show a stale-state warning and stop active animations.
+
+The launcher binds only to explicit loopback or Tailscale addresses, forces viewer mode, and clears operator, worker, and OpenAI credentials from the child process. Viewer mode rejects all mutations, operator pages, operator APIs, and the other role's viewer. Its server-side role token can read only that role's backend projection. Only the required authenticated page, read endpoint, and static assets are allowed. Browser code never receives a bearer token. Keep the browser view on its owner's laptop; use a separate browser profile when testing both roles on one computer because HTTP Basic credentials may be cached by origin.
+
 ## Explicit fixture demo
 
 For isolated UI exploration only, set `NEXT_PUBLIC_MESHMIND_MODE=demo` **before building or starting development**. This is a public build-time switch, not a secret. Rebuild when switching modes. In demo mode only, the scenario picker, seeded examples, browser-local history, simulated timelines, and fixture HTML downloads are enabled. No backend request is made by the mock provider.

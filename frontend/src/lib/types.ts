@@ -103,3 +103,10 @@ export interface ControlConfig {
   canStart: boolean;
   notice: string;
 }
+
+export interface WorkerViewerSnapshot {
+  session: null | { id: string; title: string; createdAt: string; executionNotice: string; status: AnalysisStatus };
+  worker: WorkerStatus | null;
+  observedAt: string | null;
+  events: { id: string; observedAt: string; label: string }[];
+}

@@ -2,6 +2,8 @@
 
 from contextlib import asynccontextmanager
 from copy import deepcopy
+import hmac
+import re
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
@@ -216,6 +218,75 @@ def public_state(service, session):
     }
 
 
+def worker_view(service, role):
+    """A read-only, role-specific display of Control-observed execution.
+
+The latest executed-mode request is selected even during interpretation. A
+viewer never falls back to a retained-evidence review or invents a heartbeat.
+"""
+    candidates = [item for item in service.sessions.values() if item["mode"] == "execute"]
+    if not candidates:
+        return {"session": None, "worker": None, "observedAt": None, "events": []}
+    session = max(candidates, key=lambda item: (item["created_at"], item["id"]))
+    view = public_state(service, session)
+    worker = view["workers"][role]
+    if session["state"] not in {"queued", "running"} and worker["status"] == "active":
+        worker["status"] = "unknown"
+        worker["summary"] = "Control is no longer observing this task; the last observed events are retained below."
+        for step in worker["steps"]:
+            if step["state"] == "active":
+                step["state"] = "pending"
+    events = []
+    for event in session.get("observed_events", {}).get(role, []):
+        if event["stage"] == "finished":
+            label = _OUTCOMES[event["outcome"]]
+        elif event["stage"] == "preflight":
+            label = "Control began checking worker availability."
+        elif event["stage"] == "submission":
+            label = "Control began submitting the configured task."
+        elif event["stage"] == "result":
+            label = "Control began retrieving the worker result."
+        else:
+            label = {
+                "task_received": "Control observed that the worker accepted the task.",
+                "dataset_located": "Control observed that input data was located.",
+                "processing": "Control observed the worker processing data.",
+                "preparing_result": "Control observed the worker preparing its result.",
+                "complete": "Control observed a reported completion, before checking the result.",
+                "partial": "Control observed a reported partial result, before checking the evidence.",
+                "failed": "Control observed a reported processing failure.",
+            }.get(event["task_state"], "Control observed the worker task.")
+        events.append({"id": event["id"], "observedAt": event["observed_at"], "label": label})
+    return {
+        "session": {key: view[key] for key in ("id", "title", "createdAt", "executionNotice", "status")},
+        "worker": worker,
+        "observedAt": events[-1]["observedAt"] if events else None,
+        "events": events,
+    }
+
+
+class _ControlAccessGuard:
+    """Viewer credentials grant one GET route; operator behavior is unchanged."""
+
+    def __init__(self, app, *, token, viewer_tokens):
+        self.app = app
+        self.operator = _RequestGuard(app, token=token)
+        self.viewers = {role: value.encode("ascii") for role, value in viewer_tokens.items()}
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = {key.lower(): value for key, value in scope["headers"]}
+            auth = headers.get(b"authorization", b"").split(b" ", 1)
+            if len(auth) == 2 and auth[0].lower() == b"bearer":
+                for role, token in self.viewers.items():
+                    if hmac.compare_digest(auth[1], token):
+                        if scope["method"] == "GET" and scope["path"] == "/viewer/" + role:
+                            return await self.app(scope, receive, send)
+                        response = JSONResponse({"detail": "This viewer cannot access that resource."}, status_code=403)
+                        return await response(scope, receive, send)
+        return await self.operator(scope, receive, send)
+
+
 class SessionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     prompt: str
@@ -246,12 +317,22 @@ class RetryRequest(BaseModel):
         return canonical_id(value)
 
 
-def create_app(*, service: ControlService, token: str):
+def create_app(*, service: ControlService, token: str, viewer_tokens=None):
     validate_token(token)
     if token is None or len(token) < 32:
         raise ValueError("Control requires a private bearer token of at least 32 characters.")
     if not isinstance(service, ControlService):
         raise ValueError("An explicitly configured Control service is required.")
+    if viewer_tokens is None:
+        viewer_tokens = {}
+    if not isinstance(viewer_tokens, dict) or not set(viewer_tokens).issubset(_ROLES):
+        raise ValueError("Viewer tokens require supported worker roles.")
+    seen = {token}
+    for value in viewer_tokens.values():
+        validate_token(value)
+        if value is None or re.fullmatch(r"[A-Za-z0-9_-]{32,256}", value) is None or value in seen:
+            raise ValueError("Viewer tokens must be distinct URL-safe tokens of 32 to 256 characters.")
+        seen.add(value)
 
     @asynccontextmanager
     async def lifespan(app):
@@ -262,7 +343,7 @@ def create_app(*, service: ControlService, token: str):
             await service.close()
 
     app = FastAPI(title="MeshMind Control", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(_RequestGuard, token=token)
+    app.add_middleware(_ControlAccessGuard, token=token, viewer_tokens=dict(viewer_tokens))
     app.state.control_service = service
 
     @app.exception_handler(RequestValidationError)
@@ -288,6 +369,10 @@ def create_app(*, service: ControlService, token: str):
         return {"mode": service.mode, "case": service.case.public_context(),
                 "canStart": not service.busy and len(service.sessions) < service.max_sessions,
                 "notice": _NOTICES[service.mode]}
+
+    @app.get("/viewer/{role}")
+    async def viewer(role: Literal["hydro", "flood"]):
+        return worker_view(service, role)
 
     @app.get("/sessions")
     async def sessions():
